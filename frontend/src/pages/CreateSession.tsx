@@ -4,11 +4,14 @@ import { api, describeError } from '../api/client'
 import { CONSENT_TEXT_VERSION } from '../api/types'
 import { Banner } from '../components/Banner'
 import { HostBar } from '../components/HostBar'
+import { MicPicker } from '../components/MicPicker'
 import { LANGUAGES, MAX_TARGETS, toggleTarget, visibleTargets, withoutSpoken } from '../lib/languages'
 import { canStart, startBlockers, type SessionForm } from '../lib/sessionForm'
+import { useMicPreview } from '../lib/useMicPreview'
 
 export function CreateSessionPage() {
   const navigate = useNavigate()
+  const micTest = useMicPreview()
 
   const [title, setTitle] = useState('')
   const [sourceLang, setSourceLang] = useState('en')
@@ -136,6 +139,8 @@ export function CreateSessionPage() {
                 needed. Audio is passed straight through and never stored.
               </p>
 
+              <MicTest test={micTest} />
+
               <label className="check-card">
                 <input
                   type="checkbox"
@@ -167,5 +172,61 @@ export function CreateSessionPage() {
         </div>
       </form>
     </>
+  )
+}
+
+type MicTestState = ReturnType<typeof useMicPreview>
+
+/** Optional "check your microphone" step. Nothing is requested until the host taps the button. */
+function MicTest({ test }: { test: MicTestState }) {
+  const { state } = test
+  const running = state.status === 'on'
+
+  return (
+    <div className="field" aria-labelledby="mic-test-h">
+      <span id="mic-test-h" className="label">
+        Microphone <small>(optional check)</small>
+      </span>
+
+      {!running && state.status !== 'starting' && (
+        <>
+          <p className="muted small">Pick your input and watch the level before you go live.</p>
+          <div>
+            <button type="button" className="btn btn--outline btn--sm" onClick={() => void test.start()}>
+              Test microphone
+            </button>
+          </div>
+        </>
+      )}
+      {state.status === 'starting' && (
+        <p className="muted small" role="status">
+          Waiting for microphone access…
+        </p>
+      )}
+      {state.error && <Banner tone="error">{state.error}</Banner>}
+
+      {running && (
+        <>
+          <MicPicker
+            id="mic-test-select"
+            mic={state}
+            level={test.level}
+            onSelect={test.select}
+            hint={
+              state.silent
+                ? 'We can’t hear anything. Check the input above, or the microphone’s mute switch.'
+                : state.heard
+                  ? 'We can hear you ✓'
+                  : 'Say something to test.'
+            }
+          />
+          <div>
+            <button type="button" className="linklike" onClick={test.stop}>
+              Stop test
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   )
 }

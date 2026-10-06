@@ -1,11 +1,12 @@
 // Development-only harness (see App.tsx). Renders the presentational views with the wireframes'
 // sample data so the screens that depend on the backend can be inspected in every state.
 // It is not a demo mode and is not part of production builds.
-import { useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { SessionStats } from '../api/types'
 import { AppBar } from '../components/AppBar'
-import type { ListenerLiveState, LiveStatus } from '../live'
+import { createStore, type ListenerLiveState, type LiveStatus } from '../live'
+import { idleMicState, type MicState } from '../live/mic'
 import { ListenLiveView } from './ListenLiveView'
 import { SetupForm } from './ListenSetup'
 import { StudioView } from './StudioView'
@@ -44,17 +45,46 @@ const info = {
   languages: ['sk', 'de', 'es', 'fr'],
 }
 
+const micOn: MicState = {
+  ...idleMicState,
+  status: 'on',
+  activeLabel: 'Built-in Microphone',
+  devices: [
+    { id: 'a', label: 'Built-in Microphone' },
+    { id: 'b', label: 'USB Headset' },
+    { id: 'c', label: 'Bluetooth Earbuds' },
+  ],
+  heard: true,
+}
+
+/** A level that moves like speech, so the meter can be judged by eye. `base` of 0 holds it at silence. */
+function useFakeLevel(base: number) {
+  const store = useMemo(() => createStore({ level: 0 }), [])
+  useEffect(() => {
+    if (base === 0) return
+    const t = setInterval(() => store.setState({ level: Math.min(1, Math.max(0.05, base + (Math.random() - 0.5) * 0.5)) }), 100)
+    return () => clearInterval(t)
+  }, [base, store])
+  return store
+}
+
 function StudioScenario({
   stats: s,
   liveStatus = 'live',
   micError = null,
   needsTap = false,
+  mic = micOn,
+  levelBase = 0.6,
 }: {
   stats: SessionStats | null
   liveStatus?: LiveStatus
   micError?: string | null
   needsTap?: boolean
+  mic?: MicState
+  levelBase?: number
 }) {
+  const micLevel = useFakeLevel(levelBase)
+  const [choice, setChoice] = useState(mic.choice)
   return (
     <StudioView
       title="Ethics 101, Lecture 4"
@@ -69,6 +99,9 @@ function StudioScenario({
       micError={micError}
       needsTap={needsTap}
       onResumeMic={() => {}}
+      mic={{ ...mic, choice }}
+      micLevel={micLevel}
+      onSelectMic={setChoice}
       onRetry={() => {}}
       onEnd={() => new Promise((r) => setTimeout(r, 800))}
     />
@@ -102,6 +135,22 @@ const SCENARIOS: Record<string, () => ReactNode> = {
       stats={stats}
       liveStatus="unavailable"
       micError="Microphone access was blocked. Allow it in your browser, then try again."
+    />
+  ),
+  'studio-mic-switching': () => <StudioScenario stats={stats} mic={{ ...micOn, switching: true }} />,
+  'studio-mic-notice': () => (
+    <StudioScenario
+      stats={stats}
+      mic={{ ...micOn, notice: 'Microphone disconnected, switched to the system default.' }}
+    />
+  ),
+  'studio-mic-silent': () => <StudioScenario stats={stats} mic={{ ...micOn, heard: false, silent: true }} levelBase={0} />,
+  'studio-mic-lost': () => (
+    <StudioScenario
+      stats={stats}
+      micError="The microphone was disconnected and no other input is available. Plug one in and try again."
+      mic={{ ...micOn, status: 'lost', activeLabel: null }}
+      levelBase={0}
     />
   ),
   'studio-needs-tap': () => <StudioScenario stats={stats} liveStatus="connecting" needsTap />,

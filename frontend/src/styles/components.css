@@ -502,6 +502,51 @@
   gap: 16px;
 }
 
+/* ---------- microphone picker ---------- */
+
+.mic-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meter {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: #dbe5e5;
+}
+
+.meter__fill {
+  height: 100%;
+  border-radius: 5px;
+  background: #8fb9b5;
+  transition: width 80ms linear;
+}
+
+.meter__fill--hot {
+  background: var(--teal);
+}
+
+/* where audio starts to count as speech */
+.meter__mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--ink);
+  opacity: 0.45;
+}
+
+.mic-notes p + p {
+  margin-top: 4px;
+}
+
+.mic-notice {
+  color: var(--amber-ink);
+  font-weight: 600;
+}
+
 /* ---------- studio ---------- */
 
 .studio {
@@ -830,6 +875,25 @@
 
   .studio > .latency-card {
     grid-column: span 5;
+  }
+
+  .studio > .mic-card {
+    grid-column: 1 / -1;
+  }
+
+  .studio > .mic-card .mic-picker {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 20px;
+  }
+
+  .studio > .mic-card .mic-picker .field {
+    flex: 0 0 22rem;
+  }
+
+  .studio > .mic-card .meter {
+    flex: 1;
+    margin-bottom: 18px;
   }
 
   .studio > .tracks-card,

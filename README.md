@@ -72,6 +72,15 @@ Checked against the [Live Translate guide](https://ai.google.dev/gemini-api/docs
 - `/ws/listen/:code?lang=sk` (public): server → client **binary** PCM16 LE mono 24 kHz, plus JSON `{type:'caption', original, translated}`, `{type:'speaker', speaking}`, `{type:'status', trackDown}`, `{type:'ended'}`. Client → server `{type:'lang', lang}` switches language with no new engine work.
 - Close codes: `4401` not signed in · `4404` session not live · `4400` unknown language · `4429` rate limited · `1000` ended.
 
+## Choosing the microphone
+
+- **Before going live**: on *Create session*, tap **Test microphone**. Nothing is requested until you tap, so there is no surprise permission prompt. Pick the input, watch the level meter and speak: it says "We can hear you ✓", or warns if nothing speech-like is heard. The test is optional and never blocks **Start session**; the device is released when you leave the screen, and your choice is remembered (`ads.mic` in the browser).
+- **While live**: the studio has a **Microphone** card with the same picker and meter. Switching is make-before-break: the new input is opened and connected *before* the old one is released, on the same audio graph and WebSocket, so the stream has no gap and the backend (and Gemini) never notice.
+- **If the microphone disappears** (unplugged, Bluetooth drops), capture continues on the system default and the card says so. If no input is left, the studio shows an error with **Try again**.
+- The meter's tick is where audio starts to count as speech. It matches the backend's `LOUD_RMS` (`backend/src/session/session.ts`), so a quiet meter here is the same condition the backend warns about ("host audio is arriving but it is silent"). Keep the two constants (`SPEECH_RMS` in `frontend/src/live/mic.ts`) in sync.
+
+Limits: device names appear only after permission is granted (before that they read "Microphone 1…"). Firefox may ask permission again for each device; Chrome and Safari remember it for the site. iOS exposes few inputs, and a Bluetooth headset can change the phone's audio route. Not built: choosing the listener's *output* device, and a mic mute toggle.
+
 ## Debugging "it connects but Gemini doesn't respond"
 
 ```bash

@@ -4,8 +4,11 @@ import type { SessionStats } from '../api/types'
 import { describeError } from '../api/client'
 import { Banner } from '../components/Banner'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { MicPicker } from '../components/MicPicker'
 import { TrackStateChip } from '../components/TrackState'
 import type { LiveStatus } from '../live'
+import type { MicState } from '../live/mic'
+import type { Store } from '../live/types'
 import { copyText } from '../lib/clipboard'
 import { languageName } from '../lib/languages'
 import { formatElapsed, formatLatency, latencyFill, latencyLevel } from '../lib/time'
@@ -26,6 +29,10 @@ export interface StudioViewProps {
   /** The browser needs a tap before it will start the mic. */
   needsTap: boolean
   onResumeMic: () => void
+  /** Which input is capturing, the available inputs and any notice. */
+  mic: MicState
+  micLevel: Store<{ level: number }>
+  onSelectMic: (choice: string) => void
   onRetry: (lang: string) => void
   onEnd: () => Promise<void>
 }
@@ -147,6 +154,20 @@ export function StudioView(p: StudioViewProps) {
                 <div className="latency__label">{{ good: 'Good', fair: 'Fair', slow: 'Slow' }[level]}</div>
               </>
             )}
+          </section>
+
+          <section className="card mic-card span-2" aria-labelledby="mic-h">
+            <h2 id="mic-h">Microphone</h2>
+            <MicPicker
+              mic={p.mic}
+              level={p.micLevel}
+              onSelect={p.onSelectMic}
+              hint={
+                p.mic.silent
+                  ? 'We can’t hear anything on this microphone. Check the input above, or the microphone’s mute switch.'
+                  : undefined
+              }
+            />
           </section>
 
           <section className="card tracks-card span-2" aria-labelledby="tracks-h">

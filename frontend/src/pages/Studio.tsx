@@ -67,6 +67,9 @@ function LiveStudio({ session }: { session: StartedSession }) {
       micError={live.error}
       needsTap={live.needsTap}
       onResumeMic={() => host.resume()}
+      mic={live.mic}
+      micLevel={host.micLevel}
+      onSelectMic={(choice) => host.selectMic(choice)}
       onRetry={(lang) => void api.retryTrack(session.id, lang).catch(() => {})}
       onEnd={async () => {
         await api.endSession(session.id)

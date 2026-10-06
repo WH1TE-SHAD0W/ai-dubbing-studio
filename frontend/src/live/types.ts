@@ -4,6 +4,8 @@
 // The UI knows nothing about the transport: swap the implementations in ./index.ts for LiveKit or
 // anything else and the screens don't change.
 
+import type { MicState } from './mic'
+
 export type LiveStatus =
   | 'unavailable' // the browser can't do it (no mic access, no WebSocket); see `error` where present
   | 'connecting'
@@ -26,6 +28,8 @@ export interface HostLiveState {
   error: string | null
   /** The browser won't start audio capture until the host taps (for example after a page refresh). */
   needsTap: boolean
+  /** Which input is capturing, the available inputs, and notices about switching. */
+  mic: MicState
 }
 
 export interface HostLive extends Store<HostLiveState> {
@@ -33,6 +37,10 @@ export interface HostLive extends Store<HostLiveState> {
   connect(sessionId: string): void
   /** Called from a user tap when needsTap is true. */
   resume(): void
+  /** Switch input while live ('' = system default). The stream and connection carry on without a gap. */
+  selectMic(choice: string): void
+  /** Input loudness for the level meter (~10 Hz). Separate from the state so only the meter re-renders. */
+  readonly micLevel: Store<{ level: number }>
   disconnect(): void
 }
 
