@@ -1,0 +1,32 @@
+:root {
+  /* Teal is a touch darker than the wireframe so white text on it passes WCAG AA (4.5:1). */
+  --teal: #0b7a74;
+  --teal-dark: #08615c;
+  --teal-tint: #d9eeeb;
+  --teal-line: #8fcac4;
+
+  --bg: #eef2f2;
+  --surface: #ffffff;
+  --ink: #14262a;
+  --muted: #4d6266;
+  --line: #c3d0d1;
+
+  --amber-bg: #fdf3d3;
+  --amber-line: #e3c25e;
+  --amber-ink: #65480a;
+
+  --red: #b42318;
+  --red-dark: #8f1b12;
+  --red-tint: #fde7e4;
+
+  --radius: 14px;
+  --radius-sm: 10px;
+  --tap: 48px;
+  --gutter: 16px;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
