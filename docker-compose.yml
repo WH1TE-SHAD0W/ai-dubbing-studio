@@ -1,0 +1,36 @@
+services:
+  # Holds the Gemini connection: host audio in, translated audio and captions out.
+  # Not published: the browser reaches it only through the frontend's nginx at /api.
+  # In-memory state, so run exactly one replica.
+  backend:
+    build: ./backend
+    expose:
+      - "8000"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?set GEMINI_API_KEY in .env}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-live-translate-preview}
+      # Hardcoded host account (no database). Avoid leading/trailing spaces.
+      HOST_EMAIL: ${HOST_EMAIL:?set HOST_EMAIL in .env}
+      HOST_PASSWORD: ${HOST_PASSWORD:?set HOST_PASSWORD in .env}
+      HOST_NAME: ${HOST_NAME:-Host}
+      # Signs the login cookie. Leave empty to generate one at boot (a restart then signs everyone out).
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      # Spend guards: every target language is a separate paid Gemini stream.
+      MAX_SESSION_MINUTES: ${MAX_SESSION_MINUTES:-240}
+      HOST_GRACE_SECONDS: ${HOST_GRACE_SECONDS:-60}
+      MAX_TARGET_LANGUAGES: ${MAX_TARGET_LANGUAGES:-5}
+      # info (default) or debug: per-message Gemini traces and a session report every 5 s.
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${PORT:-8080}:80"
+    environment:
+      # Where nginx forwards /api (HTTP, SSE and WebSocket).
+      API_UPSTREAM: ${API_UPSTREAM:-http://backend:8000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
