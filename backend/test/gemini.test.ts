@@ -285,4 +285,14 @@ describe('GeminiStream diagnostics', () => {
     expect(line.o.message).toMatch(/1011: internal error/)
     expect(line.o).toMatchObject({ sentChunks: 1, receivedAudioChunks: 0 })
   })
+
+  it('does not warn when the connection closed because we closed it', async () => {
+    const logged = captureLog()
+    const { f, stream } = await openStream({}, logged.log)
+    f.message({ setupComplete: {} })
+    stream.close()
+    f.close(1000, '')
+    expect(logged.calls.filter((c) => c.level === 'warn')).toEqual([])
+    expect(logged.find('gemini stream closed (by us)')).toHaveLength(1)
+  })
 })

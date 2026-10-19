@@ -4,7 +4,7 @@ import { api, describeError } from '../api/client'
 import { CONSENT_TEXT_VERSION } from '../api/types'
 import { Banner } from '../components/Banner'
 import { HostBar } from '../components/HostBar'
-import { MicPicker } from '../components/MicPicker'
+import { MicPicker, silentHint } from '../components/MicPicker'
 import { LANGUAGES, MAX_TARGETS, toggleTarget, visibleTargets, withoutSpoken } from '../lib/languages'
 import { canStart, startBlockers, type SessionForm } from '../lib/sessionForm'
 import { useMicPreview } from '../lib/useMicPreview'
@@ -212,9 +212,10 @@ function MicTest({ test }: { test: MicTestState }) {
             mic={state}
             level={test.level}
             onSelect={test.select}
+            onProcessing={test.setProcessing}
             hint={
               state.silent
-                ? 'We can’t hear anything. Check the input above, or the microphone’s mute switch.'
+                ? silentHint(state)
                 : state.heard
                   ? 'We can hear you ✓'
                   : 'Say something to test.'

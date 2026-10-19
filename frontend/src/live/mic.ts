@@ -16,7 +16,7 @@ export const SPEECH_RMS = 0.012
 const MIN_DB = -60
 const MAX_DB = -10
 const STORAGE_KEY = 'ads.mic'
-const BASE_AUDIO = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
+const PROCESSING_KEY = 'ads.mic.processing'
 
 export interface MicDevice {
   id: string
@@ -47,6 +47,11 @@ export interface MicState {
   heard: boolean
   /** The mic is on but nothing speech-like has been heard for a while. */
   silent: boolean
+  /**
+   * The browser's voice cleanup (echo cancellation, noise suppression, auto gain) is on. Right for a
+   * microphone; wrong for a mixer, virtual cable or video audio, which it can reduce to near silence.
+   */
+  processing: boolean
 }
 
 export const idleMicState: MicState = {
@@ -59,6 +64,7 @@ export const idleMicState: MicState = {
   error: null,
   heard: false,
   silent: false,
+  processing: true,
 }
 
 export type MicMediaDevices = Pick<MediaDevices, 'getUserMedia' | 'enumerateDevices' | 'addEventListener' | 'removeEventListener'>
@@ -72,6 +78,8 @@ export interface MicDeps {
   mediaDevices?: MicMediaDevices
   /** The remembered choice. Defaults to localStorage. */
   saved?: { get(): string; set(deviceId: string): void }
+  /** Whether voice cleanup is on. Defaults to localStorage; on unless the host turned it off. */
+  savedProcessing?: { get(): boolean; set(on: boolean): void }
   now?: () => number
   levelIntervalMs?: number
   noSoundAfterMs?: number
@@ -80,6 +88,11 @@ export interface MicDeps {
 const defaultSaved = {
   get: () => load<{ deviceId: string }>(STORAGE_KEY)?.deviceId ?? '',
   set: (deviceId: string) => save(STORAGE_KEY, { deviceId }),
+}
+
+const defaultSavedProcessing = {
+  get: () => load<{ on: boolean }>(PROCESSING_KEY)?.on !== false,
+  set: (on: boolean) => save(PROCESSING_KEY, { on }),
 }
 
 /** RMS (0..1) to a 0..1 meter position: -60 dBFS is empty, -10 dBFS is full. */
@@ -103,8 +116,9 @@ export function cleanLabel(label: string): string {
   return label.replace(/^default\s*-\s*/i, '')
 }
 
-export function audioConstraints(deviceId: string): MediaStreamConstraints {
-  return { audio: deviceId ? { ...BASE_AUDIO, deviceId: { exact: deviceId } } : { ...BASE_AUDIO } }
+export function audioConstraints(deviceId: string, processing = true): MediaStreamConstraints {
+  const audio = { echoCancellation: processing, noiseSuppression: processing, autoGainControl: processing, channelCount: 1 }
+  return { audio: deviceId ? { ...audio, deviceId: { exact: deviceId } } : audio }
 }
 
 const errName = (e: unknown): string => (e as { name?: string } | null)?.name ?? ''
@@ -134,6 +148,8 @@ export interface MicInput {
   start(): Promise<void>
   /** Choose a device ('' = system default). Remembered for next time. */
   select(choice: string): Promise<void>
+  /** Turn the browser's voice cleanup on or off, reopening the current input without a gap. Remembered. */
+  setProcessing(on: boolean): Promise<void>
   refreshDevices(): Promise<void>
   /** Release the microphone. Never closes the audio context it was given. */
   stop(): void
@@ -145,13 +161,15 @@ export function createMicInput(deps: MicDeps): MicInput {
     deps.mediaDevices ?? (typeof navigator !== 'undefined' ? navigator.mediaDevices : undefined)
   let listeningOn: MicMediaDevices | undefined
   const saved = deps.saved ?? defaultSaved
+  const savedProcessing = deps.savedProcessing ?? defaultSavedProcessing
   const now = deps.now ?? Date.now
   const levelEvery = deps.levelIntervalMs ?? 100
   const noSoundAfter = deps.noSoundAfterMs ?? 5000
   let ctx: AudioContext | null = deps.ctx ?? null
   const audioCtx = (): AudioContext => (ctx ??= deps.ctxFactory!())
 
-  const state = createStore<MicState>({ ...idleMicState })
+  let processing = savedProcessing.get()
+  const state = createStore<MicState>({ ...idleMicState, processing })
   const level = createStore({ level: 0 })
 
   let stream: MediaStream | null = null
@@ -165,10 +183,10 @@ export function createMicInput(deps: MicDeps): MicInput {
 
   const onDeviceChange = () => void refreshDevices()
 
-  const open = (deviceId: string): Promise<MediaStream> => {
+  const open = (deviceId: string, withProcessing = processing): Promise<MediaStream> => {
     const md = mediaDevices()
     if (!md) return Promise.reject(Object.assign(new Error('no mediaDevices'), { name: 'NotSupportedError' }))
-    return md.getUserMedia(audioConstraints(deviceId))
+    return md.getUserMedia(audioConstraints(deviceId, withProcessing))
   }
 
   const labelOf = (s: MediaStream): string => cleanLabel(s.getAudioTracks()[0]?.label ?? '')
@@ -296,7 +314,7 @@ export function createMicInput(deps: MicDeps): MicInput {
 
   async function switchTo(
     choice: string,
-    opts: { persist: boolean; notice?: string; recovering?: boolean },
+    opts: { persist: boolean; notice?: string; recovering?: boolean; processing?: boolean; failNotice?: string },
   ): Promise<void> {
     if (!stream && !opts.recovering) {
       // Not running yet: remember the choice and start with it.
@@ -308,10 +326,12 @@ export function createMicInput(deps: MicDeps): MicInput {
 
     let next: MediaStream
     try {
-      next = await open(choice)
+      next = await open(choice, opts.processing ?? processing)
     } catch (e) {
       if (mine !== seq) return
-      if (opts.recovering) {
+      if (opts.failNotice) {
+        state.setState({ switching: false, notice: opts.failNotice })
+      } else if (opts.recovering) {
         // The old device is gone and so is the fallback: nothing is capturing any more.
         state.setState({
           switching: false,
@@ -329,9 +349,14 @@ export function createMicInput(deps: MicDeps): MicInput {
 
     attach(next)
     if (opts.persist) saved.set(choice)
+    if (opts.processing !== undefined && opts.processing !== processing) {
+      processing = opts.processing
+      savedProcessing.set(processing)
+    }
     state.setState({
       switching: false,
       status: 'on',
+      processing,
       choice,
       activeLabel: labelOf(next) || null,
       notice: opts.notice ?? null,
@@ -340,6 +365,22 @@ export function createMicInput(deps: MicDeps): MicInput {
       silent: false,
     })
     await refreshDevices()
+  }
+
+  async function setProcessing(on: boolean): Promise<void> {
+    if (on === processing) return
+    if (!stream) {
+      // Not capturing yet (or any more): the next start uses it.
+      processing = on
+      savedProcessing.set(on)
+      state.setState({ processing: on })
+      return
+    }
+    return switchTo(state.getState().choice, {
+      persist: false,
+      processing: on,
+      failNotice: `Couldn’t turn voice cleanup ${on ? 'on' : 'off'}. Still using the current setting.`,
+    })
   }
 
   function stop(): void {
@@ -379,6 +420,7 @@ export function createMicInput(deps: MicDeps): MicInput {
     level,
     start,
     select: (choice) => switchTo(choice, { persist: true }),
+    setProcessing,
     refreshDevices,
     stop,
   }

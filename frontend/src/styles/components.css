@@ -538,8 +538,29 @@
   opacity: 0.45;
 }
 
+.mic-processing {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.mic-processing input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  flex: none;
+  accent-color: var(--teal);
+}
+
 .mic-notes p + p {
   margin-top: 4px;
+}
+
+/* the live region stays in the page so announcements work; when empty it shouldn't add a gap */
+.mic-notes:empty {
+  margin-top: -12px;
 }
 
 .mic-notice {
@@ -883,8 +904,9 @@
 
   .studio > .mic-card .mic-picker {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: flex-end;
-    gap: 20px;
+    gap: 12px 20px;
   }
 
   .studio > .mic-card .mic-picker .field {
@@ -892,8 +914,14 @@
   }
 
   .studio > .mic-card .meter {
-    flex: 1;
+    flex: 1 1 12rem;
     margin-bottom: 18px;
+  }
+
+  /* the switch and the hint get a full-width row, so a long hint can't squeeze the meter away */
+  .studio > .mic-card .mic-processing,
+  .studio > .mic-card .mic-notes {
+    flex: 1 0 100%;
   }
 
   .studio > .tracks-card,

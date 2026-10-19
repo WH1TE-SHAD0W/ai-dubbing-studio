@@ -21,17 +21,25 @@ export function MicMeter({ level }: { level: Store<{ level: number }> }) {
   )
 }
 
+/** What to tell the host when nothing speech-like has been heard. */
+export function silentHint(mic: MicState): string {
+  const base = 'We can’t hear anything on this microphone. Check the input above, or the microphone’s mute switch.'
+  return mic.processing ? `${base} Playing sound from a mixer, virtual cable or video? Turn voice cleanup off.` : base
+}
+
 interface Props {
   mic: MicState
   level: Store<{ level: number }>
   onSelect: (choice: string) => void
+  /** Turn the browser's voice cleanup on or off. Omit to hide the switch. */
+  onProcessing?: (on: boolean) => void
   /** Context-specific guidance under the meter (a silence warning in the studio, "say something" in the test). */
   hint?: ReactNode
   id?: string
 }
 
 /** Input picker plus level meter. Presentational: every state can be rendered from props. */
-export function MicPicker({ mic, level, onSelect, hint, id = 'mic-select' }: Props) {
+export function MicPicker({ mic, level, onSelect, onProcessing, hint, id = 'mic-select' }: Props) {
   const known = mic.devices.some((d) => d.id === mic.choice)
   return (
     <div className="mic-picker">
@@ -57,6 +65,20 @@ export function MicPicker({ mic, level, onSelect, hint, id = 'mic-select' }: Pro
       </div>
 
       <MicMeter level={level} />
+
+      {onProcessing && (
+        <label className="mic-processing">
+          <input
+            type="checkbox"
+            checked={mic.processing}
+            disabled={mic.switching || mic.status !== 'on'}
+            onChange={(e) => onProcessing(e.target.checked)}
+          />
+          <span>
+            Voice cleanup <small className="muted">(echo cancellation, noise suppression, auto volume)</small>
+          </span>
+        </label>
+      )}
 
       <div aria-live="polite" className="mic-notes">
         {mic.switching && <p className="muted small">Switching…</p>}

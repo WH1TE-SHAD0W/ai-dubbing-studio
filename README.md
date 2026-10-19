@@ -77,6 +77,7 @@ Checked against the [Live Translate guide](https://ai.google.dev/gemini-api/docs
 - **Before going live**: on *Create session*, tap **Test microphone**. Nothing is requested until you tap, so there is no surprise permission prompt. Pick the input, watch the level meter and speak: it says "We can hear you ✓", or warns if nothing speech-like is heard. The test is optional and never blocks **Start session**; the device is released when you leave the screen, and your choice is remembered (`ads.mic` in the browser).
 - **While live**: the studio has a **Microphone** card with the same picker and meter. Switching is make-before-break: the new input is opened and connected *before* the old one is released, on the same audio graph and WebSocket, so the stream has no gap and the backend (and Gemini) never notice.
 - **If the microphone disappears** (unplugged, Bluetooth drops), capture continues on the system default and the card says so. If no input is left, the studio shows an error with **Try again**.
+- **Voice cleanup** (checkbox under the picker, on by default): the browser's echo cancellation, noise suppression and auto gain. Right for a headset or laptop mic. **Turn it off for a mixer, virtual cable (Voicemeeter, VB-Cable) or video audio**: the echo canceller treats everything the browser itself plays as an echo to remove, and the noise suppressor treats non-speech as noise, so such a source can be cut to near silence. Changing it reopens the same input without a gap, and it is remembered (`ads.mic.processing`).
 - The meter's tick is where audio starts to count as speech. It matches the backend's `LOUD_RMS` (`backend/src/session/session.ts`), so a quiet meter here is the same condition the backend warns about ("host audio is arriving but it is silent"). Keep the two constants (`SPEECH_RMS` in `frontend/src/live/mic.ts`) in sync.
 
 Limits: device names appear only after permission is granted (before that they read "Microphone 1…"). Firefox may ask permission again for each device; Chrome and Safari remember it for the site. iOS exposes few inputs, and a Bluetooth headset can change the phone's audio route. Not built: choosing the listener's *output* device, and a mic mute toggle.
@@ -96,11 +97,13 @@ Every line carries the `session` id. Logs hold counts, timings and message *shap
 | `gemini: first audio chunk sent` | Host audio is flowing to that language's Gemini session. |
 | `gemini: first translated audio received` / `first transcript received` | Gemini answered. Time since the first send is in `afterFirstSendMs`. |
 | **WARN** `host is connected but no audio frames are arriving` | The mic isn't capturing (blocked, or the browser wants a tap to start audio). |
-| **WARN** `host audio is arriving but it is silent` | Wrong input device, muted, or very quiet (`maxRms` vs `speechThreshold`). |
+| **WARN** `host audio is arriving but it is silent` | Wrong input device, muted, very quiet (`maxRms` vs `speechThreshold`), **or the browser's voice cleanup is suppressing a non-voice source** such as a mixer, virtual cable or video audio: turn **Voice cleanup** off in the studio's Microphone card. |
 | **WARN** `gemini is not responding to speech` | 8 s of speech sent and no translated audio back. `likelyCause` says whether Gemini sent *nothing* (model/key/language problem) or replied *without audio* (see `messageKinds` for what it sent instead). |
 | `gemini stream closed` / `engine failure` | The reason Gemini gave (code + text), with how much was sent and received. |
 | `track state changed` | `starting` → `live` → `degraded` / `error`, with the retry count. |
 | `session ended` | Final counters for the whole session, as a post-mortem. |
+
+**Reading the `session ended` line.** `chunksSentToGemini` large but `loudChunksSent` near 0, with `audibleAudioChunks: 0` and `transcriptFragmentsFromGemini: 0`, means Gemini was healthy and was simply given silence: it streams (silent) audio continuously even when there is nothing to translate, so "audio is coming back" does not mean speech was heard. Look at the host's `maxRms`/`loudChunks` first.
 
 For a live session you can ask the backend directly (host cookie required):
 

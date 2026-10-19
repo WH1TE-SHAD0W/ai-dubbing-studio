@@ -17,18 +17,28 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function setup(savedId = '') {
+function setup(savedId = '', savedCleanup = true) {
   const md = new FakeMediaDevices()
   const ctx = new FakeAudioContext()
   let saved = savedId
+  let cleanup = savedCleanup
   const mic = createMicInput({
     ctx: ctx.asCtx(),
     output: ctx.output as unknown as AudioNode,
     mediaDevices: md.asDeps(),
     saved: { get: () => saved, set: (id) => (saved = id) },
+    savedProcessing: { get: () => cleanup, set: (on) => (cleanup = on) },
   })
-  return { md, ctx, mic, savedId: () => saved, state: () => mic.state.getState() }
+  return { md, ctx, mic, savedId: () => saved, savedCleanup: () => cleanup, state: () => mic.state.getState() }
 }
+
+const asked = (c: { audio: MediaTrackConstraints }) => ({
+  echoCancellation: c.audio.echoCancellation,
+  noiseSuppression: c.audio.noiseSuppression,
+  autoGainControl: c.audio.autoGainControl,
+})
+const ALL_ON = { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+const ALL_OFF = { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
 
 describe('helpers', () => {
   it('maps loudness to a meter position on a dB scale', () => {
@@ -63,6 +73,11 @@ describe('helpers', () => {
     const chosen = audioConstraints('mic-b').audio as MediaTrackConstraints
     expect(chosen.deviceId).toEqual({ exact: 'mic-b' })
     for (const c of [def, chosen]) expect(c).toMatchObject({ echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 })
+  })
+
+  it('can ask for the raw signal, for mixers and virtual cables', () => {
+    const raw = audioConstraints('mic-b', false).audio as MediaTrackConstraints
+    expect(raw).toMatchObject({ ...ALL_OFF, channelCount: 1, deviceId: { exact: 'mic-b' } })
   })
 })
 
@@ -267,6 +282,87 @@ describe('losing the microphone', () => {
     md.dispatchEvent(new Event('devicechange'))
     await vi.advanceTimersByTimeAsync(0)
     expect(state().devices.map((d) => d.label)).toEqual(['Built-in Mic', 'USB Headset', 'Bluetooth Mic'])
+  })
+})
+
+describe('voice cleanup (echo cancellation, noise suppression, auto gain)', () => {
+  it('is on by default', async () => {
+    const { mic, md, state } = setup()
+    await mic.start()
+    expect(asked(md.calls[0]!)).toEqual(ALL_ON)
+    expect(state().processing).toBe(true)
+  })
+
+  it('opens the microphone raw when the host turned it off earlier', async () => {
+    const { mic, md, state } = setup('', false)
+    expect(state().processing).toBe(false)
+    await mic.start()
+    expect(asked(md.calls[0]!)).toEqual(ALL_OFF)
+  })
+
+  it('reopens the same input without a gap when toggled while live, and remembers it', async () => {
+    const { mic, md, ctx, state, savedCleanup } = setup('mic-b')
+    await mic.start()
+    ctx.log.length = 0
+    const first = md.streams[0]!
+
+    await mic.setProcessing(false)
+
+    expect(md.calls).toHaveLength(2)
+    expect(md.calls[1]).toMatchObject({ deviceId: 'mic-b' }) // same device, new constraints
+    expect(asked(md.calls[1]!)).toEqual(ALL_OFF)
+    // make-before-break, like switching device
+    expect(ctx.log.indexOf('connect source(USB Headset) -> worklet')).toBeLessThan(ctx.log.indexOf('disconnect source(USB Headset)'))
+    expect(first.track.stopped).toBe(true)
+    expect(md.liveStreams()).toHaveLength(1)
+    expect(state()).toMatchObject({ processing: false, choice: 'mic-b', status: 'on', switching: false, notice: null })
+    expect(savedCleanup()).toBe(false)
+
+    await mic.setProcessing(true)
+    expect(asked(md.calls[2]!)).toEqual(ALL_ON)
+    expect(savedCleanup()).toBe(true)
+  })
+
+  it('keeps the old stream and the old setting when the reopen fails, and says so', async () => {
+    const { mic, md, state, savedCleanup } = setup('mic-b')
+    await mic.start()
+    md.failures.set('mic-b', 'NotReadableError')
+
+    await mic.setProcessing(false)
+
+    expect(md.streams[0]!.track.stopped).toBe(false)
+    expect(state()).toMatchObject({ processing: true, status: 'on', switching: false })
+    expect(state().notice).toMatch(/couldn’t turn voice cleanup off/i)
+    expect(savedCleanup()).toBe(true)
+  })
+
+  it('does nothing when the setting is unchanged', async () => {
+    const { mic, md } = setup()
+    await mic.start()
+    await mic.setProcessing(true)
+    expect(md.calls).toHaveLength(1)
+  })
+
+  it('is only remembered when the microphone is not running; the next start uses it', async () => {
+    const { mic, md, state, savedCleanup } = setup()
+    await mic.setProcessing(false)
+    expect(md.calls).toHaveLength(0)
+    expect(state().processing).toBe(false)
+    expect(savedCleanup()).toBe(false)
+    await mic.start()
+    expect(asked(md.calls[0]!)).toEqual(ALL_OFF)
+  })
+
+  it('applies to a switch of device and to the fallback after an unplug', async () => {
+    const { mic, md, state } = setup('', false)
+    await mic.start()
+    await mic.select('mic-b')
+    expect(asked(md.calls[1]!)).toEqual(ALL_OFF)
+
+    md.streams[1]!.track.unplug()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(state().choice).toBe('')
+    expect(asked(md.calls[2]!)).toEqual(ALL_OFF)
   })
 })
 

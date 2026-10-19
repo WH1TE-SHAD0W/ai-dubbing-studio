@@ -358,6 +358,8 @@ export class GeminiStream implements EngineStream {
 
   closedByServer(code?: number, reason?: string): void {
     const text = this.clean(`closed by server (code ${code ?? '?'}${reason ? `: ${reason}` : ''})`)
+    // We closed it ourselves (session over, stream replaced): the socket's close event is just the echo of that.
+    if (this.done) return this.log.debug({ lang: this.lang, code, ...this.summary() }, 'gemini stream closed (by us)')
     this.log.warn({ lang: this.lang, message: text, ...this.summary() }, 'gemini stream closed')
     if (this.rejectOpen) return this.rejectOpen(new Error(text))
     this.end('closed')

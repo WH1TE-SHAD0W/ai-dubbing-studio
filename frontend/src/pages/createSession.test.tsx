@@ -66,6 +66,22 @@ describe('Create session: microphone check', () => {
     expect(md.liveStreams()[0]!.track.deviceId).toBe('mic-b')
   })
 
+  it('lets the host turn voice cleanup off for a mixer or virtual cable, and remembers it', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: 'Test microphone' }))
+    const box = await screen.findByRole('checkbox', { name: /voice cleanup/i })
+    expect(box).toBeChecked()
+
+    await user.click(box)
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /voice cleanup/i })).not.toBeChecked())
+    expect(md.calls).toHaveLength(2)
+    expect(md.calls[1]!.audio).toMatchObject({ echoCancellation: false, noiseSuppression: false, autoGainControl: false })
+    expect(md.liveStreams()).toHaveLength(1)
+    expect(load<{ on: boolean }>('ads.mic.processing')).toEqual({ on: false })
+  })
+
   it('releases the microphone when the host stops the test or leaves the screen', async () => {
     const user = userEvent.setup()
     const { unmount } = renderPage()

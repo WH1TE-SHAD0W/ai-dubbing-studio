@@ -21,6 +21,7 @@ export function useMicPreview() {
       return mic.start()
     },
     select: (choice: string) => void mic.select(choice),
+    setProcessing: (on: boolean) => void mic.setProcessing(on),
     stop: () => mic.stop(),
   }
 }

@@ -85,6 +85,7 @@ function StudioScenario({
 }) {
   const micLevel = useFakeLevel(levelBase)
   const [choice, setChoice] = useState(mic.choice)
+  const [processing, setProcessing] = useState(mic.processing)
   return (
     <StudioView
       title="Ethics 101, Lecture 4"
@@ -99,9 +100,10 @@ function StudioScenario({
       micError={micError}
       needsTap={needsTap}
       onResumeMic={() => {}}
-      mic={{ ...mic, choice }}
+      mic={{ ...mic, choice, processing }}
       micLevel={micLevel}
       onSelectMic={setChoice}
+      onMicProcessing={setProcessing}
       onRetry={() => {}}
       onEnd={() => new Promise((r) => setTimeout(r, 800))}
     />

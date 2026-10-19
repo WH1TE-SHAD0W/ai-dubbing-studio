@@ -18,7 +18,7 @@ interface Run {
 }
 
 /**
- * Host side: captures the chosen microphone (echo cancellation and noise suppression on), converts
+ * Host side: captures the chosen microphone (voice cleanup on unless the host turned it off), converts
  * it to PCM16 mono 16 kHz in 100 ms frames, and sends it over a WebSocket. Captions come back as JSON.
  *
  * The capture graph (AudioContext -> worklet -> framing -> socket) stays put; MicInput swaps only
@@ -154,6 +154,9 @@ export function createHostLive(): HostLive {
     },
     selectMic(choice) {
       void run?.mic?.select(choice)
+    },
+    setMicProcessing(on) {
+      void run?.mic?.setProcessing(on)
     },
     disconnect() {
       if (run) teardown(run)

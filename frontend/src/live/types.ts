@@ -39,6 +39,8 @@ export interface HostLive extends Store<HostLiveState> {
   resume(): void
   /** Switch input while live ('' = system default). The stream and connection carry on without a gap. */
   selectMic(choice: string): void
+  /** Voice cleanup (echo cancellation, noise suppression, auto gain) on or off. */
+  setMicProcessing(on: boolean): void
   /** Input loudness for the level meter (~10 Hz). Separate from the state so only the meter re-renders. */
   readonly micLevel: Store<{ level: number }>
   disconnect(): void

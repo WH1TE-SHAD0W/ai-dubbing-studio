@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { createStore } from '../live'
 import { SPEECH_LEVEL, idleMicState, type MicState } from '../live/mic'
-import { MicMeter, MicPicker } from './MicPicker'
+import { MicMeter, MicPicker, silentHint } from './MicPicker'
 
 const on: MicState = {
   ...idleMicState,
@@ -50,6 +50,32 @@ describe('MicPicker', () => {
     expect(screen.getByText('Switching…')).toBeInTheDocument()
     rerender(<MicPicker mic={{ ...on, status: 'lost' }} level={createStore({ level: 0 })} onSelect={() => {}} />)
     expect(screen.getByLabelText('Microphone input')).toBeDisabled()
+  })
+
+  it('offers voice cleanup only when asked to, and reports the host’s choice', async () => {
+    renderPicker()
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+
+    const onProcessing = vi.fn()
+    render(<MicPicker mic={{ ...on, processing: true }} level={createStore({ level: 0 })} onSelect={() => {}} onProcessing={onProcessing} />)
+    const box = screen.getByRole('checkbox', { name: /voice cleanup/i })
+    expect(box).toBeChecked()
+    await userEvent.click(box)
+    expect(onProcessing).toHaveBeenCalledWith(false)
+  })
+
+  it('shows voice cleanup as off, and locks it while switching', () => {
+    const level = createStore({ level: 0 })
+    const { rerender } = render(<MicPicker mic={{ ...on, processing: false }} level={level} onSelect={() => {}} onProcessing={() => {}} />)
+    expect(screen.getByRole('checkbox', { name: /voice cleanup/i })).not.toBeChecked()
+    rerender(<MicPicker mic={{ ...on, processing: false, switching: true }} level={level} onSelect={() => {}} onProcessing={() => {}} />)
+    expect(screen.getByRole('checkbox', { name: /voice cleanup/i })).toBeDisabled()
+  })
+
+  it('suggests turning voice cleanup off for a silent input, but only while it is on', () => {
+    expect(silentHint({ ...on, processing: true })).toMatch(/mixer, virtual cable or video.*turn voice cleanup off/i)
+    expect(silentHint({ ...on, processing: false })).not.toMatch(/voice cleanup/i)
+    expect(silentHint({ ...on, processing: false })).toMatch(/mute switch/i)
   })
 
   it('announces notices and hints in a polite live region', () => {

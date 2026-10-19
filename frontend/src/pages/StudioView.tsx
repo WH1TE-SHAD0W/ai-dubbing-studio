@@ -4,7 +4,7 @@ import type { SessionStats } from '../api/types'
 import { describeError } from '../api/client'
 import { Banner } from '../components/Banner'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { MicPicker } from '../components/MicPicker'
+import { MicPicker, silentHint } from '../components/MicPicker'
 import { TrackStateChip } from '../components/TrackState'
 import type { LiveStatus } from '../live'
 import type { MicState } from '../live/mic'
@@ -33,6 +33,7 @@ export interface StudioViewProps {
   mic: MicState
   micLevel: Store<{ level: number }>
   onSelectMic: (choice: string) => void
+  onMicProcessing: (on: boolean) => void
   onRetry: (lang: string) => void
   onEnd: () => Promise<void>
 }
@@ -162,11 +163,8 @@ export function StudioView(p: StudioViewProps) {
               mic={p.mic}
               level={p.micLevel}
               onSelect={p.onSelectMic}
-              hint={
-                p.mic.silent
-                  ? 'We can’t hear anything on this microphone. Check the input above, or the microphone’s mute switch.'
-                  : undefined
-              }
+              onProcessing={p.onMicProcessing}
+              hint={p.mic.silent ? silentHint(p.mic) : undefined}
             />
           </section>
 
