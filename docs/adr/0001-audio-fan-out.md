@@ -146,8 +146,62 @@ With 50 listeners the LiveKit container used **3.8% CPU and 129 MiB of memory** 
 
 ## Decision
 
-*To be written once options 1 and 3 have been measured.*
+We will use a **self-hosted LiveKit SFU** to deliver translated audio to listeners.
+The backend publishes **one audio track per target language** to LiveKit, and LiveKit forwards
+each listener the track for the language they chose, over WebRTC. The host's microphone audio
+still reaches the backend over a WebSocket, as it does today.
+
+How the options scored against the criteria:
+
+| # | Criterion | Winner | Reason |
+|---|---|---|---|
+| 1 | Latency | LiveKit | On weak mobile networks WebRTC skips lost packets and keeps delay steady; TCP stalls and the delay builds up. |
+| 2 | Effort | WebSocket | Already built. LiveKit's effort is acceptable: the bridge showed publishing takes about 50 lines. |
+| 3 | Bandwidth | LiveKit | About 44 kbit/s per listener versus 384 kbit/s (measured), roughly 8.7× less. |
+| 4 | Listeners per server | LiveKit | Less bandwidth per listener; backend load grows with languages, not listeners; LiveKit can run on several servers. Both handled 50 listeners; neither limit was found. |
+| 5 | Packet loss | LiveKit | WebRTC and Opus are built to recover from or hide lost packets; TCP waits for every one. |
+| 6 | Mobile support | WebSocket | Works on any network with no extra setup. WebRTC over UDP is blocked on some networks and then needs a TURN server. |
+
+LiveKit wins four of six criteria, including the most important one (latency). WebSocket's two
+wins can be reduced: the effort is acceptable, and the mobile risk is handled with TURN.
+
+Why not the other options:
+
+- **WebSocket + Opus (2):** fixes bandwidth, but it is still TCP, so it loses on latency and packet loss.
+- **mediasoup (4):** the same WebRTC benefits, but the team would build signalling, rooms and
+  reconnection itself: much more effort for no gain over LiveKit.
+- **Hosted SFU (6):** the same performance with less to run, but it costs money as usage grows and
+  listener audio leaves our platform, against the self-hosting and privacy constraints. It stays
+  open for later, as it uses the same LiveKit SDK.
+
+The open questions noted for options 2 and 6 (Opus decoding on iOS Safari, hosted pricing) were
+not checked further, because those options are ruled out for other reasons.
 
 ## Consequences
 
-*To be written with the decision.*
+**Good:**
+
+- About 8.7× less bandwidth per listener, which matters for server cost and for listeners on mobile data.
+- Delay stays steady on lossy mobile networks.
+- The backend's load grows with the number of languages, not listeners; LiveKit does the copying.
+- LiveKit's browser SDK handles playback and the jitter buffer, so some custom listener code can be removed.
+
+**Bad / trade-offs:**
+
+- One more service to run (the LiveKit container), with extra ports: TCP 7881 and UDP 7882.
+- Strict networks need a TURN server, which needs a domain name and a TLS certificate.
+- LiveKit's Node package has no Alpine (musl) build, so the backend image must move from
+  `node:22-alpine` to a glibc image such as `node:22-slim`.
+- Opus encoding moves into the backend; its CPU cost was not measured.
+- The team has a new SDK to learn, and LiveKit used more memory than the backend at 50 listeners
+  (129 MiB versus 33 MiB).
+
+**Follow-up work:**
+
+- Add LiveKit to `docker-compose.yml`, never with the `--dev` keys outside local development.
+- Backend: publish one track per language, and add an endpoint that issues listener tokens.
+- Listener app: switch playback to LiveKit's browser SDK; decide whether captions use LiveKit's
+  data channel or stay on the WebSocket.
+- Test on real phones (iOS Safari, Android Chrome), including a weak network.
+- Measure the backend's CPU with Opus encoding.
+- Set up TURN before running on a public server.
