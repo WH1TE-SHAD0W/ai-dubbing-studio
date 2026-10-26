@@ -73,6 +73,37 @@ Options 1 and 3 are **measured**; options 2, 4 and 6 are assessed **on paper**
     - Cons: costs money as usage grows (to check: pricing), and listener audio leaves our
       own platform, which has privacy implications.
 
+## Measurements
+
+### Option 1: WebSocket fan-out (2026-10-26)
+
+**Setup:** one laptop (Intel i7-1355U, 14 GB RAM), the app running in Docker Compose,
+one live session translating English to Slovak. The host is Chrome with a fake microphone
+that loops a speech WAV. Fake listeners are opened by
+[`backend/scripts/bench-fanout-ws.ts`](https://github.com/WH1TE-SHAD0W/ai-dubbing-studio/blob/main/backend/scripts/bench-fanout-ws.ts)
+(one per second, measured for 30 s once all have joined), all on the same session.
+
+| Listeners | Bandwidth per listener (kbit/s) | Gap between chunks, median / p99 / max (ms) | Closed |
+|---|---|---|---|
+| 1 | 387 | 249 / 348 / 405 | 0 |
+| 10 | 384 | 250 / 352 / 365 | 0 |
+| 50 | 384 | 250 / 357 / 379 | 0 |
+
+With 50 listeners the backend container used **2.1% CPU and 33 MiB of memory**
+(`docker stats`), while sending about **19 Mbit/s** (50 × 384 kbit/s) for one language.
+
+**What this shows:**
+
+- Bandwidth is the raw PCM figure of **384 kbit/s per listener**, as expected.
+- Going from 1 to 50 listeners **did not change** the gaps between chunks. The ~250 ms
+  rhythm and the ~350 ms worst case come from how Gemini sends audio, not from the fan-out.
+- CPU and memory are not the limit at this scale. **Bandwidth is:** it grows by 384 kbit/s
+  for every listener of every language.
+
+**Limitations:** everything ran on `localhost`, so there was no real network, no packet loss
+and almost no delivery delay. These results cannot show how TCP behaves on a weak mobile
+connection; that is assessed from documentation instead.
+
 ## Decision
 
 *To be written once options 1 and 3 have been measured.*
