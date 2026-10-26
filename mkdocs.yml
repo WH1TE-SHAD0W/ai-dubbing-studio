@@ -1,0 +1,23 @@
+site_name: AI Dubbing Studio
+repo_url: https://github.com/WH1TE-SHAD0W/ai-dubbing-studio
+
+theme:
+  name: material
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - API: api.md
+  - Setup Guide: setup-guide.md
+  - Deployment: deployment.md
+  - Testing: testing.md
+  - User Guide: user-guide.md
+  - Decisions (ADRs): adr/index.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
