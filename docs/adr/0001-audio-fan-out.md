@@ -104,6 +104,46 @@ With 50 listeners the backend container used **2.1% CPU and 33 MiB of memory**
 and almost no delivery delay. These results cannot show how TCP behaves on a weak mobile
 connection; that is assessed from documentation instead.
 
+### Option 3: LiveKit (2026-10-26)
+
+**Setup:** same laptop and same live Slovak session. LiveKit server v1.13.10 ran in its own
+Docker container in dev mode. A bridge,
+[`benchmarks/fanout-livekit/bridge.ts`](https://github.com/WH1TE-SHAD0W/ai-dubbing-studio/blob/main/benchmarks/fanout-livekit/bridge.ts),
+joined the session as an ordinary listener and published the translated audio into a LiveKit
+room as one track, so LiveKit received exactly the same audio as option 1. The listeners were
+LiveKit's own load tester (`lk load-test` from `livekit-cli` v2.19.0), joining one per second
+and measuring for 30 s.
+
+| Listeners | Bitrate per listener (kbit/s) | Packet loss | Errors |
+|---|---|---|---|
+| 1 | 44.6 | 0% | 0 |
+| 10 | 43.7 – 44.3 | 0% | 0 |
+| 50 | 42.6 – 44.8 | 0% | 0 |
+
+With 50 listeners the LiveKit container used **3.8% CPU and 129 MiB of memory** (`docker stats`).
+
+**What this shows:**
+
+- Each listener needs about **44 kbit/s**, compared with 384 kbit/s for option 1:
+  roughly **8.7× less bandwidth**. For 50 listeners of one language that is about
+  **2.2 Mbit/s instead of 19 Mbit/s**.
+- Adding listeners did not change the bitrate per listener or cause packet loss.
+- LiveKit uses a little more CPU and about 4× more memory than the backend did for option 1,
+  but both are small at this scale.
+
+**Notes on comparing the two:**
+
+- The tools count bytes slightly differently: our script counted only audio bytes, while
+  LiveKit's figure may include packet headers. If so, LiveKit's real saving is slightly larger.
+- The "gap between chunks" from option 1 can't be compared: LiveKit re-paces audio into
+  even 20 ms packets (about 48 per second were received), so packet loss is reported instead.
+- The load tester's "Total" average is lower than the per-listener rows, most likely because
+  it averages over the time when later listeners were still joining. The per-listener rows
+  are used here.
+- The bridge did the Opus encoding, and its CPU was not measured. In the target architecture
+  that work moves to the backend.
+- The same `localhost` limitation applies: no real network and no packet loss.
+
 ## Decision
 
 *To be written once options 1 and 3 have been measured.*
