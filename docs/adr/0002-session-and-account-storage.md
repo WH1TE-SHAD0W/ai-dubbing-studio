@@ -16,8 +16,8 @@ The app now needs:
 - **Sessions:** id, join code, title, spoken language, host, status, and the
   created / started / ended times with the reason it ended.
 - **Target languages:** one or more per session.
-- **Usage summary:** duration and peak listeners per language, to see where the
-  Gemini cost goes.
+- **Usage summary:** peak listeners per language, to see where the Gemini cost
+  goes (duration comes from the session's start and end times).
 
 What is deliberately **not** stored:
 
@@ -86,7 +86,7 @@ Constraints:
 
 ## Decision
 
-We will store host accounts, sessions, target languages and usage summaries in
+We will store host accounts, sessions and target languages (with their usage) in
 **PostgreSQL** (option A3), accessed with **plain SQL through the `pg` library**
 (option B1), with target languages in a **separate `session_languages` table**
 (option C1).
@@ -123,11 +123,11 @@ Follow-up work:
 
 - Add a `postgres` service and volume to `docker-compose.yml`, and a
   `DATABASE_URL` setting to the backend.
-- Write the first migration: `hosts`, `sessions`, `session_languages` and the usage
-  summary, with the partial unique index on `join_code`.
+- Write the first migration: `hosts`, `sessions` and `session_languages` (with
+  `peak_listeners`), with the partial unique index on `join_code`.
 - Hash passwords with a slow password hash (e.g. scrypt, built into Node).
 - Keep ended sessions for 30 days (to be reviewed), deleted by a daily cleanup job.
-  Deleting a session also deletes its languages and usage rows.
+  Deleting a session also deletes its languages.
 - Trial Kysely (option B2) in the prototype, if time allows. Kysely runs on top of
   `pg` and uses the same tables, so trying it doesn't change the schema. If it works
   well, a new ADR records the switch.
