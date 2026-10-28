@@ -32,3 +32,11 @@ jobs:
       - run: pip install -r requirements-docs.txt
       # --strict turns warnings (e.g. a link to a missing page) into a failure.
       - run: mkdocs build --strict
+
+  lint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Rules and files to check are in .markdownlint-cli2.yaml.
+      - run: npx --yes markdownlint-cli2@0.18.1
