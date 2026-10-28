@@ -52,3 +52,14 @@ jobs:
       # codespell only flags known misspellings, so technical terms don't need a word list.
       - run: pip install codespell==2.4.1
       - run: codespell docs README.md mkdocs.yml
+
+  links:
+    name: Link check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Checks links to other websites (mkdocs --strict already checks links between pages).
+      # localhost links point at a developer's own machine, so they are skipped.
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --exclude-loopback "docs/**/*.md" README.md
