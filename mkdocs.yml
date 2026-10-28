@@ -13,6 +13,7 @@ nav:
   - Testing: testing.md
   - User Guide: user-guide.md
   - Decisions (ADRs): adr/index.md
+  - Writing the Docs: writing-docs.md
   - Changelog: changelog.md
 
 markdown_extensions:
