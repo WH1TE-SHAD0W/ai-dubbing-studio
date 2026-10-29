@@ -1,6 +1,6 @@
 # 0001. How translated audio reaches listeners (fan-out)
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-26
 - **Deciders:** Jamie
 - **Ticket:** YGP-6
