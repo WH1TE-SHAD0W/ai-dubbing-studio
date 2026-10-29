@@ -21,9 +21,16 @@ language's listeners, so cost grows with languages, not listeners.
 ## Where the project is
 
 The app works today with sessions kept in memory, one host account set in `.env`
-and audio sent to listeners over WebSockets. The decision records plan the next
-steps: LiveKit for listener audio, PostgreSQL for storage, and host accounts with
-proper logins.
+and audio sent to listeners over WebSockets.
+
+The [decision records](adr/index.md) plan the MVP:
+
+- **Backend:** Hono, split into an API container and a separate dubbing
+  container that talks to Gemini.
+- **Listener audio:** LiveKit, with one audio track per language.
+- **App:** one React PWA for hosts and listeners, served by the API container.
+- **Storage and logins:** PostgreSQL, with host accounts and logins through
+  Better Auth.
 
 These docs live in the project's repository and are reviewed in pull requests like
 the code.
