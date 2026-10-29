@@ -1,0 +1,20 @@
+{
+  "name": "bench-fanout-livekit",
+  "private": true,
+  "type": "module",
+  "description": "ADR-0001 option 3: measure LiveKit fan-out. Kept apart from backend/ so its packages don't touch the app.",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@livekit/rtc-node": "^1.2.1",
+    "livekit-server-sdk": "^2.19.2",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

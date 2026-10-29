@@ -4,7 +4,7 @@ A host speaks once; every listener hears them live in their own language, in the
 
 Two containers, self-hosted with Docker Compose:
 
-```
+```text
 host browser ──WS: mic, PCM16 16 kHz──► backend ──► Gemini Live Translate session [sk]
                                           │   ──►  Gemini Live Translate session [de]
 listener browsers ◄─WS: PCM16 24 kHz + captions── fan-out by language ◄─┘
@@ -66,7 +66,7 @@ Checked against the [Live Translate guide](https://ai.google.dev/gemini-api/docs
 | `GET /join/:code` | public. `{title, speakerName, sourceLang, languages[]}`; 404 if not live; 30/min/IP |
 | `GET /healthz` | |
 
-**WebSockets**
+### WebSockets
 
 - `/ws/host/:id` (host cookie): client → server **binary** PCM16 LE mono 16 kHz. Server → client JSON `{type:'caption', original, translated:{lang:text}}`. A second host window replaces the first (close code 4000).
 - `/ws/listen/:code?lang=sk` (public): server → client **binary** PCM16 LE mono 24 kHz, plus JSON `{type:'caption', original, translated}`, `{type:'speaker', speaking}`, `{type:'status', trackDown}`, `{type:'ended'}`. Client → server `{type:'lang', lang}` switches language with no new engine work.
