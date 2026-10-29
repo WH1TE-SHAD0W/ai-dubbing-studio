@@ -119,8 +119,9 @@ Why:
 
 ### Logins
 
-- Better Auth's `session` table holds each login; the cookie holds its token
-  (`HttpOnly`, `SameSite=Lax`, `Secure` in production).
+- Better Auth's session table holds each login, renamed to `logins`
+  (`session.modelName`) so "session" keeps meaning a live event. The cookie
+  holds its token (`HttpOnly`, `SameSite=Lax`, `Secure` in production).
 - A login lasts **12 hours, fixed** (`session.expiresIn`, with
   `disableSessionRefresh` so activity doesn't extend it). This outlasts the
   longest live session (4 hours).
@@ -163,12 +164,12 @@ sequenceDiagram
   H->>B: log in (email, password)
   B->>D: find user and account by email
   B->>B: argon2id the typed password and compare
-  B->>D: insert session (token, user_id, expires_at)
+  B->>D: insert login (token, user_id, expires_at)
   B-->>H: cookie with token
   H->>B: later request + cookie
-  B->>D: find session by token, not expired
+  B->>D: find login by token, not expired
   H->>B: log out
-  B->>D: delete session
+  B->>D: delete login
 ```
 
 ## Consequences
@@ -185,7 +186,7 @@ Good:
 Bad / trade-offs:
 
 - **Login tokens are stored unhashed.** Better Auth saves and looks up the session
-  token as it is, so someone with a copy of the `session` table could use its
+  token as it is, so someone with a copy of the `logins` table could use its
   tokens to log in. The 12-hour limit caps how long a stolen token works, and
   anyone with a copy of the database already has more serious access. Accepted
   for the prototype.
