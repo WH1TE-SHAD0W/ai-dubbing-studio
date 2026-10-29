@@ -123,9 +123,11 @@ Follow-up work:
 
 - Add a `postgres` service and volume to `docker-compose.yml`, and a
   `DATABASE_URL` setting to the backend.
-- Write the first migration: `hosts`, `sessions` and `session_languages` (with
-  `peak_listeners`), with the partial unique index on `join_code`.
-- Hash passwords with a slow password hash (e.g. scrypt, built into Node).
+- Write the first migration: `sessions` and `session_languages` (with
+  `peak_listeners`), with the partial unique index on `join_code`. Host accounts
+  and logins use Better Auth's own tables, created by its command-line tool
+  (ADR-0003).
+- Hash passwords with Argon2id (ADR-0003).
 - Keep ended sessions for 30 days (to be reviewed), deleted by a daily cleanup job.
   Deleting a session also deletes its languages.
 - Trial Kysely (option B2) in the prototype, if time allows. Kysely runs on top of

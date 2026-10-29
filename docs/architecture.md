@@ -59,24 +59,37 @@ connect to it over **WebRTC**, which is built for real-time media.
 
 PostgreSQL stores host accounts, logins, sessions and their target languages. The
 reasons are in [ADR-0002](adr/0002-session-and-account-storage.md) (storage) and
-ADR-0003 (host logins).
+ADR-0003 (host logins). Host accounts and logins use the tables Better Auth
+creates (`user`, `account`, `session`); only their main fields are shown.
 
 ```mermaid
 erDiagram
-  hosts ||--o{ sessions : runs
-  hosts ||--o{ logins : "is logged in by"
+  user ||--|| account : "signs in with"
+  user ||--o{ session : "is logged in by"
+  user ||--o{ sessions : runs
   sessions ||--|{ session_languages : "is translated into"
 
-  hosts {
-    uuid id PK
+  user {
+    text id PK
     text email UK
-    text display_name
-    text password_hash "scrypt$N$r$p$salt$hash"
-    timestamptz created_at
+    text name "display name"
+    timestamptz createdAt
+  }
+  account {
+    text id PK
+    text userId FK
+    text providerId "credential"
+    text password "argon2id$m$t$p$salt$hash"
+  }
+  session {
+    text id PK
+    text token UK "sent in the cookie"
+    text userId FK
+    timestamptz expiresAt
   }
   sessions {
     text id PK "random, used in URLs"
-    uuid host_id FK
+    text host_id FK
     text join_code "unique while not ended"
     text title
     text source_lang
@@ -91,22 +104,18 @@ erDiagram
     text lang PK
     int peak_listeners
   }
-  logins {
-    text token_hash PK "SHA-256 of the cookie token"
-    uuid host_id FK
-    timestamptz created_at
-    timestamptz expires_at
-  }
 ```
 
-- **hosts:** one row per account. Passwords are stored only as scrypt hashes.
+- **user:** one row per host account.
+- **account:** how a host signs in. For email and password, it holds the
+  password, stored only as an Argon2id hash.
+- **session:** one row per logged-in browser (Better Auth's name for a login, not
+  a live event). Rows expire after 12 hours.
 - **sessions:** one row per live event, owned by a host. `join_code` only has to
   be unique among sessions that haven't ended, so short codes can be reused.
 - **session_languages:** each target language of a session, listed once, with its
   peak listener count to show where the Gemini cost goes.
-- **logins:** one row per logged-in browser, holding only a hash of the cookie
-  token. Rows expire after 12 hours.
-- Deleting a session deletes its languages; deleting a host deletes their logins.
-  Ended sessions are deleted after 30 days, and expired logins daily.
+- Deleting a live event deletes its languages; deleting a host deletes their
+  logins. Ended events are deleted after 30 days, and expired logins daily.
 - **Not stored:** audio, captions or transcripts, listener identities, and live
   state such as connections.
