@@ -60,12 +60,13 @@ connect to it over **WebRTC**, which is built for real-time media.
 PostgreSQL stores host accounts, logins, sessions and their target languages. The
 reasons are in [ADR-0002](adr/0002-session-and-account-storage.md) (storage) and
 ADR-0003 (host logins). Host accounts and logins use the tables Better Auth
-creates (`user`, `account`, `session`); only their main fields are shown.
+creates (`user`, `account`, and its `session` table, renamed to `logins`); only
+their main fields are shown.
 
 ```mermaid
 erDiagram
   user ||--|| account : "signs in with"
-  user ||--o{ session : "is logged in by"
+  user ||--o{ logins : "is logged in by"
   user ||--o{ sessions : runs
   sessions ||--|{ session_languages : "is translated into"
 
@@ -81,7 +82,7 @@ erDiagram
     text providerId "credential"
     text password "argon2id$m$t$p$salt$hash"
   }
-  session {
+  logins {
     text id PK
     text token UK "sent in the cookie"
     text userId FK
@@ -109,8 +110,9 @@ erDiagram
 - **user:** one row per host account.
 - **account:** how a host signs in. For email and password, it holds the
   password, stored only as an Argon2id hash.
-- **session:** one row per logged-in browser (Better Auth's name for a login, not
-  a live event). Rows expire after 12 hours.
+- **logins:** one row per logged-in browser. Better Auth calls this table
+  `session`; it is renamed so "session" always means a live event. Rows expire
+  after 12 hours.
 - **sessions:** one row per live event, owned by a host. `join_code` only has to
   be unique among sessions that haven't ended, so short codes can be reused.
 - **session_languages:** each target language of a session, listed once, with its
