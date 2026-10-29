@@ -32,6 +32,13 @@ Every pull request that changes the docs runs these checks
 
 GitGuardian also scans every pull request for leaked secrets such as API keys.
 
+## Publishing
+
+When a pull request that changes the docs is merged into `main`, the
+`Deploy docs` workflow (`.github/workflows/deploy-docs.yml`) builds the site
+and publishes it to <https://wh1te-shad0w.github.io/ai-dubbing-studio/>.
+It can also be run by hand from the Actions tab.
+
 ## Run the checks locally
 
 From the repository root:
