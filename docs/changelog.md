@@ -9,3 +9,5 @@
 - Decision records for the MVP stack (ADR-0007 to ADR-0012, ADR-0014), listed in
   the ADR index.
 - `.editorconfig`, so every editor ends files the same way.
+- "Changing a decision" in Writing the Docs: accepted ADRs are superseded, not
+  rewritten.
