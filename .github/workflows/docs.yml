@@ -1,0 +1,65 @@
+# Checks the documentation on every pull request that changes it.
+name: Docs
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "README.md"
+      - "requirements-docs.txt"
+      - ".github/workflows/docs.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "README.md"
+      - "requirements-docs.txt"
+      - ".github/workflows/docs.yml"
+
+jobs:
+  build:
+    name: Build site (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+      - run: pip install -r requirements-docs.txt
+      # --strict turns warnings (e.g. a link to a missing page) into a failure.
+      - run: mkdocs build --strict
+
+  lint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Rules and files to check are in .markdownlint-cli2.yaml.
+      - run: npx --yes markdownlint-cli2@0.18.1
+
+  spelling:
+    name: Spell check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # codespell only flags known misspellings, so technical terms don't need a word list.
+      - run: pip install codespell==2.4.1
+      - run: codespell docs README.md mkdocs.yml
+
+  links:
+    name: Link check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Checks links to other websites (mkdocs --strict already checks links between pages).
+      # localhost links point at a developer's own machine, so they are skipped.
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --exclude-loopback "docs/**/*.md" README.md

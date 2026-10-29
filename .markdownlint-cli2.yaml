@@ -1,0 +1,11 @@
+# Markdown lint settings (https://github.com/DavidAnson/markdownlint)
+config:
+  # Tables, links and long sentences go past 80 characters; don't force wrapping.
+  MD013: false
+  # MkDocs (Python-Markdown) needs nested lists indented by 4 spaces.
+  MD007:
+    indent: 4
+
+globs:
+  - "docs/**/*.md"
+  - "README.md"
