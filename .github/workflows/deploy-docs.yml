@@ -7,6 +7,7 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - "requirements-docs.txt"
       - ".github/workflows/deploy-docs.yml"
   # Lets you run it by hand from the Actions tab.
   workflow_dispatch:
@@ -32,7 +33,7 @@ jobs:
         with:
           python-version: "3.12"
       # Same versions as local builds.
-      - run: pip install mkdocs==1.6.1 mkdocs-material==9.8.0
+      - run: pip install -r requirements-docs.txt
       - run: mkdocs build --strict
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
