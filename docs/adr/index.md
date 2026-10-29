@@ -6,4 +6,5 @@ Accepted ADRs are not edited; a new ADR supersedes an old one.
 | ADR | Title | Status |
 |---|---|---|
 | [0000](0000-template.md) | Template | n/a |
+| [0001](0001-audio-fan-out.md) | How translated audio reaches listeners (fan-out) | Accepted |
 | [0003](0003-host-authentication.md) | How hosts sign up, log in and stay logged in | Proposed |
