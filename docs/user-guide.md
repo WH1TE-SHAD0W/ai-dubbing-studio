@@ -7,6 +7,9 @@ AI Dubbing Studio has two kinds of user:
 
 Listeners don't need an account. The host signs in.
 
+This describes the app as it works today. The MVP's pages are planned in the
+[decision records](adr/index.md) (ADR-0014).
+
 ## Host
 
 ### 1. Sign in

@@ -64,5 +64,7 @@ Public.
 | `4404` | Session not live |
 | `4429` | Rate limited |
 
-> **Planned changes:** listener audio is planned to move to LiveKit, and logins to
-> host accounts. See the [decision records](adr/index.md) (ADR-0001 and ADR-0003).
+> **Planned changes:** listener audio is planned to move to LiveKit (ADR-0001),
+> logins to host accounts (ADR-0003) and this API to Hono (ADR-0007). A separate
+> dubbing container will talk to Gemini, with its own session contract (ADR-0008
+> and ADR-0009). See the [decision records](adr/index.md).

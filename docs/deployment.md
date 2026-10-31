@@ -43,5 +43,8 @@ docker compose logs -f backend
   limits in `.env` (`MAX_SESSION_MINUTES`, `HOST_GRACE_SECONDS`,
   `MAX_TARGET_LANGUAGES`) set.
 
-> **Planned changes:** a PostgreSQL container for accounts and sessions, and a
-> LiveKit container for listener audio. See the [decision records](adr/index.md).
+> **Planned changes:** a PostgreSQL container for accounts and sessions, a LiveKit
+> container for listener audio, and a separate dubbing container that talks to
+> Gemini (ADR-0008). Hono will serve the app itself, replacing the nginx `frontend`
+> container (ADR-0012), and the backend image will move to Node 24 or later
+> (ADR-0003). See the [decision records](adr/index.md).
