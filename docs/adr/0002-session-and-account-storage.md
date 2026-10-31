@@ -1,6 +1,6 @@
 # 0002. How session and account data is stored
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-27
 - **Deciders:** Jamie
 - **Ticket:** YGP-10
