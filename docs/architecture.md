@@ -1,59 +1,129 @@
 # Architecture
 
-This is the **target architecture for the final prototype**. The choice of LiveKit
-and PostgreSQL is being recorded in the [decision records](adr/index.md).
+This is the **target architecture for the final prototype**. It isn't built yet:
+the [Setup Guide](setup-guide.md) and [API](api.md) describe the app as it works
+today. The reasons for each choice are in the [decision records](adr/index.md).
 
 ## Overview
 
 The host speaks once; every listener hears them in their chosen language.
-The backend holds **one Gemini session per target language** and publishes one
-audio track per language to LiveKit, which forwards each listener only the
-language they picked. Cost grows with the number of languages, not listeners.
+
+- The **Hono API** handles logins and sessions, stores them in PostgreSQL, and
+  serves the app.
+- The **dubbing container** holds **one translation stream per target language**,
+  using Gemini, and publishes one audio track per language to LiveKit.
+- **LiveKit** forwards each listener only the language they picked.
+
+Cost grows with the number of languages, not listeners.
+
+**Still to be decided:** how the host's mic reaches the dubbing container, how
+captions reach listeners, whether LiveKit rooms are per session or per language,
+whether the prototype runs on Docker Compose or Kubernetes, and how the dubbing
+container verifies the host.
 
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 90, "rankSpacing": 70}}}%%
 flowchart TB
-  Host["Host app (React)"]
+  Host["Host (PWA)"]
+  Listener["Listeners (PWA)"]
 
-  subgraph Platform["Platform (Docker Compose)"]
-    Backend["Backend (Node / Fastify)<br/>1 Gemini session per language"]
+  subgraph Platform["Our platform"]
+    API["Hono API<br/>logins, sessions, serves the app"]
     DB[("PostgreSQL")]
+    Dubbing["Dubbing container<br/>1 translation stream per language"]
     SFU["LiveKit<br/>SFU: selective forwarding unit"]
   end
 
   Gemini["Gemini Live Translate API"]
-  Listener["Listener apps (React)"]
 
-  Host <-- "1. mic audio / captions back (WebSocket)" --> Backend
-  Backend <-- "2. audio / 3. translation" --> Gemini
-  Backend <-- "session data" --> DB
-  Backend -- "4. 1 audio track per language" --> SFU
-  SFU -- "5. chosen language: audio + captions (WebRTC)" --> Listener
+  Host -- "log in, create session" --> API
+  Listener -- "join, get LiveKit token" --> API
+  API <-- "accounts, sessions" --> DB
+  API -- "start session" --> Dubbing
+  Host -. "1. mic audio (path to be decided)" .-> Dubbing
+  Dubbing <-- "2. audio / 3. translation" --> Gemini
+  Dubbing -- "4. 1 audio track per language" --> SFU
+  SFU -- "5. chosen language (WebRTC)" --> Listener
 ```
 
 ## Step by step
 
 ```mermaid
 sequenceDiagram
-  participant H as Host app
-  participant B as Backend
+  participant H as Host (PWA)
+  participant A as Hono API
   participant D as PostgreSQL
+  participant C as Dubbing container
   participant G as Gemini Live Translate
   participant K as LiveKit (SFU)
-  participant L as Listener apps
-  H->>B: create session
-  B->>D: save session details
-  H->>B: 1. mic audio, 100 ms chunks (WebSocket)
-  B->>G: 2. host audio (1 session per language)
-  G-->>B: 3. translated audio + captions
-  B-->>H: captions (WebSocket)
-  B->>K: 4. publish 1 audio track per language
+  participant L as Listeners (PWA)
+  H->>A: create session
+  A->>D: save session details
+  A->>C: start session (languages, provider)
+  H-->>C: 1. mic audio (path to be decided)
+  C->>G: 2. host audio (1 stream per language)
+  G-->>C: 3. translated audio + captions
+  C->>K: 4. publish 1 audio track per language
   K-->>L: 5. forward the listener's language (WebRTC)
 ```
 
 An **SFU (selective forwarding unit)** receives each audio track once and forwards
 it to every listener who subscribed to it, without decoding or mixing. Listeners
 connect to it over **WebRTC**, which is built for real-time media.
+
+### A listener joins
+
+```mermaid
+sequenceDiagram
+  participant L as Listener (PWA)
+  participant A as Hono API
+  participant D as PostgreSQL
+  participant K as LiveKit (SFU)
+  L->>A: open link or enter join code
+  A->>D: find the live session by join code
+  D-->>A: title and languages
+  A-->>L: session details and languages
+  L->>A: choose language, ask for a LiveKit token
+  A-->>L: LiveKit token
+  L->>K: connect with the token (WebRTC)
+  K-->>L: audio track for the chosen language
+```
+
+Listeners have no account. They only need the join code.
+
+### A host logs in
+
+```mermaid
+sequenceDiagram
+  participant H as Host (PWA)
+  participant A as Hono API (with Better Auth)
+  participant D as PostgreSQL
+  H->>A: log in (email, password)
+  A->>D: find user and account by email
+  A->>A: check the password (Argon2id)
+  A->>D: save the login (expires in 12 hours)
+  A-->>H: cookie with the login token
+  H->>A: later requests, with the cookie
+  A->>D: check the login exists and hasn't expired
+```
+
+The details are in ADR-0003.
+
+## Why it's built this way
+
+| Part | Decision |
+|---|---|
+| LiveKit for listener audio | [ADR-0001](adr/0001-audio-fan-out.md) |
+| PostgreSQL | [ADR-0002](adr/0002-session-and-account-storage.md) |
+| Hono for the API | [ADR-0007](adr/0007-backend-framework.md) |
+| Separate dubbing container | [ADR-0008](adr/0008-separated-container.md) |
+| Starting a session in the dubbing container | [ADR-0009](adr/0009-translation-engine-communication.md) |
+| One React PWA | [ADR-0010](adr/0010-mobile-native.md) |
+| Audio on phones | [ADR-0011](adr/0011-audio-handling.md) |
+| Hono serves the app | [ADR-0012](adr/0012-serving-pwa-bundle.md) |
+| The app's pages | [ADR-0014](adr/0014-pages.md) |
+
+Decisions still in review are listed in the [ADR index](adr/index.md) once they are merged.
 
 ## Data model
 
