@@ -112,7 +112,7 @@ Why:
   requirements below become its configuration.
 - **Login table:** being able to end a login protects paid Gemini usage. The extra
   lookup is negligible because only hosts log in, and the table lives in the
-  PostgreSQL we already run, so more backend instances still work.
+  PostgreSQL we already run, so more API instances still work.
 - **Argon2id:** stronger than scrypt and, at the setting we chose, also faster
   (~368 ms against ~660 ms). It only needs the Node upgrade, which the Hono
   rewrite is a good moment for.
@@ -125,7 +125,8 @@ Why:
 - A login lasts **12 hours, fixed** (`session.expiresIn`, with
   `disableSessionRefresh` so activity doesn't extend it). This outlasts the
   longest live session (4 hours).
-- Logout ends that login. A password change ends all of that host's logins.
+- Logout ends that login. A password change ends the host's other logins
+  (`revokeOtherSessions`, which is off by default) and keeps the current one.
 
 ### Passwords
 
@@ -147,7 +148,7 @@ Why:
 - Sign-up with an existing email says it is already registered. Hiding this needs
   email verification, which is out of scope; the rate limit stops mass checking.
 - Rate limits use Better Auth's `customRules`, stored in the database so they
-  are shared between backend instances:
+  are shared between API instances:
     - login: 5 per minute per IP (as today);
     - sign-up: 10 per hour per IP (allows a small group on one shared network).
 
@@ -156,7 +157,7 @@ Why:
 ```mermaid
 sequenceDiagram
   participant H as Host browser
-  participant B as Backend (Hono + Better Auth)
+  participant B as Hono API (with Better Auth)
   participant D as PostgreSQL
   H->>B: sign up (email, password)
   B->>B: check rules, argon2id(password, new salt)
@@ -164,7 +165,7 @@ sequenceDiagram
   H->>B: log in (email, password)
   B->>D: find user and account by email
   B->>B: argon2id the typed password and compare
-  B->>D: insert login (token, user_id, expires_at)
+  B->>D: insert login (token, userId, expiresAt)
   B-->>H: cookie with token
   H->>B: later request + cookie
   B->>D: find login by token, not expired
@@ -177,10 +178,11 @@ sequenceDiagram
 Good:
 
 - A login can be ended at any time: logout, "log out all devices" and a password
-  change all take effect immediately, which protects paid Gemini usage.
+  change (for the host's other logins) all take effect immediately, which protects
+  paid Gemini usage.
 - A leaked database is slow and memory-hungry to crack for passwords.
 - Much less security code of our own to write and test.
-- Rate limits are shared between backend instances, because they live in the
+- Rate limits are shared between API instances, because they live in the
   database.
 
 Bad / trade-offs:
@@ -199,10 +201,14 @@ Bad / trade-offs:
 
 Follow-up work:
 
-- Move the backend image to Node 24 or later (Marek suggested Node 26) as part of
+- Move the Hono API image to Node 24 or later (Marek suggested Node 26) as part of
   the Hono rewrite.
-- Replace `hosts` and `logins` in the database schema with Better Auth's tables
-  (ADR-0002, YGP-11).
+- Write our own check for the common-password list; Better Auth's password options
+  only set the length.
+- Set the IP header Better Auth reads behind our proxy, as it doesn't trust
+  comma-separated forwarded chains by default, and turn rate limits on wherever we
+  test them, as they default to on only in production.
+- Check that the login failure message can be set to the wording above.
 - Check whether Better Auth deletes expired sessions; if not, add them to the
   daily clean-up job from ADR-0002.
 - Check that a failed login takes the same time whether the email exists or not;
