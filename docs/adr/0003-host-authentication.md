@@ -74,8 +74,8 @@ expensive to crack by guessing.
 2. **Better Auth**: a TypeScript authentication library with email and password
    sign-in, sessions stored in the database, and built-in rate limits.
     - Pros: a Hono integration (ADR-0007); works with PostgreSQL and creates its
-      own tables; password reset is ready for when email sending exists; widely
-      used, so bugs are found and fixed by others.
+      own tables; password reset is ready for when email sending exists; actively
+      maintained, so bugs are found and fixed by others.
     - Cons: one more dependency to keep up to date; its defaults differ from our
       requirements and must be configured; it stores login tokens unhashed (see
       Consequences).
