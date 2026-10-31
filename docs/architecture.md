@@ -61,7 +61,8 @@ PostgreSQL stores host accounts, logins, sessions and their target languages. Th
 reasons are in [ADR-0002](adr/0002-session-and-account-storage.md) (storage) and
 ADR-0003 (host logins). Host accounts and logins use the tables Better Auth
 creates (`user`, `account`, and its `session` table, renamed to `logins`); only
-their main fields are shown.
+their main fields are shown. Better Auth also creates `verification` and, because
+rate limits are kept in the database, `rateLimit`; neither is drawn here.
 
 ```mermaid
 erDiagram

@@ -63,7 +63,8 @@ Constraints:
 ### B. How the backend talks to the database
 
 1. **Plain SQL with the `pg` library**, tables created by `.sql` migration files.
-    - Pros: every query is visible and easy to explain; one small dependency.
+    - Pros: every query we write is visible and easy to explain; one small
+      dependency.
     - Cons: more code written by hand; query results are not type-checked.
 
 2. **Query builder** (e.g. Kysely).
@@ -72,7 +73,7 @@ Constraints:
 
 3. **ORM** (e.g. Prisma).
     - Pros: little SQL to write; migrations included.
-    - Cons: hides what the database actually does; heavy for four tables.
+    - Cons: hides what the database actually does; heavy for two tables of our own.
 
 ### C. Storing a session's target languages
 
@@ -98,10 +99,11 @@ Why:
   platform (rules out A4), and is not tied to one backend container (unlike A2).
   Its **partial unique index** gives exactly the join-code rule we need:
   `UNIQUE (join_code) WHERE status <> 'ended'`.
-- **Plain SQL with `pg`:** there are only four tables and a handful of queries.
-  Writing them by hand keeps every query visible and easy to explain and review,
-  and adds one small dependency instead of a new tool. Tables are created by
-  numbered `.sql` migration files kept in the repository.
+- **Plain SQL with `pg`:** only two tables are ours (`sessions` and
+  `session_languages`), with a handful of queries; Better Auth manages its own
+  tables and queries (ADR-0003). Writing ours by hand keeps them visible and easy
+  to explain and review, and adds one small dependency instead of a new tool. Our
+  tables are created by numbered `.sql` migration files kept in the repository.
 - **Separate languages table:** it is the normalised design, and per-language
   usage (peak listeners for each language) has a natural place to live.
 
@@ -122,7 +124,8 @@ Why:
 Follow-up work:
 
 - Add a `postgres` service and volume to `docker-compose.yml`, and a
-  `DATABASE_URL` setting to the backend.
+  `DATABASE_URL` setting to the Hono API container. The dubbing container has no
+  database access (ADR-0008, ADR-0009).
 - Write the first migration: `sessions` and `session_languages` (with
   `peak_listeners`), with the partial unique index on `join_code`. Host accounts
   and logins use Better Auth's own tables, created by its command-line tool
