@@ -18,6 +18,20 @@ reviewed in a pull request and checked automatically before they are merged.
 Big decisions are recorded as [decision records (ADRs)](adr/index.md), one per
 pull request.
 
+## Changing a decision
+
+ADRs are the history of **why** we chose something; the other pages describe
+**how things are now**. So they change in different ways:
+
+- **Proposed ADR:** rewrite it freely while it is being reviewed.
+- **Accepted ADR:** don't rewrite the decision. Write a new ADR that says
+  "Supersedes ADR-NNNN" and explains in its Context why the old decision no
+  longer fits. In the old ADR, change only the status to
+  "Superseded by ADR-NNNN", with a link, and update its row in the ADR index.
+- **Small fixes** (typos, broken links, formatting) are fine in any ADR.
+- **Other pages** (Architecture, Setup Guide, API and so on) are updated in
+  place, in the same pull request as the change they describe.
+
 ## Automatic checks
 
 Every pull request that changes the docs runs these checks
