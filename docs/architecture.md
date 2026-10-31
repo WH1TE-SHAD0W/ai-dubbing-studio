@@ -59,7 +59,7 @@ connect to it over **WebRTC**, which is built for real-time media.
 
 PostgreSQL stores host accounts, logins, sessions and their target languages. The
 reasons are in [ADR-0002](adr/0002-session-and-account-storage.md) (storage) and
-ADR-0003 (host logins). Host accounts and logins use the tables Better Auth
+[ADR-0003](adr/0003-host-authentication.md) (host logins). Host accounts and logins use the tables Better Auth
 creates (`user`, `account`, and its `session` table, renamed to `logins`); only
 their main fields are shown. Better Auth also creates `verification` and, because
 rate limits are kept in the database, `rateLimit`; neither is drawn here.

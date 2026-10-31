@@ -8,6 +8,7 @@ Accepted ADRs are not edited; a new ADR supersedes an old one.
 | [0000](0000-template.md) | Template | n/a |
 | [0001](0001-audio-fan-out.md) | How translated audio reaches listeners (fan-out) | Accepted |
 | [0002](0002-session-and-account-storage.md) | How session and account data is stored | Accepted |
+| [0003](0003-host-authentication.md) | How hosts sign up, log in and stay logged in | Proposed |
 | [0007](0007-backend-framework.md) | Hono as the API framework | Proposed |
 | [0008](0008-separated-container.md) | Separate the dubbing container from Hono | Proposed |
 | [0009](0009-translation-engine-communication.md) | Session creation contract and provider selection | Proposed |
