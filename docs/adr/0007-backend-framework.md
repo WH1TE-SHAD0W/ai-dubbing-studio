@@ -39,4 +39,3 @@ We will use Hono on the Node.js runtime because it is the leanest option that st
 - Good: small and fast to start; typed client for the PWA; one framework for API and static files.
 - Bad / trade-offs: fewer examples and a smaller community than Express; we learn it as we build.
 - Follow-up work: load-test the join endpoint for the conference-start burst (numbers to be set at a later stage of development).
-
