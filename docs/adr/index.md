@@ -16,3 +16,4 @@ Accepted ADRs are not edited; a new ADR supersedes an old one.
 | [0012](0012-serving-pwa-bundle.md)               | Hono serves the PWA                              | Proposed |
 | [0014](0014-pages.md)                            | PWA pages                                        | Proposed |
 | [0017](0017-translation-plane.md)                | Translation Plane - Container Runtime            | Proposed |
+| [0016](0014-pages.md)                            | Schema Validator                                 | Proposed |
