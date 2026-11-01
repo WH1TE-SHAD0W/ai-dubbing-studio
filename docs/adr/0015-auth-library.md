@@ -7,7 +7,9 @@
 
 ## Context
 
-Only hosts have accounts, with email and password; listeners have none. Hosts are stored in Postgres, which is a dependency: the backend writes the queries, the schema is owned elsewhere. The PoC has one hardcoded account from environment variables and says it is not a user system.
+Only hosts have accounts, with email and password; listeners have none. Hosts are stored in Postgres (ADR-0002). The backend writes its own queries for sessions; the library would manage its own account and login tables. The PoC has one hardcoded account from environment variables and says it is not a user system.
+
+[ADR-0003](./0003-host-authentication.md) decides that hosts log in through a maintained library rather than custom code, and how it is configured (logins stored in the database, Argon2id hashing). This ADR records which library that is. The backend is built on Hono, so the pick must integrate with it, support email and password, and work with Postgres.
 
 ## Options considered
 
@@ -35,19 +37,19 @@ Only hosts have accounts, with email and password; listeners have none. Hosts ar
 
 ## Decision
 
-We propose Better Auth, because it has a specific integration library for our framework, covers email and password, and avoids custom security code. The investigation stays open before this is accepted.
+We propose Better Auth, because it has a specific integration library for our framework, covers email and password, and avoids custom security code. It is the library that [ADR-0003](./0003-host-login.md) configures. The status stays Proposed until the pull request using it is in place.
 
-**Why the other options are not the best fit** (the status stays open while the investigation continues):
+**Why the other options are not the best fit:**
 
 - **Auth.js**: Built primarily around OAuth/Magic Link conventions. Its `Credentials` provider requires us to manually write and maintain password hashing, reset endpoints, and user persistence logic.
 - **Lucia**: No longer maintained as a package dependency (now an educational guide site), shifting full maintenance burden onto us.
 - **Keycloak**: more than a hosts-only app needs to run and operate.
-- **Clerk or Auth0**: account data would leave our platform and cost grows with users; ADR 0002 rejects a hosted database for the same privacy reason.
-- **Custom code**: possible, but hashing, sessions and resets become our responsibility, which a maintained library already covers.
+- **Clerk or Auth0**: account data would leave our platform and cost grows with users; ADR-0002 rejects a hosted database for the same privacy reason.
+- **Custom code**: possible, but hashing, sessions and resets become our responsibility, which a maintained library already covers (see ADR-0003).
 - **PoC hardcoded account**: a stand-in with no registration, so it cannot support the Register page.
 
 ## Consequences
 
-- Good: less custom auth code; native Hono fit; stays in our stack.
-- Bad / trade-offs: smaller community than the alternatives; its schema and migrations must be coordinated with the database owner.
-- Follow-up work: open questions: investigate the alternatives above; password reset and email sending; session lifetime and cookie settings (the PoC uses a signed httpOnly cookie for 12 h and limits sign-in attempts); who owns the auth tables, and how Better Auth's own tables, migrations and password hashing fit with ADR 0002 (plain SQL migrations, a hosts table, scrypt hashing), including a possible name clash with the sessions table. This stays open because nothing is built yet and it can be overridden later.
+- Good: less custom auth code; native Hono fit; stays in our stack; account and login tables, and their queries, are managed by the library (see [ADR-0002](./0002-session-and-account-storage.md)).
+- Bad / trade-offs: smaller community than the alternatives; its tables are created by its own tool, so schema changes come from two sources (our migrations and the library's) and need to be run together. (see [ADR-0002](./0002-session-and-account-storage.md)).
+- Follow-up work: none for this ADR. Configuration follow-ups are tracked in ADR-0003.
