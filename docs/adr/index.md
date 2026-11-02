@@ -14,6 +14,7 @@ Accepted ADRs are not edited; a new ADR supersedes an old one.
 | [0010](0010-mobile-native.md)                    | React + Vite as a PWA                            | Proposed |
 | [0011](0011-audio-handling.md)                   | Mobile audio handling                            | Proposed |
 | [0012](0012-serving-pwa-bundle.md)               | Hono serves the PWA                              | Proposed |
+| [0013](0013-sfu-client.md)                       | LiveKit client connection in the PWA             | Proposed |
 | [0014](0014-pages.md)                            | PWA pages                                        | Proposed |
+| [0016](0016-schema-validator.md)                 | Schema Validator                                 | Proposed |
 | [0017](0017-translation-plane.md)                | Translation Plane - Container Runtime            | Proposed |
-| [0016](0014-pages.md)                            | Schema Validator                                 | Proposed |
