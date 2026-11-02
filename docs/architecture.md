@@ -107,7 +107,7 @@ sequenceDiagram
   A->>D: check the login exists and hasn't expired
 ```
 
-The details are in ADR-0003.
+The details are in [ADR-0003](adr/0003-host-authentication.md).
 
 ## Why it's built this way
 
@@ -115,13 +115,17 @@ The details are in ADR-0003.
 |---|---|
 | LiveKit for listener audio | [ADR-0001](adr/0001-audio-fan-out.md) |
 | PostgreSQL | [ADR-0002](adr/0002-session-and-account-storage.md) |
+| Host logins | [ADR-0003](adr/0003-host-authentication.md) |
 | Hono for the API | [ADR-0007](adr/0007-backend-framework.md) |
 | Separate dubbing container | [ADR-0008](adr/0008-separated-container.md) |
 | Starting a session in the dubbing container | [ADR-0009](adr/0009-translation-engine-communication.md) |
 | One React PWA | [ADR-0010](adr/0010-mobile-native.md) |
 | Audio on phones | [ADR-0011](adr/0011-audio-handling.md) |
 | Hono serves the app | [ADR-0012](adr/0012-serving-pwa-bundle.md) |
+| LiveKit client in the app | [ADR-0013](adr/0013-sfu-client.md) |
 | The app's pages | [ADR-0014](adr/0014-pages.md) |
+| Schemas and validation | [ADR-0016](adr/0016-schema-validator.md) |
+| Dubbing container framework and runtime | [ADR-0017](adr/0017-translation-plane.md) |
 
 Decisions still in review are listed in the [ADR index](adr/index.md) once they are merged.
 
