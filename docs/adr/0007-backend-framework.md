@@ -26,11 +26,11 @@ The control plane authenticates hosts and connects listeners to a session. It mu
 
 ## Decision
 
-We will use Hono on the Node.js runtime because it is the leanest option that still gives end-to-end types with Zod (ADR 0017), serves the PWA itself (ADR 0012) and has a native Better Auth integration (ADR 0016).
+We will use Hono on the Node.js runtime because it is the leanest option that still gives end-to-end types with Zod (ADR 0016), serves the PWA itself (ADR 0012) and has a native Better Auth integration (ADR 0015).
 
 **Why the other options are not the best fit:**
 
-- **Express**: it works, but it gives no typed client and no built-in validation story, so the contract shared with the PWA (ADR 0017) would be glue code we write ourselves.
+- **Express**: it works, but it gives no typed client and no built-in validation story, so the contract shared with the PWA (ADR 0016) would be glue code we write ourselves.
 - **Fastify**: a good performer, but its typing does not reach the PWA the way Hono's typed client does, and an API this small does not need its extra conventions.
 - **NestJS**: built for large codebases; its structure and boilerplate cost more than they save for a handful of endpoints and two developers.
 

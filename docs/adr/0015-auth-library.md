@@ -37,7 +37,7 @@ Only hosts have accounts, with email and password; listeners have none. Hosts ar
 
 ## Decision
 
-We propose Better Auth, because it has a specific integration library for our framework, covers email and password, and avoids custom security code. It is the library that [ADR-0003](./0003-host-login.md) configures. The status stays Proposed until the pull request using it is in place.
+We propose Better Auth, because it has a specific integration library for our framework, covers email and password, and avoids custom security code. It is the library that [ADR-0003](./0003-host-authentication.md) configures. The status stays Proposed until the pull request using it is in place.
 
 **Why the other options are not the best fit:**
 

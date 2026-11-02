@@ -6,10 +6,12 @@
   and link check (YGP-32).
 - Pull request template and a "Writing the docs" page.
 - Docs site published to GitHub Pages whenever the docs change on main (YGP-33).
-- Decision records for the MVP stack (ADR-0001 to ADR-0003, ADR-0007 to ADR-0014,
-  ADR-0016, ADR-0017), listed in the ADR index.
+- Decision records for the MVP stack (ADR-0001 to ADR-0003, ADR-0007 to ADR-0017),
+  listed in the ADR index.
 - `.editorconfig`, so every editor ends files the same way.
 - "Changing a decision" in Writing the Docs: accepted ADRs are superseded, not
   rewritten.
 - Architecture page rewritten to match the decision records, with listener-join
   and host-login flows.
+- "Architecture layers" page with diagrams for the App, API, dubbing container
+  and media.
