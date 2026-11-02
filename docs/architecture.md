@@ -130,6 +130,7 @@ The details are in [ADR-0003](adr/0003-host-authentication.md).
 | Hono serves the app | [ADR-0012](adr/0012-serving-pwa-bundle.md) |
 | LiveKit client in the app | [ADR-0013](adr/0013-sfu-client.md) |
 | The app's pages | [ADR-0014](adr/0014-pages.md) |
+| Better Auth for host logins | [ADR-0015](adr/0015-auth-library.md) |
 | Schemas and validation | [ADR-0016](adr/0016-schema-validator.md) |
 | Dubbing container framework and runtime | [ADR-0017](adr/0017-translation-plane.md) |
 
