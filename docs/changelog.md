@@ -11,3 +11,5 @@
 - `.editorconfig`, so every editor ends files the same way.
 - "Changing a decision" in Writing the Docs: accepted ADRs are superseded, not
   rewritten.
+- Architecture page rewritten to match the decision records, with listener-join
+  and host-login flows.
