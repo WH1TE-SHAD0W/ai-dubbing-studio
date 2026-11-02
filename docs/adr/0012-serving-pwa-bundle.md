@@ -1,6 +1,6 @@
 # 0012. Hono serves the PWA
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-29
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-n

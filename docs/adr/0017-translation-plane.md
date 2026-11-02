@@ -1,6 +1,6 @@
 # 0017. Dubbing container framework and runtime
 
-* **Status:** Proposed
+* **Status:** Accepted
 * **Date:** 2026-10-29
 * **Deciders:** Marek Culak
 * **Ticket:** YGP-47
