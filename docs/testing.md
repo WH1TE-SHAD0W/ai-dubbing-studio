@@ -1,5 +1,9 @@
 # Testing
 
+Automated tests use a fake Gemini engine, so they are free and can run on every
+change. The real service is checked separately with a probe script, and live
+sessions are debugged from the backend logs.
+
 ## Automated tests
 
 Both the backend and the frontend use [Vitest](https://vitest.dev/). The tests use

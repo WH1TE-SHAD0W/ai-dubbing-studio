@@ -30,6 +30,24 @@ path is under `/api`; nginx removes that prefix before passing the request on.
 | `GET /join/:code` | `{title, speakerName, sourceLang, languages[]}` | `404` if the session isn't live. 30 requests per minute per IP. |
 | `GET /healthz` | – | Health check. |
 
+## Example: sign in and create a session
+
+With the app running in Docker and the sample login from `.env.example`:
+
+```bash
+curl -c cookies.txt -X POST http://localhost:8080/api/auth/signin \
+  -H "Content-Type: application/json" \
+  -d '{"email":"host@example.com","password":"change-me"}'
+# {"name":"Host"}
+
+curl -b cookies.txt -X POST http://localhost:8080/api/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Demo","sourceLang":"en","targetLangs":["sk"],"consent":{"speaker":true,"aiNotice":true,"textVersion":"2026-10-v1"}}'
+# {"id":"<session id>","joinCode":"<join code>"}
+```
+
+This only creates a draft session. Gemini isn't called until `POST /sessions/:id/start`.
+
 ## WebSockets
 
 ### Host: `/ws/host/:id`
