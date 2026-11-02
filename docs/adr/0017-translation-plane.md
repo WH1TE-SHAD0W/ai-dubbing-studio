@@ -12,25 +12,20 @@ The translation plane requires a dedicated, stateless container runtime to handl
 ## Options considered
 
 1. **Hono on Node.js runtime (`@hono/node-server` and `@hono/node-ws`)**.
-* **Pros:** Identical framework and developer experience across control plane and dubbing container; native support for real-time Node.js C++ bindings required by the LiveKit Node SDK; robust WebSocket upgrade handling; seamless schema and contract sharing via monorepo packages; lightweight footprint without full-stack framework overhead.
-* **Cons:** Single-threaded event loop requires disciplined async I/O handling and strict per-pod session capping to avoid event-loop blocking during audio frame processing.
-
+    * **Pros:** Identical framework and developer experience across control plane and dubbing container; native support for real-time Node.js C++ bindings required by the LiveKit Node SDK; robust WebSocket upgrade handling; seamless schema and contract sharing via monorepo packages; lightweight footprint without full-stack framework overhead.
+    * **Cons:** Single-threaded event loop requires disciplined async I/O handling and strict per-pod session capping to avoid event-loop blocking during audio frame processing.
 
 2. **Express or Fastify on Node.js**.
-* **Pros:** Battle-tested Node.js web frameworks with mature ecosystem and native C++ binding compatibility for LiveKit.
-* **Cons:** Introduces unnecessary framework fragmentation against the existing Hono control plane; higher boilerplate for WebSocket integration; fastify/express routing syntax differs from Hono's unified Zod-based contract schema integration.
-
+    * **Pros:** Battle-tested Node.js web frameworks with mature ecosystem and native C++ binding compatibility for LiveKit.
+    * **Cons:** Introduces unnecessary framework fragmentation against the existing Hono control plane; higher boilerplate for WebSocket integration; fastify/express routing syntax differs from Hono's unified Zod-based contract schema integration.
 
 3. **Hono on Bun or Deno runtime**.
-* **Pros:** Native performance gains for HTTP routing, lower memory startup overhead, and built-in TypeScript execution without compile steps.
-* **Cons:** LiveKit’s real-time Node SDK relies on native C++ bindings (`node-gyp`/glibc), which regularly encounter compatibility edge cases or crashes under Bun or Deno runtime translation layers.
-
+    * **Pros:** Native performance gains for HTTP routing, lower memory startup overhead, and built-in TypeScript execution without compile steps.
+    * **Cons:** LiveKit’s real-time Node SDK relies on native C++ bindings (`node-gyp`/glibc), which regularly encounter compatibility edge cases or crashes under Bun or Deno runtime translation layers.
 
 4. **Python (FastAPI) or Go microservice**.
-* **Pros:** Strong concurrency models (Go goroutines, Python async worker pools) and native WebRTC/audio library support.
-* **Cons:** Breaks TypeScript end-to-end type safety and contract sharing with the control plane and React PWA; increases team cognitive load and build pipeline complexity.
-
-
+    * **Pros:** Strong concurrency models (Go goroutines, Python async worker pools) and native WebRTC/audio library support.
+    * **Cons:** Breaks TypeScript end-to-end type safety and contract sharing with the control plane and React PWA; increases team cognitive load and build pipeline complexity.
 
 ## Decision
 
