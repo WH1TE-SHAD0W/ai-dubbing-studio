@@ -1,6 +1,6 @@
 # 0003. How hosts sign up, log in and stay logged in
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-29
 - **Deciders:** Jamie, Marek
 - **Ticket:** YGP-12
