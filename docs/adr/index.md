@@ -9,16 +9,16 @@ Accepted ADRs are not edited; a new ADR supersedes an old one.
 | [0001](0001-audio-fan-out.md)                    | How translated audio reaches listeners (fan-out) | Accepted |
 | [0002](0002-session-and-account-storage.md)      | How session and account data is stored           | Accepted |
 | [0003](0003-host-authentication.md)              | How hosts sign up, log in and stay logged in     | Accepted |
-| [0007](0007-backend-framework.md)                | Hono as the API framework                        | Proposed |
-| [0008](0008-separated-container.md)              | Separate the dubbing container from Hono         | Proposed |
-| [0009](0009-translation-engine-communication.md) | Session creation contract and provider selection | Proposed |
-| [0010](0010-mobile-native.md)                    | React + Vite as a PWA                            | Proposed |
-| [0011](0011-audio-handling.md)                   | Mobile audio handling                            | Proposed |
-| [0012](0012-serving-pwa-bundle.md)               | Hono serves the PWA                              | Proposed |
-| [0013](0013-sfu-client.md)                       | LiveKit client connection in the PWA             | Proposed |
-| [0014](0014-pages.md)                            | PWA pages                                        | Proposed |
-| [0015](0015-auth-library.md)                     | Better Auth for host login                       | Proposed |
-| [0016](0016-schema-validator.md)                 | Zod for schemas and validation                   | Proposed |
-| [0017](0017-translation-plane.md)                | Dubbing container framework and runtime          | Proposed |
+| [0007](0007-backend-framework.md)                | Hono as the API framework                        | Accepted |
+| [0008](0008-separated-container.md)              | Separate the dubbing container from Hono         | Accepted |
+| [0009](0009-translation-engine-communication.md) | Session creation contract and provider selection | Accepted |
+| [0010](0010-mobile-native.md)                    | React + Vite as a PWA                            | Accepted |
+| [0011](0011-audio-handling.md)                   | Mobile audio handling                            | Accepted |
+| [0012](0012-serving-pwa-bundle.md)               | Hono serves the PWA                              | Accepted |
+| [0013](0013-sfu-client.md)                       | LiveKit client connection in the PWA             | Accepted |
+| [0014](0014-pages.md)                            | PWA pages                                        | Accepted |
+| [0015](0015-auth-library.md)                     | Better Auth for host login                       | Accepted |
+| [0016](0016-schema-validator.md)                 | Zod for schemas and validation                   | Accepted |
+| [0017](0017-translation-plane.md)                | Dubbing container framework and runtime          | Accepted |
 
 Numbers 0004–0006 were not used.

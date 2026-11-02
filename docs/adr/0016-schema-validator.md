@@ -1,6 +1,6 @@
 # 0016. Zod for schemas and validation
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-29
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-49

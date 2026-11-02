@@ -1,6 +1,6 @@
 # 0015. Better Auth for host login
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-30
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-48
