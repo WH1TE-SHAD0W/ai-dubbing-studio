@@ -59,7 +59,7 @@ From the repository root:
 
 ```bash
 pip install -r requirements-docs.txt codespell==2.4.1
-mkdocs serve                      # preview at http://127.0.0.1:8000
+mkdocs serve                      # preview at http://127.0.0.1:8000/ai-dubbing-studio/
 mkdocs build --strict             # build check
 npx markdownlint-cli2@0.18.1      # markdown lint (rules in .markdownlint-cli2.yaml)
 codespell docs README.md mkdocs.yml

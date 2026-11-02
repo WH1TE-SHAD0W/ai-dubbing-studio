@@ -17,9 +17,10 @@ The host speaks once; every listener hears them in their chosen language.
 Cost grows with the number of languages, not listeners.
 
 **Still to be decided:** how the host's mic reaches the dubbing container, how
-captions reach listeners, whether LiveKit rooms are per session or per language,
-whether the prototype runs on Docker Compose or Kubernetes, and how the dubbing
-container verifies the host.
+captions reach listeners once audio moves to LiveKit (today they use the
+WebSocket), whether LiveKit rooms are per session or per language, whether the
+prototype runs on Docker Compose or Kubernetes, and how the dubbing container
+verifies the host.
 
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 90, "rankSpacing": 70}}}%%
