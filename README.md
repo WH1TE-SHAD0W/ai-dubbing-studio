@@ -1,6 +1,6 @@
 # AI Dubbing Studio
 
-A host speaks once; every listener hears them live in their own language, in the host's voice, with captions. See the proposal and HLD for the full design.
+A host speaks once; every listener hears them live in their own language, in the host's voice, with captions. The full documentation is at <https://wh1te-shad0w.github.io/ai-dubbing-studio/>, written in [`docs/`](docs/).
 
 Two containers, self-hosted with Docker Compose:
 
