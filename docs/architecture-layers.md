@@ -149,5 +149,5 @@ flowchart TB
   Media -.- TURN
 ```
 
-TURN needs setting up before the app runs on a public server. Still open: whether
-LiveKit rooms are per session or per language.
+Each language has its own LiveKit room. TURN needs setting up before the app runs
+on a public server.

@@ -17,9 +17,8 @@ The host speaks once; every listener hears them in their chosen language.
 Cost grows with the number of languages, not listeners.
 
 **Still to be decided:** how the host's mic reaches the dubbing container, how
-captions reach listeners, whether LiveKit rooms are per session or per language,
-whether the prototype runs on Docker Compose or Kubernetes, and how the dubbing
-container verifies the host.
+captions reach listeners, whether the prototype runs on Docker Compose or
+Kubernetes, and how the dubbing container verifies the host.
 
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 90, "rankSpacing": 70}}}%%
@@ -62,10 +61,14 @@ sequenceDiagram
   H->>A: create session
   A->>D: save session details
   A->>C: start session (languages, provider)
+  C->>K: create 1 room per language
+  K-->>C: room IDs
+  C-->>A: room ID per language
+  A->>D: save room ID per language
   H-->>C: 1. mic audio (path to be decided)
   C->>G: 2. host audio (1 stream per language)
   G-->>C: 3. translated audio + captions
-  C->>K: 4. publish 1 audio track per language
+  C->>K: 4. publish each language's audio to its room
   K-->>L: 5. forward the listener's language (WebRTC)
 ```
 
@@ -180,6 +183,7 @@ erDiagram
   session_languages {
     text session_id PK, FK
     text lang PK
+    text livekit_room_id "set when the session starts"
     int peak_listeners
   }
 ```
@@ -193,7 +197,8 @@ erDiagram
 - **sessions:** one row per live event, owned by a host. `join_code` only has to
   be unique among sessions that haven't ended, so short codes can be reused.
 - **session_languages:** each target language of a session, listed once, with its
-  peak listener count to show where the Gemini cost goes.
+  peak listener count to show where the Gemini cost goes. Each language has its
+  own LiveKit room; its ID is stored here so listeners can be sent to the right room.
 - Deleting a live event deletes its languages; deleting a host deletes their
   logins. Ended events are deleted after 30 days, and expired logins daily.
 - **Not stored:** audio, captions or transcripts, listener identities, and live
