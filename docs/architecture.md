@@ -46,6 +46,8 @@ flowchart TB
   SFU -- "5. chosen language (WebRTC)" --> Listener
 ```
 
+For more detail on each part, see [Architecture layers](architecture-layers.md).
+
 ## Step by step
 
 ```mermaid

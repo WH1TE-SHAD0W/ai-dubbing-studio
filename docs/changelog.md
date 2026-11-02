@@ -13,3 +13,5 @@
   rewritten.
 - Architecture page rewritten to match the decision records, with listener-join
   and host-login flows.
+- "Architecture layers" page with diagrams for the App, API, dubbing container
+  and media.

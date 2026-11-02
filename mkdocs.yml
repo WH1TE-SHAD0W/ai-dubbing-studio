@@ -7,7 +7,9 @@ theme:
 
 nav:
   - Home: index.md
-  - Architecture: architecture.md
+  - Architecture:
+      - Overview: architecture.md
+      - Layers: architecture-layers.md
   - API: api.md
   - Setup Guide: setup-guide.md
   - Deployment: deployment.md
