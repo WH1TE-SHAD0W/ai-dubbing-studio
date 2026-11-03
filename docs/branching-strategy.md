@@ -63,5 +63,5 @@ panel in Jira.
 
 - Whether `testing` is only a branch or also a deployed test environment (for
   example the Minikube VM in YGP-53).
-- We deploy with Docker Compose for now. Kubernetes may come later if there is
-  time.
+- How we deploy. The plan is Kubernetes (Minikube) with Argo CD, with Docker
+  Compose as the backup if there isn't time. An ADR will confirm this.
