@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- The proof of concept is removed and the app is being rebuilt as a pnpm
+  monorepo (ADR-0016, ADR-0017).
+- `packages/contracts`: shared Zod schemas for host accounts, sessions, joining,
+  listener tokens and the dubbing-container request.
+- `apps/web`: the React PWA with the five pages from ADR-0014, a host
+  microphone picker, LiveKit listener playback and a minimal service worker. It
+  runs against a mock API until the Hono API exists.
+- Setup Guide and Testing pages updated for the new layout.
 - Docs checks on every pull request: strict site build, Markdown lint, spell check
   and link check (YGP-32).
 - Pull request template and a "Writing the docs" page.
