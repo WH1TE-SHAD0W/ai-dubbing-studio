@@ -11,6 +11,7 @@ nav:
       - Overview: architecture.md
       - Layers: architecture-layers.md
   - API: api.md
+  - Branching Strategy: branching-strategy.md
   - Setup Guide: setup-guide.md
   - Deployment: deployment.md
   - Testing: testing.md
