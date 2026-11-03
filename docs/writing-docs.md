@@ -6,7 +6,8 @@ reviewed in a pull request and checked automatically before they are merged.
 
 ## How to change the docs
 
-1. Create a branch from `main`.
+1. Create a branch. [Branching strategy](branching-strategy.md) says which one
+   to branch from: `main` for ADRs, `development` for features.
 2. Edit or add Markdown files in `docs/`. Diagrams are written in
    [Mermaid](https://mermaid.js.org/) inside the Markdown.
 3. Update the docs in the **same pull request** as the code they describe.
