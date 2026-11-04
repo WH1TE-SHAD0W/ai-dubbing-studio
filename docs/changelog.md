@@ -15,3 +15,5 @@
   and host-login flows.
 - "Architecture layers" page with diagrams for the App, API, dubbing container
   and media.
+- Postgres in Docker Compose for local development, with a named volume and a
+  health check; settings in `.env.example` (YGP-61).
