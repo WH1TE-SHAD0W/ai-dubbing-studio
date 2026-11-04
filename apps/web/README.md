@@ -16,11 +16,12 @@ The React PWA for hosts and listeners, rebuilt to the [target architecture](../.
 
 ## Run it
 
-You need Node.js 24 or later. pnpm comes through Corepack. From the repository root:
+You need Node.js 24 or later. pnpm comes through Corepack: run `corepack enable` once (the scripts call plain `pnpm`). From the repository root:
 
 ```bash
-corepack pnpm install
-corepack pnpm dev:mock      # http://localhost:5173, with a mock API in the browser
+corepack enable    # once
+pnpm install
+pnpm dev:mock      # http://localhost:5173, with a mock API in the browser
 ```
 
 In mock mode:
@@ -29,12 +30,12 @@ In mock mode:
 - Join the live demo session with code `DEMO42`, or `WAIT01` for one that hasn't started.
 - Listening gets as far as connecting to LiveKit, then shows a connection error, because there is no LiveKit server behind the mocks.
 
-Against a real API on port 3000 (once it exists), run `corepack pnpm dev`. The dev server forwards `/api` there; set `API_URL` to use another address.
+Against a real API on port 3000 (once it exists), run `pnpm dev`. The dev server forwards `/api` there; set `API_URL` to use another address.
 
 ```bash
-corepack pnpm typecheck
-corepack pnpm test
-corepack pnpm build         # output in apps/web/dist
+pnpm typecheck
+pnpm test
+pnpm build         # output in apps/web/dist
 ```
 
 The microphone and the service worker need a secure context: `localhost` works, anywhere else needs HTTPS.

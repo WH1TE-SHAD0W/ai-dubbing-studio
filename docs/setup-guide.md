@@ -8,17 +8,22 @@ dubbing container are not built yet. The plan is in the
 ## What you need
 
 - [Node.js](https://nodejs.org/) 24 or later.
-- pnpm, through Corepack, which comes with Node. Run it as `corepack pnpm`, or
-  run `corepack enable` once to use plain `pnpm`. The version is pinned in the
-  root `package.json`.
+- pnpm, through Corepack, which comes with Node. Run `corepack enable` once (see
+  [Install](#install)); the version is pinned in the root `package.json`.
 
 ## Install
 
-From the repository root:
+From the repository root, enable Corepack once, then install:
 
 ```bash
-corepack pnpm install
+corepack enable
+pnpm install
 ```
+
+`corepack enable` is required. It puts the pinned `pnpm` on your `PATH`, and the
+root scripts (`pnpm -r test` and the like) call plain `pnpm`, so without it
+`pnpm test` fails with `'pnpm' is not recognized`. On Windows, run it in an
+elevated terminal if it reports a permission error.
 
 The workspace refuses package versions published less than a week ago
 (`minimumReleaseAge` in `pnpm-workspace.yaml`), which guards against a freshly
@@ -38,7 +43,7 @@ There is no API yet, so the app normally runs with a **mock API** in the browser
 the same schemas.
 
 ```bash
-corepack pnpm dev:mock
+pnpm dev:mock
 ```
 
 Open <http://localhost:5173>. In mock mode:
@@ -56,7 +61,7 @@ To run against a real API instead (once it exists), start it on port 3000 and
 run:
 
 ```bash
-corepack pnpm dev
+pnpm dev
 ```
 
 The dev server forwards `/api` to `http://localhost:3000`; set `API_URL` to use
@@ -66,7 +71,7 @@ origin ([ADR-0012](adr/0012-serving-pwa-bundle.md)).
 ## Build
 
 ```bash
-corepack pnpm build
+pnpm build
 ```
 
 The app is built into `apps/web/dist`, with the web app manifest and a service
@@ -74,7 +79,7 @@ worker that caches only the app shell. API calls and audio are never cached. The
 mock API is never part of a build. To try the build locally:
 
 ```bash
-corepack pnpm --filter @ads/web preview
+pnpm --filter @ads/web preview
 ```
 
 ## Secure context

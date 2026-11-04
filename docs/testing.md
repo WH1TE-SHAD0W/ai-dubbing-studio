@@ -9,14 +9,14 @@ every change.
 From the repository root, for every package:
 
 ```bash
-corepack pnpm test
+pnpm test
 ```
 
 ```bash
-corepack pnpm typecheck
+pnpm typecheck
 ```
 
-Or for one package, for example `corepack pnpm --filter @ads/web test`.
+Or for one package, for example `pnpm --filter @ads/web test`.
 
 | Where | What is tested |
 |---|---|
