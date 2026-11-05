@@ -55,3 +55,35 @@ Two lint rules are changed from their defaults in `.markdownlint-cli2.yaml`:
 The versions are pinned so a new release of a tool can't suddenly fail a pull
 request that passed the day before. The link-check action is pinned to its
 major version (`v2`) only.
+
+## Publishing the site
+
+The **Deploy docs** workflow publishes the site to
+<https://wh1te-shad0w.github.io/ai-dubbing-studio/>. It runs:
+
+- after a push to `main` that changes anything in `docs/`, `mkdocs.yml`,
+  `requirements-docs.txt` or `.github/workflows/deploy-docs.yml`. In practice
+  that is the merge of a pull request. `README.md` isn't part of the site, so
+  changing it doesn't redeploy.
+- by hand, from **Actions → Deploy docs → Run workflow** on GitHub.
+
+It has two jobs, one after the other:
+
+| Job | What it does |
+|---|---|
+| Build site | Installs MkDocs from `requirements-docs.txt` (the same versions as local builds), runs `mkdocs build --strict` and uploads the built `site/` folder. |
+| Deploy to GitHub Pages | Starts only if the build passed. Publishes the uploaded site and shows its address on the run page. |
+
+A few settings keep it safe:
+
+- **Only the permissions it needs.** It can read the repository, write to
+  Pages, and prove to Pages that the upload came from this workflow
+  (`id-token: write`). It can't push code or change anything else.
+- **One deploy at a time.** If two merges land close together, the second
+  deploy waits for the first to finish instead of cancelling it, so a
+  half-finished deploy never replaces the live site.
+
+The two workflows are separate. Deploy docs repeats the strict build, so a
+broken page never goes live, but it doesn't wait for the lint, spelling and
+link checks. If one of those fails after a merge, the site still updates, and
+the failure shows as a red check on `main` to fix in a follow-up pull request.
