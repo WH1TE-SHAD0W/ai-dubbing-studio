@@ -142,3 +142,21 @@ If a check fails on `main` after a merge, fix it in a small follow-up pull
 request on a `docs/` branch. For example, ADR-0017 was merged with lint errors,
 and [pull request #20](https://github.com/WH1TE-SHAD0W/ai-dubbing-studio/pull/20)
 fixed them.
+
+## What's enforced today
+
+The [branching strategy](branching-strategy.md) says every merge is a pull
+request, reviewed by a teammate, with all checks passing. Today that is a team
+agreement, not something GitHub enforces:
+
+- The repository has a ruleset called **Main**, but it doesn't target any
+  branches yet, so it has no effect.
+- Even once it targets `main`, its two rules only stop the branch being deleted
+  or force-pushed. It doesn't require a review or passing checks.
+- So a red check or a missing review warns, but doesn't block the merge
+  button.
+
+Branch protection is planned in YGP-76: `main` and `testing` will need a pull
+request, one approval and passing checks before a merge. One thing to solve
+first: the Docs checks only run when docs change, so if they become required,
+a pull request that only changes code would wait for them forever.
