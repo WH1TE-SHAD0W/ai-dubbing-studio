@@ -1,11 +1,11 @@
-## 0018. Autoscaling and job dispatch for translation workers with Redis Streams
+# 0018. Autoscaling and job dispatch for translation workers with Redis Streams
 
 - **Status:** Proposed
 - **Date:** 2026-11-05
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-91 & YGP-98
 
-### Context
+## Context
 
 Translation runs in a pool of worker pods (see 0019). Each pod serves **one track**: one target language of one session. It joins the session's LiveKit source room, holds one Gemini connection and publishes the translated audio into that language's output room (see 0020). The heavy work happens in Gemini, so a pod is light on CPU and RAM, and its life is tied to a session, not to a request.
 
@@ -18,7 +18,7 @@ That shape rules out the usual autoscaling approach. CPU-based scaling reacts on
 
 Constraints: Postgres is the source of truth and is only accessed through Hono, so workers never connect to the database. LiveKit is expected to move to multiple nodes some weeks after the MVP, and its distributed mode needs Redis, so Redis will be part of the platform regardless.
 
-### Options considered
+## Options considered
 
 1. **Redis Streams with a consumer group**
     - Pros: each job is delivered to exactly one consumer; a delivered job stays on a pending list until it is acknowledged, so unfinished jobs can be reclaimed from a dead consumer; blocking reads wake idle pods immediately; dispatch and recovery live in one structure; Redis arrives anyway with multi-node LiveKit; mature Go clients.
@@ -35,7 +35,7 @@ Constraints: Postgres is the source of truth and is only accessed through Hono, 
 
 Rejected: 2, 3 and 4. Option 2 is the closest competitor and is rejected because workers would either touch the database directly or push all claim traffic through Hono, and Redis is coming anyway.
 
-### Decision
+## Decision
 
 We dispatch translation jobs through a **Redis Stream with a consumer group**.
 
@@ -47,9 +47,9 @@ We dispatch translation jobs through a **Redis Stream with a consumer group**.
 - Scaling signal: each pod exposes an idle/busy gauge on its metrics endpoint (busy means it holds a track and a Gemini connection). The autoscaler keeps the number of idle pods above a floor.
 - How a dead worker is detected is **not decided here** (see follow-up work).
 
-### Consequences
+## Consequences
 
-**Good**
+### Good
 
 - A job goes to exactly one pod, and the pending list shows which pod holds which track.
 - Unfinished jobs stay pending and can be reclaimed, so recovery needs no hand-written queue code.
@@ -57,7 +57,7 @@ We dispatch translation jobs through a **Redis Stream with a consumer group**.
 - The idle gauge is a direct capacity signal.
 - Redis is already required for multi-node LiveKit, so the end state adds no extra component.
 
-**Bad / trade-offs**
+### Bad / trade-offs
 
 - Redis becomes a runtime dependency of session start earlier than LiveKit requires it.
 - At-least-once delivery means duplicate work is possible, so ownership needs fencing.
@@ -65,7 +65,7 @@ We dispatch translation jobs through a **Redis Stream with a consumer group**.
 - Scaling is reactive only: there is no scheduled pre-scaling for known conference times.
 - One more state store to persist and clean (stream trimming, stale consumers).
 
-**Follow-up work**
+### Follow-up work
 
 - Open: choose the liveness mechanism. Candidates are pending-list entries kept alive by a heartbeat with a reaper reclaiming idle entries, a separate TTL lease key per track, or heartbeats sent to Hono's API (as in the sequence diagram). Decide TTL and heartbeat interval.
 - Fence ownership so a reclaimed track never runs twice (for example one LiveKit participant identity per track; verify how LiveKit handles a duplicate identity).
