@@ -119,3 +119,26 @@ PATH. Run them through Python instead: `python -m mkdocs build --strict` and
 `python -m codespell_lib docs README.md mkdocs.yml`.
 
 The link check runs only in CI, so it isn't installed locally.
+
+## When a check fails
+
+To find the error:
+
+1. On the pull request, open the **Checks** tab, or select **Details** next
+   to the red check.
+2. Select the failed job, then expand the step with the red cross.
+3. The error line names the file, the line and the problem.
+
+| Job | What the error looks like | How to fix it |
+|---|---|---|
+| Build site (strict) | A `WARNING` line, for example a link whose target isn't found, then `Aborted with 1 warnings in strict mode!` | Correct the link's path, or add the missing page or nav entry. |
+| Markdown lint | `file.md:12 MD022/blanks-around-headings …`: the file, the line and the rule | Fix the formatting on that line. Each rule is explained in the [markdownlint rules](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md). |
+| Spell check | `file.md:12: <misspelling> ==> <suggestion>` | Fix the spelling. If the word is correct, ask the team before adding it to an ignore list. |
+| Link check | The broken URL and why it failed, for example `404` or a timeout | Update or remove the link. If the other site is only down for a while, re-run the job. |
+
+Push the fix to the same branch and the checks run again by themselves.
+
+If a check fails on `main` after a merge, fix it in a small follow-up pull
+request on a `docs/` branch. For example, ADR-0017 was merged with lint errors,
+and [pull request #20](https://github.com/WH1TE-SHAD0W/ai-dubbing-studio/pull/20)
+fixed them.
