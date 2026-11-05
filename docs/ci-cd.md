@@ -9,6 +9,9 @@ work:
   publishes it to [GitHub Pages](https://wh1te-shad0w.github.io/ai-dubbing-studio/)
   whenever the docs change on `main`.
 
+The application code has no pipeline yet; see
+[Code CI (planned)](#code-ci-planned).
+
 ## How a docs change goes live
 
 ```mermaid
@@ -160,3 +163,31 @@ Branch protection is planned in YGP-76: `main` and `testing` will need a pull
 request, one approval and passing checks before a merge. One thing to solve
 first: the Docs checks only run when docs change, so if they become required,
 a pull request that only changes code would wait for them forever.
+
+## Code CI (planned)
+
+None of this is built yet. It is planned in Jira and depends on the code
+monorepo (`apps/`, `pnpm-workspace.yaml`) being in place first.
+
+| Workflow | Jira | Runs on | What it does |
+|---|---|---|---|
+| Code checks | YGP-75 | Every pull request into `development`, `testing` or `main` | Installs with pnpm (cached), then runs lint, typecheck and the Vitest tests across the monorepo. Shows pass or fail on the pull request. |
+| Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to GitHub's container registry (GHCR). If a build fails, nothing is pushed. |
+
+If [ADR-0019](adr/index.md) (Go for the translation worker, still proposed) is
+accepted, the code checks will also need a Go job for the worker.
+
+### Image tags
+
+Every image gets more than one tag:
+
+| Tag | Given to | Used for |
+|---|---|---|
+| The commit SHA, for example `a7fa5e4…` | Every image | Finding exactly which code an image was built from, and rolling back to it. |
+| `testing` | Images built from `testing` | The test environment. |
+| `prod` | Images built from `main` | Production. |
+
+The test environment only ever runs the `testing` tag and production only runs
+`prod` (YGP-81), so a test deployment never picks up an image that hasn't been
+through `testing`, and production never picks up one that hasn't reached
+`main`.
