@@ -52,6 +52,10 @@ Two lint rules are changed from their defaults in `.markdownlint-cli2.yaml`:
 - **Nested lists are indented by 4 spaces (MD007).** MkDocs needs 4 spaces to
   show a nested list correctly.
 
+GitGuardian also scans every pull request for leaked secrets such as API keys.
+It is a GitHub app connected to the repository, not a workflow in this
+repository, so it shows on the pull request as a separate check.
+
 The versions are pinned so a new release of a tool can't suddenly fail a pull
 request that passed the day before. The link-check action is pinned to its
 major version (`v2`) only.
@@ -87,3 +91,31 @@ The two workflows are separate. Deploy docs repeats the strict build, so a
 broken page never goes live, but it doesn't wait for the lint, spelling and
 link checks. If one of those fails after a merge, the site still updates, and
 the failure shows as a red check on `main` to fix in a follow-up pull request.
+
+## Running the checks locally
+
+Run the same checks before you push, so a pull request doesn't fail on
+something you could have caught. The commands are in
+[Writing the docs](writing-docs.md#run-the-checks-locally).
+
+What a pass looks like:
+
+| Check | A pass looks like |
+|---|---|
+| Strict build | The last line is `Documentation built in … seconds`, with no `WARNING` above it. |
+| Markdown lint | `Summary: 0 error(s)`. |
+| Spell check | No output at all. |
+
+Two messages from the build look like problems but aren't:
+
+- **A list of pages "not included in the nav".** The ADRs are reached from the
+  ADR index instead of the nav. This is information only and doesn't fail the
+  build.
+- **A notice that Material for MkDocs reaches end of life in May 2027.** It
+  comes from the theme, not from our docs, and doesn't fail the build.
+
+If `mkdocs` or `codespell` isn't found, Python's scripts folder isn't on your
+PATH. Run them through Python instead: `python -m mkdocs build --strict` and
+`python -m codespell_lib docs README.md mkdocs.yml`.
+
+The link check runs only in CI, so it isn't installed locally.
