@@ -33,7 +33,7 @@ Constraints: Postgres is the source of truth and is only accessed through Hono, 
     - Pros: very high throughput and durable ordered logs.
     - Cons: consumers own partitions, not individual jobs, and there is no per-job acknowledgement or lease; assigning one track to one pod and reclaiming it when the pod dies means working against partition assignment and rebalancing; heavy for about a hundred jobs.
 
-Rejected: 2, 3 and 4. Option 2 is the closest competitor and is rejected because workers would either touch the database directly or push all claim traffic through Hono, and Redis is coming anyway.
+Rejected: 2, 3 and 4. Option 2 is the closest competitor. The chosen design also keeps the lease in Postgres and sends claims and heartbeats through Hono, so the difference is delivery: with option 2 idle pods would have to poll Hono for work, while a blocking stream read wakes exactly one idle pod at once. Redis is coming anyway.
 
 ## Decision
 
@@ -41,18 +41,20 @@ We dispatch translation jobs through a **Redis Stream with a consumer group**.
 
 - One job per track, carrying only identifiers and minimal metadata (session, track, target language, room names, provider) and no secrets. Hono enqueues the jobs when the session is created, together with the rooms (0020). Each worker pod reads from the group, so each job goes to exactly one pod.
 - **One track per pod.**
-- The job stays pending until it is acknowledged when the track is released.
-- Postgres stays the single source of truth and is accessed only through Hono. Redis holds only the queue and in-flight state. Workers get authorisation and report track state through Hono's endpoints (see 0020).
+- **Postgres is the single source of truth** and is accessed only through Hono. Redis only delivers jobs: the consumer group keeps several pods from fetching the same job and sending needless claims to Hono. Workers get authorisation and report track state through Hono's endpoints (see 0020).
+- The pod **acknowledges the job right after Hono accepts its claim**. Hono records the pod as the track's owner in Postgres, with a lease the pod renews by sending Hono a heartbeat every 5 s.
+- **Dead workers:** when a lease expires, Hono's lease sweeper sets the track back to pending and enqueues a new job. Pending-entry recovery in Redis (`XAUTOCLAIM`) is not used in the MVP.
+- **Fencing:** Hono answers any call from a pod that is not the track's recorded owner with `409`, and that pod stops and exits. A pod replaced after a network hiccup therefore stops at its next call to Hono.
+- When Hono reconnects to Redis, it enqueues a job for every track that is pending with no owner, so a Redis restart loses no work. Duplicate jobs are rejected at claim.
 - Pods **exit after release**. The Kubernetes autoscaler creates replacements, so no state or memory carries over between tracks.
 - Scaling signal: each pod exposes an idle/busy gauge on its metrics endpoint (busy means it holds a track and a Gemini connection). The autoscaler keeps the number of idle pods above a floor.
-- How a dead worker is detected is **not decided here** (see follow-up work).
 
 ## Consequences
 
 ### Good
 
-- A job goes to exactly one pod, and the pending list shows which pod holds which track.
-- Unfinished jobs stay pending and can be reclaimed, so recovery needs no hand-written queue code.
+- A job goes to exactly one pod, and Postgres records which pod owns which track.
+- Ownership, recovery and fencing live in one place (Postgres through Hono), so Redis holds no state that has to be recovered.
 - Single-use pods start clean for every track.
 - The idle gauge is a direct capacity signal.
 - Redis is already required for multi-node LiveKit, so the end state adds no extra component.
@@ -60,18 +62,19 @@ We dispatch translation jobs through a **Redis Stream with a consumer group**.
 ### Bad / trade-offs
 
 - Redis becomes a runtime dependency of session start earlier than LiveKit requires it.
-- At-least-once delivery means duplicate work is possible, so ownership needs fencing.
+- Hono is on the path of every claim and heartbeat, and a replaced pod may keep publishing until its next call to Hono (up to one heartbeat interval).
+- A job lost between enqueue and claim (for example a dropped claim) is only re-enqueued when Hono reconnects to Redis.
 - A cold pod takes about 30 s, and spare idle pods cost memory (small with Go, see 0019).
 - Scaling is reactive only: there is no scheduled pre-scaling for known conference times.
-- One more state store to persist and clean (stream trimming, stale consumers).
+- One more component to run and clean: the stream needs trimming, and each single-use pod removes its own consumer from the group on exit.
 
 ### Follow-up work
 
-- Open: choose the liveness mechanism. Candidates are pending-list entries kept alive by a heartbeat with a reaper reclaiming idle entries, a separate TTL lease key per track, or heartbeats sent to Hono's API (as in the sequence diagram). Decide TTL and heartbeat interval.
-- Fence ownership so a reclaimed track never runs twice (for example one LiveKit participant identity per track; verify how LiveKit handles a duplicate identity).
+- Decide how a pod is replaced after it exits: the container restarted in place (watch restart back-off after short jobs) or the pod deleting itself so a new one is created.
+- Use one LiveKit participant identity per track in the output room, so a new owner also disconnects the old one; verify how LiveKit handles a duplicate identity.
 - Scale-down must remove idle pods only (for example pod deletion cost); verify with the chosen autoscaler.
-- Size the idle-pod floor and measure the real pod start time.
-- Define recovery when Redis loses data (persistence settings; for example re-enqueue tracks of live sessions from Postgres).
+- Size the idle-pod floor, the lease TTL (starting at 15 s) and measure the real pod start time.
+- Recovery of single lost jobs, beyond re-enqueuing when Hono reconnects to Redis (for example re-enqueue tracks pending for too long).
 - Dead-letter handling for jobs that keep failing.
 - Revisit if hosts do not send audio straight after the green light: workers claimed at session creation then hold idle Gemini connections (see 0020).
 - Verify Redis Streams behaviour and version requirements against current documentation.
