@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- `apps/api`: the Hono API, first part. It serves the built app with cache
+  headers, connects to Postgres and handles host sign-up, login and logout with
+  Better Auth, configured as ADR-0003 decides (12-hour logins in a `logins`
+  table, Argon2id, rate limits in the database, one message for every failed
+  login). Session and listener routes check their requests and answer `501`
+  until sessions and LiveKit are built.
+- An `api` container in Docker Compose, built by `apps/api/Dockerfile`, with a
+  health check; new settings in `.env.example`.
+- `packages/contracts`: the API error body (`apiErrorSchema`) and the sign-up and
+  rate-limit messages.
+- API, Setup Guide, Deployment and Testing pages updated for the API.
 - The proof of concept is removed and the app is being rebuilt as a pnpm
   monorepo (ADR-0016, ADR-0017).
 - `packages/contracts`: shared Zod schemas for host accounts, sessions, joining,
