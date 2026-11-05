@@ -46,7 +46,7 @@ We dispatch translation jobs through a **Redis Stream with a consumer group**.
 - **Dead workers:** when a lease expires, Hono's lease sweeper sets the track back to pending and enqueues a new job. Pending-entry recovery in Redis (`XAUTOCLAIM`) is not used in the MVP.
 - **Fencing:** Hono answers any call from a pod that is not the track's recorded owner with `409`, and that pod stops and exits. A pod replaced after a network hiccup therefore stops at its next call to Hono.
 - When Hono reconnects to Redis, it enqueues a job for every track that is pending with no owner, so a Redis restart loses no work. Duplicate jobs are rejected at claim.
-- Pods **exit after release**. The Kubernetes autoscaler creates replacements, so no state or memory carries over between tracks.
+- Pods are **single-use**: after release the pod deletes its own pod through the Kubernetes API and exits, and the ReplicaSet creates a fresh pod, so no state or memory carries over between tracks. Simply exiting would make a Deployment restart the container in the same pod, with restart back-off (`CrashLoopBackOff`) after short jobs. An idle pod never exits: it keeps waiting on the stream until it gets a job or a SIGTERM.
 - Scaling signal: each pod exposes an idle/busy gauge on its metrics endpoint (busy means it holds a track and a Gemini connection). The autoscaler keeps the number of idle pods above a floor.
 
 ## Consequences
@@ -67,10 +67,12 @@ We dispatch translation jobs through a **Redis Stream with a consumer group**.
 - A cold pod takes about 30 s, and spare idle pods cost memory (small with Go, see 0019).
 - Scaling is reactive only: there is no scheduled pre-scaling for known conference times.
 - One more component to run and clean: the stream needs trimming, and each single-use pod removes its own consumer from the group on exit.
+- Workers need permission to delete pods in their namespace to delete themselves; Kubernetes cannot limit that to a pod's own name in advance.
+- Scaling on the idle/busy gauge needs KEDA (Prometheus trigger) or a Prometheus adapter, because the HPA alone sees only CPU and memory. CPU is no fallback: a busy pod looks idle while the host is silent.
 
 ### Follow-up work
 
-- Decide how a pod is replaced after it exits: the container restarted in place (watch restart back-off after short jobs) or the pod deleting itself so a new one is created.
+- Deployment ADR: the Role that lets workers delete their own pod, kept to the translator namespace, and the KEDA or Prometheus adapter setup for the idle/busy gauge.
 - Use one LiveKit participant identity per track in the output room, so a new owner also disconnects the old one; verify how LiveKit handles a duplicate identity.
 - Scale-down must remove idle pods only (for example pod deletion cost); verify with the chosen autoscaler.
 - Size the idle-pod floor, the lease TTL (starting at 15 s) and measure the real pod start time.
