@@ -11,11 +11,11 @@ The earlier design had the host's browser stream audio directly to a translation
 
 1. The host creates a session in the PWA. Hono stores the session and one track per target language in Postgres.
 2. Hono creates a **source room** for the session and one **output room per language** through LiveKit's room API, all at the start of the session, and enqueues one job per track (0018).
-3. An idle worker takes a job and calls Hono's claim endpoint. Hono validates the track and returns LiveKit tokens: subscribe-only for the source room, publish-only for the output room. Workers never hold the LiveKit API secret.
+3. An idle worker takes a job and calls Hono's claim endpoint. Hono validates the track, records the worker as its owner in Postgres and returns LiveKit tokens: subscribe-only for the source room, publish-only for the output room. The worker then acknowledges the job in the queue (0018). Workers never hold the LiveKit API secret.
 4. **Inside the container:** the worker joins the source room and subscribes to the host's audio, decodes and prepares it, sends it to Gemini over its own connection, receives the translated audio, encodes it and publishes it into its output room.
 5. Once it has joined both rooms and opened its Gemini connection, the worker reports the track as live to Hono. Live means ready: it does not wait for any audio. The host UI shows each track as live or not live, and the session becomes live once all tracks are live or a threshold is met. The host starts sending audio after this green light.
 6. Listeners enter the session code at Hono, pick a language, receive a subscribe-only token for that output room, and LiveKit fans the audio out to them.
-7. When the host stops the session, or has been gone for 60 s, Hono marks the session ending and deletes the source room. Each worker sees it close, stops its Gemini connection, acknowledges its job in the queue and exits (0018). Hono then deletes the output rooms, which disconnects the listeners, and marks the session ended.
+7. When the host stops the session, or has been gone for 60 s, Hono marks the session ending and deletes the source room. Each worker sees it close, stops its Gemini connection, reports the track as ended to Hono and exits (0018). Hono then deletes the output rooms, which disconnects the listeners, and marks the session ended.
 
 The host publishes upstream once. Each worker, being one track, is simply another subscriber of the host's audio.
 
@@ -59,7 +59,7 @@ The host publishes to a **LiveKit source room**, and the translation workers joi
 
 ### Follow-up work
 
-- Confirm that deleting the rooms is the release signal, and define the backstop for a worker that misses it (see the liveness follow-up in 0018).
+- Confirm that deleting the rooms is the release signal. Backstop for a worker that misses it: Hono answers its next heartbeat with `409` once the session is ending, and the worker exits (0018).
 - Revisit if hosts do not send audio straight after the green light: workers claimed at session creation then hold idle Gemini connections, and Gemini Live connections have lifetime limits (check the current limits). Open: the threshold at which a session counts as live, and where the 60 s host-gone grace runs (a webhook reports the departure at once, so Hono or the janitor has to apply the wait; verify).
 - Confirm room naming, token lifetimes and permissions, and whether workers can join as hidden participants.
 - Verify LiveKit behaviour for duplicate participant identity (fencing, see 0018) and for disabling automatic room creation.
