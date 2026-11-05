@@ -1,0 +1,21 @@
+{
+  "name": "bench-runtime-test-harness",
+  "private": true,
+  "type": "module",
+  "description": "ADR-0019 spike: the tools around the workers for the live-track scenario (host publisher, job dispatch, listener). Their memory is not measured.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@livekit/rtc-node": "^1.2.1",
+    "ioredis": "^6.0.0",
+    "livekit-server-sdk": "^2.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}
