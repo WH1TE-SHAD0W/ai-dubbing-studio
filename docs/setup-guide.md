@@ -87,3 +87,25 @@ pnpm --filter @ads/web preview
 The microphone and the service worker only work in a **secure context**.
 `localhost` counts as one. Anywhere else (a LAN address or a server), serve the
 app over HTTPS.
+The microphone, screen wake lock and service worker only work in a **secure
+context**. `localhost` counts as one. Anywhere else (a LAN address or a server),
+serve the app over HTTPS. nginx passes on `X-Forwarded-Proto`, so the login
+cookie becomes `Secure` automatically behind HTTPS.
+
+## Run Postgres
+
+The database runs in Docker Compose (`docker-compose.yml` at the repository
+root). Its settings come from a `.env` file, which Git ignores.
+
+```bash
+cp .env.example .env    # then change POSTGRES_PASSWORD and DATABASE_URL to match
+docker compose up -d    # start Postgres in the background
+docker compose ps       # wait until STATUS shows (healthy)
+```
+
+- Postgres listens on `localhost:5432` only, so other machines on the network
+  can't reach it. The API connects with `DATABASE_URL` from `.env`.
+- The data is kept in the `postgres-data` volume, so it survives
+  `docker compose down` and `docker compose up`.
+- `docker compose down -v` also deletes the volume, which wipes the database.
+  Use it to start again from empty.
