@@ -1,13 +1,13 @@
-## 0019. Go as the language and runtime of the translation worker pod
+# 0019. Go as the language and runtime of the translation worker pod
 
 - **Status:** Proposed
 - **Date:** 2026-11-05
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-47
 
-### Context
+## Context
 
-The translation container was planned as Node.js with Hono, like the control plane. Two things have changed.
+The translation container was planned as Node.js with Hono, like the control plane ([ADR-0017](0017-translation-plane.md)). Two things have changed, so once accepted this ADR supersedes ADR-0017.
 
 First, the container has **no inbound API**. It exposes only health and metrics endpoints, takes its work from the job queue (0018), and calls Hono for claims and state (0020). Its code is the Gemini adapter SDK and the LiveKit module, so it needs no web framework.
 
@@ -15,7 +15,7 @@ Second, the pool design multiplies fixed costs. With one track per pod, every po
 
 The Hono-to-worker contract (the job payload and Hono's internal claim endpoint) is currently shared as Zod types. A second language means it needs a language-neutral definition.
 
-### Options considered
+## Options considered
 
 1. **Node.js with Hono** (the previous decision)
     - Pros: same language and toolchain as the control plane; shared Zod types; quickest route to a working prototype.
@@ -35,7 +35,7 @@ The Hono-to-worker contract (the job payload and Hono's internal claim endpoint)
 
 Rejected: 1, 2, 3 and 4. Options 1 and 2 are rejected because they keep the Node runtime baseline, which is the problem being solved. Option 3 lowers memory further but at a higher learning and delivery cost. Option 4 is rejected because it adds a framework with nothing to serve.
 
-### Decision
+## Decision
 
 The translation worker is written in **Go with no web framework**.
 
@@ -43,16 +43,16 @@ The translation worker is written in **Go with no web framework**.
 - The Hono-to-worker contract (job payload and Hono's internal claim endpoint) is defined in an **open API standard (OpenAPI / JSON Schema)**, and types are generated for both sides. Zod stays in the control plane.
 - Hono remains the framework for the control plane only.
 
-### Consequences
+## Consequences
 
-**Good**
+### Good
 
 - Lower baseline RAM per pod, which matters most for the warm pool and one-track-per-pod design (to be measured).
 - Smaller image and faster pod start.
 - Predictable latency without an event loop.
 - The language boundary matches the plane boundary: control plane in TypeScript, translation plane in Go.
 
-**Bad / trade-offs**
+### Bad / trade-offs
 
 - Two languages in the monorepo, with separate tooling.
 - The shared Zod types are replaced by a schema definition and code generation.
@@ -60,7 +60,7 @@ The translation worker is written in **Go with no web framework**.
 - Opus handling may require cgo, which weakens the small static binary.
 - Go SDK support for the Gemini Live API and for publishing audio to LiveKit is not yet confirmed.
 
-**Follow-up work**
+### Follow-up work
 
 - Run a spike in both languages with the real SDKs and measure idle memory, memory with one live track, image size, start time and audio glitches.
 - Verify Go support for Gemini Live audio streaming and LiveKit audio publishing, including the Opus approach (cgo or an alternative).

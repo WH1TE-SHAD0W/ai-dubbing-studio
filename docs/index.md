@@ -32,5 +32,10 @@ The [decision records](adr/index.md) plan the MVP:
 - **Storage and logins:** PostgreSQL, with host accounts and logins through
   Better Auth.
 
+Proposed in decision records still under review:
+
+- **Translation worker runtime:** Go with no web framework instead of
+  Node.js and Hono ([ADR-0019](adr/0019-language&runtime-of-translation-worker.md)).
+
 These docs live in the project's repository and are reviewed in pull requests like
 the code.

@@ -15,3 +15,5 @@
   and host-login flows.
 - "Architecture layers" page with diagrams for the App, API, dubbing container
   and media.
+- Proposed ADR-0019: the translation worker written in Go with no web
+  framework; once accepted it supersedes ADR-0017 (YGP-47).
