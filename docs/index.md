@@ -32,5 +32,10 @@ The [decision records](adr/index.md) plan the MVP:
 - **Storage and logins:** PostgreSQL, with host accounts and logins through
   Better Auth.
 
+Proposed in decision records still under review:
+
+- **Host audio:** the host publishes once to a LiveKit source room and
+  the workers subscribe to it ([ADR-0020](adr/0020-input-audio-stream.md)).
+
 These docs live in the project's repository and are reviewed in pull requests like
 the code.

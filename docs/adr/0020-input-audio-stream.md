@@ -1,11 +1,11 @@
-## 0020. Host audio reaches the translation workers through LiveKit rooms
+# 0020. Host audio reaches the translation workers through LiveKit rooms
 
 - **Status:** Proposed
 - **Date:** 2026-11-05
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-43
 
-### Context
+## Context
 
 The earlier design had the host's browser stream audio directly to a translation container, which then published into LiveKit. With pooled, queue-dispatched, single-use pods (0018) that no longer fits, so the audio path changes. The whole sequence, with everything outside the container kept short:
 
@@ -19,7 +19,7 @@ The earlier design had the host's browser stream audio directly to a translation
 
 The host publishes upstream once. Each worker, being one track, is simply another subscriber of the host's audio.
 
-### Options considered
+## Options considered
 
 1. **Host publishes to a LiveKit source room; workers subscribe**
     - Pros: the host uploads once and the SFU duplicates the stream to every worker; no session-affine routing, so any idle worker can serve any track; workers are interchangeable and fit queue dispatch; no ingress path of our own in the container; reuses LiveKit, which the host already connects to.
@@ -30,7 +30,7 @@ The host publishes upstream once. Each worker, being one track, is simply anothe
 
 Rejected: 2. It is rejected because direct ingest ties the host to one specific pod, which conflicts with a warm pool where pods are interchangeable and replaced.
 
-### Decision
+## Decision
 
 The host publishes to a **LiveKit source room**, and the translation workers join it as subscribers.
 
@@ -39,9 +39,9 @@ The host publishes to a **LiveKit source room**, and the translation workers joi
 - The host UI shows each track as live or not live, where live means ready (rooms joined and Gemini connection open, no audio needed yet). Each worker opens its Gemini connection when it claims its job, on the assumption that the host sends audio straight after the green light.
 - Listeners join only the output room of their language. Changing language means joining a different room.
 
-### Consequences
+## Consequences
 
-**Good**
+### Good
 
 - Workers are interchangeable, so scaling and replacing pods needs no routing.
 - The host uploads one stream regardless of the number of languages.
@@ -49,7 +49,7 @@ The host publishes to a **LiveKit source room**, and the translation workers joi
 - A room lives on one node, so per-language output rooms spread listeners across nodes once LiveKit is multi-node.
 - The host sees per-track status.
 
-**Bad / trade-offs**
+### Bad / trade-offs
 
 - An extra hop and a LiveKit dependency in the translation path.
 - Room management (creation, deletion, orphans) is now Hono's responsibility.
@@ -57,7 +57,7 @@ The host publishes to a **LiveKit source room**, and the translation workers joi
 - Each pod decodes the host audio itself.
 - Switching language involves a short gap while joining another room.
 
-**Follow-up work**
+### Follow-up work
 
 - Confirm that deleting the rooms is the release signal, and define the backstop for a worker that misses it (see the liveness follow-up in 0018).
 - Revisit if hosts do not send audio straight after the green light: workers claimed at session creation then hold idle Gemini connections, and Gemini Live connections have lifetime limits (check the current limits). Open: the threshold at which a session counts as live, and where the 60 s host-gone grace runs (a webhook reports the departure at once, so Hono or the janitor has to apply the wait; verify).

@@ -15,3 +15,5 @@
   and host-login flows.
 - "Architecture layers" page with diagrams for the App, API, dubbing container
   and media.
+- Proposed ADR-0020: host audio reaches the translation workers through a
+  LiveKit source room, with one output room per language (YGP-43).
