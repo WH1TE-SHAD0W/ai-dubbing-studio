@@ -1,31 +1,39 @@
 # Testing
 
-Automated tests use a fake Gemini engine, so they are free and can run on every
-change. The real service is checked separately with a probe script, and live
-sessions are debugged from the backend logs.
+Every package is tested with [Vitest](https://vitest.dev/). The tests need no
+API key, no database and no running server, so they are free and can run on
+every change.
 
 ## Automated tests
 
-Both the backend and the frontend use [Vitest](https://vitest.dev/). The tests use
-a **fake Gemini engine**, so they need no API key and cost nothing.
+From the repository root, for every package:
 
 ```bash
-cd backend && npm test
+pnpm test
 ```
 
 ```bash
-cd frontend && npm test
+pnpm typecheck
 ```
 
-Run `npm run typecheck` in either folder to check the TypeScript types without
-building.
+Or for one package, for example `pnpm --filter @ads/web test`.
 
-| Where | Test files |
+| Where | What is tested |
 |---|---|
-| `backend/test/` | `app` (HTTP routes), `session`, `gemini`, `gemini-protocol`, `basics` |
-| `frontend/src/` | `pages/pages`, `pages/createSession`, `components/MicPicker`, `live/mic`, `live/pcm`, `lib/lib` |
+| `packages/contracts/test/` | The shared schemas: join codes, password rules, the create-session rules, the dubbing-container request |
+| `apps/web/src/app.test.tsx` | The whole app with its real router: redirects, the Studio login guard, joining by code, the listener's waiting and not-found states, logging in, and creating a session and going live |
 
-## Testing against the real Gemini API
+The app tests run against the same **mock API** as `pnpm dev:mock`
+(`apps/web/src/mocks/handlers.ts`), intercepted in Node by
+[MSW](https://mswjs.io/). The mock validates each request with the shared
+schemas, so a test fails if the app sends something the contract doesn't allow.
+
+## From the proof of concept
+
+The sections below describe the proof-of-concept backend, which has been
+removed. They are kept for when the dubbing container is rebuilt.
+
+### Testing against the real Gemini API
 
 To check the real service, the backend has a probe script. It needs an API key,
 and a few seconds of audio costs very little.
@@ -44,7 +52,7 @@ The probe streams the WAV in real time and reports:
 
 It also writes `probe-out-sk.wav` so you can listen to the translation.
 
-## Debugging a live session
+### Debugging a live session
 
 When the app connects but Gemini doesn't respond, read the backend logs:
 

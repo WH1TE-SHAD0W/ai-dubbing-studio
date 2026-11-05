@@ -1,65 +1,92 @@
 # Setup Guide
 
-How to run AI Dubbing Studio on your own machine. This describes the app as it
-works today: sessions are kept in memory and there is one host account set in
-`.env`. Planned changes are in the [decision records](adr/index.md).
+How to run AI Dubbing Studio on your own machine while it is being rebuilt. Only
+the shared schemas and the app (the React PWA) exist so far; the Hono API and the
+dubbing container are not built yet. The plan is in the
+[Architecture](architecture.md) page and the [decision records](adr/index.md).
 
 ## What you need
 
-- [Docker](https://docs.docker.com/get-docker/) with Docker Compose, to run the app.
-- [Node.js](https://nodejs.org/) 22, only for local development without Docker.
-- A [Google AI Studio](https://aistudio.google.com/) API key with access to the
-  Gemini Live Translate preview model.
+- [Node.js](https://nodejs.org/) 24 or later.
+- pnpm, through Corepack, which comes with Node. Run `corepack enable` once (see
+  [Install](#install)); the version is pinned in the root `package.json`.
 
-## Run with Docker
+## Install
 
-```bash
-cp .env.example .env        # then fill in the settings below
-docker compose up --build   # open http://localhost:8080
-```
-
-## Settings (`.env`)
-
-| Variable | Purpose |
-|---|---|
-| `GEMINI_API_KEY` | **Required.** Google AI Studio key. It stays in the backend; the browser never sees it. |
-| `GEMINI_MODEL` | Gemini model to use. Default `gemini-3.5-live-translate-preview`. |
-| `HOST_EMAIL`, `HOST_PASSWORD` | **Required.** The one host account, checked by the backend. |
-| `HOST_NAME` | Optional. The host's display name. |
-| `SESSION_SECRET` | Optional. Signs the login cookie. If empty, one is generated at start-up, so a restart logs everyone out. |
-| `MAX_SESSION_MINUTES` | A session ends automatically after this long. Default 240. |
-| `HOST_GRACE_SECONDS` | A session ends if the host has been disconnected this long. Default 60. |
-| `MAX_TARGET_LANGUAGES` | Most target languages per session. Default 5. |
-| `LOG_LEVEL` | `info` (default) or `debug`, which adds Gemini message traces and a session report every 5 seconds. |
-| `API_UPSTREAM` | Where the frontend's nginx forwards `/api`. Default `http://backend:8000`. |
-| `PORT` | Port the app is served on. Default 8080. |
-
-Every target language is a separate paid Gemini stream. `MAX_SESSION_MINUTES`,
-`HOST_GRACE_SECONDS` and `MAX_TARGET_LANGUAGES` cap how much one session can spend.
-
-## Local development
-
-Run the backend and frontend in two terminals:
+From the repository root, enable Corepack once, then install:
 
 ```bash
-cd backend && npm install && GEMINI_API_KEY=... HOST_EMAIL=... HOST_PASSWORD=... npm run dev
+corepack enable
+pnpm install
 ```
+
+`corepack enable` is required. It puts the pinned `pnpm` on your `PATH`, and the
+root scripts (`pnpm -r test` and the like) call plain `pnpm`, so without it
+`pnpm test` fails with `'pnpm' is not recognized`. On Windows, run it in an
+elevated terminal if it reports a permission error.
+
+The workspace refuses package versions published less than a week ago
+(`minimumReleaseAge` in `pnpm-workspace.yaml`), which guards against a freshly
+published malicious release.
+
+## Repository layout
+
+| Folder | Package | What it is |
+|---|---|---|
+| `packages/contracts` | `@ads/contracts` | Zod schemas shared by the app, the API and the dubbing container ([ADR-0016](adr/0016-schema-validator.md)) |
+| `apps/web` | `@ads/web` | The React PWA ([ADR-0010](adr/0010-mobile-native.md), [ADR-0014](adr/0014-pages.md)) |
+
+## Run the app
+
+There is no API yet, so the app normally runs with a **mock API** in the browser
+([MSW](https://mswjs.io/)). It answers the same requests the Hono API will, using
+the same schemas.
 
 ```bash
-cd frontend && npm install && npm run dev
+pnpm dev:mock
 ```
 
-- The backend runs on port 8000 and the frontend on port 5173, which forwards
-  `/api` to the backend.
-- In development, `/dev/preview` shows the Studio and Listener screens with
-  sample data in each state.
+Open <http://localhost:5173>. In mock mode:
+
+- Log in as `host@example.com` with the password `demo password 123`, or
+  register a new host.
+- Join the live demo session with code `DEMO42`, or `WAIT01` for one that
+  hasn't started.
+- Listening gets as far as connecting to LiveKit, then shows a connection error,
+  because there is no LiveKit server behind the mocks.
+
+The mock data is kept for the browser tab, so a reload keeps you logged in.
+
+To run against a real API instead (once it exists), start it on port 3000 and
+run:
+
+```bash
+pnpm dev
+```
+
+The dev server forwards `/api` to `http://localhost:3000`; set `API_URL` to use
+another address. In production Hono serves the built app itself, on the same
+origin ([ADR-0012](adr/0012-serving-pwa-bundle.md)).
+
+## Build
+
+```bash
+pnpm build
+```
+
+The app is built into `apps/web/dist`, with the web app manifest and a service
+worker that caches only the app shell. API calls and audio are never cached. The
+mock API is never part of a build. To try the build locally:
+
+```bash
+pnpm --filter @ads/web preview
+```
 
 ## Secure context
 
-The microphone, screen wake lock and service worker only work in a **secure
-context**. `localhost` counts as one. Anywhere else (a LAN address or a server),
-serve the app over HTTPS. nginx passes on `X-Forwarded-Proto`, so the login
-cookie becomes `Secure` automatically behind HTTPS.
+The microphone and the service worker only work in a **secure context**.
+`localhost` counts as one. Anywhere else (a LAN address or a server), serve the
+app over HTTPS.
 
 ## Run Postgres
 
