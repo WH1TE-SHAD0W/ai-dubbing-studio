@@ -78,7 +78,8 @@ flowchart LR
 
 1. A merge into `testing` or `main` builds the images and pushes them to
    GitHub's container registry (GHCR). Each image is tagged with its commit
-   SHA, plus `testing` or `prod`.
+   SHA, plus `testing` or `prod`. The [CI/CD page](ci-cd.md#code-ci-planned)
+   covers the image build and its tags.
 2. The Kubernetes manifests in Git (YGP-81) describe what each environment
    runs, including the autoscaling for the worker pool.
 3. Argo CD (YGP-82) watches the manifests and syncs the cluster to them.

@@ -1,0 +1,341 @@
+{
+  "go": {
+    "measuredAt": "2026-11-05T22:02:50.384Z",
+    "minutes": 5,
+    "window": 3,
+    "imageUnpackedBytes": 127101159,
+    "imageGzipBytes": 45988059,
+    "runs": [
+      {
+        "run": 1,
+        "readyMs": 193,
+        "workingSet": 19863552,
+        "anon": 18612224,
+        "file": 0,
+        "rssAnon": 20865024,
+        "rssFile": 28553216,
+        "rss": 45809664,
+        "heap": 17129472,
+        "external": null,
+        "peakWorkingSet": 22597632,
+        "cpu": 0
+      },
+      {
+        "run": 2,
+        "readyMs": 219,
+        "workingSet": 20480000,
+        "anon": 19329024,
+        "file": 0,
+        "rssAnon": 21512192,
+        "rssFile": 28696576,
+        "rss": 46792704,
+        "heap": 16330752,
+        "external": null,
+        "peakWorkingSet": 23265280,
+        "cpu": 0
+      },
+      {
+        "run": 3,
+        "readyMs": 184,
+        "workingSet": 19566592,
+        "anon": 18264064,
+        "file": 499712,
+        "rssAnon": 21225472,
+        "rssFile": 28430336,
+        "rss": 45875200,
+        "heap": 15441920,
+        "external": null,
+        "peakWorkingSet": 22540288,
+        "cpu": 0
+      }
+    ]
+  },
+  "node": {
+    "measuredAt": "2026-11-05T22:18:07.973Z",
+    "minutes": 5,
+    "window": 3,
+    "imageUnpackedBytes": 299049986,
+    "imageGzipBytes": 99819456,
+    "runs": [
+      {
+        "run": 1,
+        "readyMs": 865,
+        "workingSet": 40206336,
+        "anon": 36933632,
+        "file": 54579200,
+        "rssAnon": 37478400,
+        "rssFile": 56614912,
+        "rss": 93454336,
+        "heap": 17300008,
+        "external": 5473853,
+        "peakWorkingSet": 55373824,
+        "cpu": 0.7485948080594855
+      },
+      {
+        "run": 2,
+        "readyMs": 631,
+        "workingSet": 38567936,
+        "anon": 35295232,
+        "file": 5955584,
+        "rssAnon": 36900864,
+        "rssFile": 55840768,
+        "rss": 91062272,
+        "heap": 17308968,
+        "external": 5473853,
+        "peakWorkingSet": 59666432,
+        "cpu": 0.738517902797194
+      },
+      {
+        "run": 3,
+        "readyMs": 432,
+        "workingSet": 38608896,
+        "anon": 35561472,
+        "file": 8192,
+        "rssAnon": 36782080,
+        "rssFile": 56242176,
+        "rss": 91729920,
+        "heap": 17290036,
+        "external": 5473853,
+        "peakWorkingSet": 54472704,
+        "cpu": 0.720450440713224
+      }
+    ]
+  },
+  "go-long": {
+    "runtime": "go",
+    "gomaxprocs": null,
+    "measuredAt": "2026-11-05T22:36:04.966Z",
+    "minutes": 15,
+    "window": 5,
+    "imageUnpackedBytes": 127101159,
+    "imageGzipBytes": 45988059,
+    "runs": [
+      {
+        "run": 1,
+        "readyMs": 210,
+        "workingSet": 21415936,
+        "anon": 20336640,
+        "file": 335872,
+        "rssAnon": 20180992,
+        "rssFile": 27045888,
+        "rss": 46100480,
+        "heap": 15507456,
+        "external": null,
+        "peakWorkingSet": 24006656,
+        "cpu": 0.021442633602252424
+      }
+    ]
+  },
+  "node-long": {
+    "runtime": "node",
+    "gomaxprocs": null,
+    "measuredAt": "2026-11-05T22:51:16.663Z",
+    "minutes": 15,
+    "window": 5,
+    "imageUnpackedBytes": 299049986,
+    "imageGzipBytes": 99819456,
+    "runs": [
+      {
+        "run": 1,
+        "readyMs": 835,
+        "workingSet": 41263104,
+        "anon": 37777408,
+        "file": 54759424,
+        "rssAnon": 38146048,
+        "rssFile": 56508416,
+        "rss": 94203904,
+        "heap": 18003704,
+        "external": 5473853,
+        "peakWorkingSet": 54632448,
+        "cpu": 0.8116755804134184
+      }
+    ]
+  },
+  "go-gomaxprocs2": {
+    "runtime": "go",
+    "gomaxprocs": "2",
+    "measuredAt": "2026-11-05T23:06:26.128Z",
+    "minutes": 15,
+    "window": 5,
+    "imageUnpackedBytes": 127101159,
+    "imageGzipBytes": 45988059,
+    "runs": [
+      {
+        "run": 1,
+        "readyMs": 270,
+        "workingSet": 13938688,
+        "anon": 13090816,
+        "file": 25698304,
+        "rssAnon": 13471744,
+        "rssFile": 27357184,
+        "rss": 39583744,
+        "heap": 8790016,
+        "external": null,
+        "peakWorkingSet": 15200256,
+        "cpu": 0.023200973006905212
+      }
+    ]
+  },
+  "go-live": {
+    "runtime": "go",
+    "scenario": "live",
+    "gomaxprocs": null,
+    "measuredAt": "2026-11-05T23:25:56.193Z",
+    "minutes": 5,
+    "window": 3,
+    "imageUnpackedBytes": 127105287,
+    "imageGzipBytes": 45989614,
+    "runs": [
+      {
+        "run": 1,
+        "readyMs": 233,
+        "jobToLiveMs": 469,
+        "endToExitMs": 36,
+        "audioInSec": 263.3,
+        "audioOutSec": 298.5,
+        "listener": {
+          "frames": 30112,
+          "audibleFrames": 23633,
+          "maxGapMs": 14
+        },
+        "workingSet": 24025088,
+        "anon": 21303296,
+        "file": 0,
+        "rssAnon": 21753856,
+        "rssFile": 33554432,
+        "rss": 53760000,
+        "heap": 13328384,
+        "external": null,
+        "peakWorkingSet": 25911296,
+        "cpu": 7.579531122556549
+      },
+      {
+        "run": 2,
+        "readyMs": 197,
+        "jobToLiveMs": 424,
+        "endToExitMs": 40,
+        "audioInSec": 263.1,
+        "audioOutSec": 295,
+        "listener": {
+          "frames": 30119,
+          "audibleFrames": 21466,
+          "maxGapMs": 13
+        },
+        "workingSet": 23609344,
+        "anon": 20768768,
+        "file": 0,
+        "rssAnon": 21135360,
+        "rssFile": 33902592,
+        "rss": 53227520,
+        "heap": 12845056,
+        "external": null,
+        "peakWorkingSet": 25247744,
+        "cpu": 7.161240323866577
+      },
+      {
+        "run": 3,
+        "readyMs": 319,
+        "jobToLiveMs": 474,
+        "endToExitMs": 27,
+        "audioInSec": 263.1,
+        "audioOutSec": 298.5,
+        "listener": {
+          "frames": 30088,
+          "audibleFrames": 23584,
+          "maxGapMs": 14
+        },
+        "workingSet": 23773184,
+        "anon": 20877312,
+        "file": 0,
+        "rssAnon": 20815872,
+        "rssFile": 33443840,
+        "rss": 53432320,
+        "heap": 13791232,
+        "external": null,
+        "peakWorkingSet": 25837568,
+        "cpu": 7.362013486734989
+      }
+    ]
+  },
+  "node-live": {
+    "runtime": "node",
+    "scenario": "live",
+    "gomaxprocs": null,
+    "measuredAt": "2026-11-05T23:41:31.972Z",
+    "minutes": 5,
+    "window": 3,
+    "imageUnpackedBytes": 299051041,
+    "imageGzipBytes": 99820017,
+    "runs": [
+      {
+        "run": 1,
+        "readyMs": 393,
+        "jobToLiveMs": 564,
+        "endToExitMs": 40,
+        "audioInSec": 301.3,
+        "audioOutSec": 298.5,
+        "listener": {
+          "frames": 30106,
+          "audibleFrames": 22076,
+          "maxGapMs": 14
+        },
+        "workingSet": 65705984,
+        "anon": 60575744,
+        "file": 0,
+        "rssAnon": 54091776,
+        "rssFile": 68182016,
+        "rss": 128753664,
+        "heap": 20285948,
+        "external": 6210199.5,
+        "peakWorkingSet": 89067520,
+        "cpu": 13.852741067425569
+      },
+      {
+        "run": 2,
+        "readyMs": 437,
+        "jobToLiveMs": 692,
+        "endToExitMs": 33,
+        "audioInSec": 301.1,
+        "audioOutSec": 298.5,
+        "listener": {
+          "frames": 30099,
+          "audibleFrames": 21484,
+          "maxGapMs": 19
+        },
+        "workingSet": 65376256,
+        "anon": 60342272,
+        "file": 0,
+        "rssAnon": 53723136,
+        "rssFile": 68222976,
+        "rss": 128540672,
+        "heap": 20398872,
+        "external": 6058039.5,
+        "peakWorkingSet": 88158208,
+        "cpu": 8.389750733867356
+      },
+      {
+        "run": 3,
+        "readyMs": 412,
+        "jobToLiveMs": 581,
+        "endToExitMs": 51,
+        "audioInSec": 301.2,
+        "audioOutSec": 298.5,
+        "listener": {
+          "frames": 30124,
+          "audibleFrames": 21824,
+          "maxGapMs": 20
+        },
+        "workingSet": 64815104,
+        "anon": 59918336,
+        "file": 0,
+        "rssAnon": 57454592,
+        "rssFile": 68263936,
+        "rss": 128157696,
+        "heap": 20511340,
+        "external": 8238010,
+        "peakWorkingSet": 87232512,
+        "cpu": 17.806023933825255
+      }
+    ]
+  }
+}
