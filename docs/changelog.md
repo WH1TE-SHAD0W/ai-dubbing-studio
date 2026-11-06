@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- LiveKit rooms in the API: room names from the session and language
+  (ADR-0020), creating a session's source room and one output room per
+  language, and deleting them in two steps; new `LIVEKIT_` settings, passed to
+  the `api` container. Tested against a real LiveKit, also in CI (YGP-69).
 - Code checks on every pull request: typecheck, tests with a Postgres
   database, and build (YGP-75).
 - CI/CD page: the docs checks, publishing the site, running and fixing the
