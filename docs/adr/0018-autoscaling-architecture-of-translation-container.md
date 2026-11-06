@@ -1,6 +1,6 @@
 # 0018. Autoscaling and job dispatch for translation workers with Redis Streams
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-05
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-91 & YGP-98
@@ -39,7 +39,7 @@ Rejected: 2, 3 and 4. Option 2 is the closest competitor. The chosen design also
 
 We dispatch translation jobs through a **Redis Stream with a consumer group**.
 
-- One job per track, carrying only identifiers and minimal metadata (session, track, target language, room names, provider) and no secrets. Hono enqueues the jobs when the session is created, together with the rooms (0020). Each worker pod reads from the group, so each job goes to exactly one pod.
+- One job per track, carrying only identifiers and minimal metadata (session, track, target language, room names, provider) and no secrets. Hono enqueues the jobs when the session goes live, together with the rooms (0020). Each worker pod reads from the group, so each job goes to exactly one pod.
 - **One track per pod.**
 - **Postgres is the single source of truth** and is accessed only through Hono. Redis only delivers jobs: the consumer group keeps several pods from fetching the same job and sending needless claims to Hono. Workers get authorisation and report track state through Hono's endpoints (see 0020).
 - The pod **acknowledges the job right after Hono accepts its claim**. Hono records the pod as the track's owner in Postgres, with a lease the pod renews by sending Hono a heartbeat every 5 s.
@@ -76,5 +76,5 @@ We dispatch translation jobs through a **Redis Stream with a consumer group**.
 - Size the idle-pod floor, the lease TTL (starting at 15 s) and measure the real pod start time.
 - Recovery of single lost jobs, beyond re-enqueuing when Hono reconnects to Redis (for example re-enqueue tracks pending for too long).
 - Dead-letter handling for jobs that keep failing.
-- Revisit if hosts do not send audio straight after the green light: workers claimed at session creation then hold idle Gemini connections (see 0020).
+- Revisit if hosts do not send audio straight after the green light: workers claimed when the session goes live then hold idle Gemini connections (see 0020).
 - Verify Redis Streams behaviour and version requirements against current documentation.

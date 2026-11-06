@@ -1,6 +1,6 @@
 # 0019. Go as the language and runtime of the translation worker pod
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-05
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-47
