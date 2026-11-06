@@ -14,6 +14,7 @@ nav:
   - Branching Strategy: branching-strategy.md
   - Setup Guide: setup-guide.md
   - Deployment: deployment.md
+  - CI/CD: ci-cd.md
   - Testing: testing.md
   - User Guide: user-guide.md
   - Decisions (ADRs): adr/index.md
