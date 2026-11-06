@@ -69,17 +69,17 @@ deploys to the cluster by hand.
 ```mermaid
 flowchart LR
     merge["Merge into<br>testing or main"] --> build["Image build<br>(YGP-52)"]
-    build --> ghcr["GitHub container<br>registry"]
+    build --> hub["Docker Hub"]
     git["Manifests in Git<br>(YGP-81)"] --> argo["Argo CD<br>(YGP-82)"]
-    ghcr --> argo
+    hub --> argo
     argo --> test["Test environment"]
     argo --> prod["Production"]
 ```
 
 1. A merge into `testing` or `main` builds the images and pushes them to
-   GitHub's container registry (GHCR). Each image is tagged with its commit
-   SHA, plus `testing` or `prod`. The [CI/CD page](ci-cd.md#code-ci-planned)
-   covers the image build and its tags.
+   Docker Hub. Each image is tagged with its commit SHA, plus `testing` or
+   `prod`. The [CI/CD page](ci-cd.md#code-ci-planned) covers the image build
+   and its tags.
 2. The Kubernetes manifests in Git (YGP-81) describe what each environment
    runs, including the autoscaling for the worker pool.
 3. Argo CD (YGP-82) watches the manifests and syncs the cluster to them.
