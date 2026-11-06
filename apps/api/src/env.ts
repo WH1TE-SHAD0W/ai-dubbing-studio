@@ -32,7 +32,9 @@ export const baseEnvSchema = z.object({
   BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
   // Other origins allowed to call /api/auth, e.g. the Vite dev server
   // (http://localhost:5173), whose proxy keeps the browser's Origin header.
-  TRUSTED_ORIGINS: commaList(z.url({ protocol: /^https?$/ })),
+  // Kept as bare origins: Better Auth compares the exact string the browser
+  // sends, so "http://127.0.0.1:3000/" (trailing slash) would never match.
+  TRUSTED_ORIGINS: commaList(z.url({ protocol: /^https?$/ })).transform((urls) => urls.map((url) => new URL(url).origin)),
   // Reverse proxies in front of the API (IPs or CIDR ranges). Their
   // X-Forwarded-For is believed; without any, the socket address is the client IP.
   TRUSTED_PROXIES: commaList(z.union([z.cidrv4(), z.cidrv6(), z.ipv4(), z.ipv6()])),

@@ -36,6 +36,11 @@ describe("environment", () => {
     expect(env.TRUSTED_PROXIES).toEqual(["10.0.0.0/8", "::1"]);
   });
 
+  it("keeps only the origin of each trusted origin, as browsers send it", () => {
+    const env = loadEnv({ ...minimal, TRUSTED_ORIGINS: "http://127.0.0.1:3000/, https://a.example/app" });
+    expect(env.TRUSTED_ORIGINS).toEqual(["http://127.0.0.1:3000", "https://a.example"]);
+  });
+
   it("names every missing or bad setting", () => {
     expect(() => loadEnv({ BETTER_AUTH_SECRET: "short", PORT: "http" })).toThrow(
       /DATABASE_URL[\s\S]*BETTER_AUTH_SECRET[\s\S]*BETTER_AUTH_URL|PORT/,
