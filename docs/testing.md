@@ -2,7 +2,7 @@
 
 Every package is tested with [Vitest](https://vitest.dev/). The tests need no
 API key and no running server, so they are free and can run on every change.
-Only the API's main test needs a database: Postgres from Docker Compose.
+Only the API's database tests need a database: Postgres from Docker Compose.
 
 ## Automated tests
 
@@ -25,6 +25,7 @@ Or for one package, for example `pnpm --filter @ads/web test`.
 | `apps/api/test/password.test.ts` | Argon2id hashing (the stored settings, salts, older settings still verifying, malformed hashes) and the common-password list |
 | `apps/api/test/env.test.ts` | The settings schema: defaults, comma lists, and an error naming each bad setting |
 | `apps/api/test/app.test.ts` | The whole API against Postgres: sign-up, login, the 12-hour login row, the failure messages, the login rate limit, logout, the host-only check, the placeholder routes and serving the app |
+| `apps/api/test/migrations.test.ts` | The migration runner against Postgres: files run once and in name order, a failing file leaves nothing behind and stops the run, badly named files are rejected, and two API copies starting together apply a file only once |
 
 The app tests run against the same **mock API** as `pnpm dev:mock`
 (`apps/web/src/mocks/handlers.ts`), intercepted in Node by
@@ -44,6 +45,13 @@ pnpm --filter @ads/api test      # with DATABASE_URL set, as in .env
 
 It uses a new email and a made-up client IP in each test, so it can run against
 a database that already has data, and repeatedly.
+
+`apps/api/test/migrations.test.ts` needs the same setting. Each of its tests
+works in a new, empty schema that is dropped afterwards, so it never touches
+your real tables.
+
+In CI, the Test job of the CI workflow (YGP-75) sets `TEST_DATABASE_URL` to its
+own Postgres, so these tests always run there.
 
 ## From the proof of concept
 

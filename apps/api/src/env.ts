@@ -38,6 +38,10 @@ export const envSchema = z.object({
 
   // The built PWA (ADR-0012). Relative paths are resolved from the working directory.
   WEB_DIST: z.string().min(1).default("../web/dist"),
+
+  // Our numbered .sql migrations (YGP-62). Relative paths are resolved from the
+  // working directory, like WEB_DIST.
+  MIGRATIONS_DIR: z.string().min(1).default("migrations"),
 });
 
 export type Env = z.infer<typeof envSchema>;

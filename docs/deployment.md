@@ -64,7 +64,10 @@ docker compose logs -f api
 - **Back up the `postgres-data` volume**: it holds every host account.
   `docker compose down -v` deletes it.
 - **More than one API container works**: logins and rate limits are kept in
-  Postgres, not in memory.
+  Postgres, not in memory. Copies that start together don't clash over the
+  tables either: the table updates run under one Postgres lock, so the second
+  copy waits for the first (see
+  [Database migrations](setup-guide.md#database-migrations)).
 
 > **Planned changes:** a LiveKit container for listener audio, and a separate
 > dubbing container that talks to Gemini (ADR-0008, ADR-0009). See the

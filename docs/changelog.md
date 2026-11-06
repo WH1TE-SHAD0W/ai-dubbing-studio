@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Database migrations: the API applies the numbered `.sql` files in
+  `apps/api/migrations/` on every start, records them in `schema_migrations`,
+  and runs them and Better Auth's under one Postgres lock so API copies starting
+  together don't clash (YGP-62).
 - `apps/api`: the Hono API, first part. It serves the built app with cache
   headers, connects to Postgres and handles host sign-up, login and logout with
   Better Auth, configured as ADR-0003 decides (12-hour logins in a `logins`

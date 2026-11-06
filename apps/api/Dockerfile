@@ -39,10 +39,13 @@ RUN pnpm --filter @ads/web build && pnpm --filter @ads/api build
 FROM node:${NODE_VERSION}-alpine
 ENV NODE_ENV=production \
     PORT=3000 \
-    WEB_DIST=/app/web
+    WEB_DIST=/app/web \
+    MIGRATIONS_DIR=/app/migrations
 WORKDIR /app
 COPY --from=build /repo/apps/api/dist/server.mjs ./server.mjs
 COPY --from=build /repo/apps/web/dist ./web
+# The .sql files aren't part of the bundle, so they're copied in as they are.
+COPY --from=build /repo/apps/api/migrations ./migrations
 
 USER node
 EXPOSE 3000
