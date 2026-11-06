@@ -20,6 +20,6 @@ Accepted ADRs are not edited; a new ADR supersedes an old one.
 | [0015](0015-auth-library.md)                     | Better Auth for host login                       | Accepted |
 | [0016](0016-schema-validator.md)                 | Zod for schemas and validation                   | Accepted |
 | [0017](0017-translation-plane.md)                | Dubbing container framework and runtime          | Accepted |
-| [0019](0019-language&runtime-of-translation-worker.md) | Go for the translation worker                    | Proposed |
+| [0019](0019-translation-worker-runtime.md)       | Go for the translation worker                    | Proposed |
 
 Numbers 0004–0006 were not used.

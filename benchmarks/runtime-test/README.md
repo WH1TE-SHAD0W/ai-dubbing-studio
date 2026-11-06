@@ -1,6 +1,6 @@
 # Runtime spike: translator worker RAM, Node vs Go
 
-[ADR-0019](../../docs/adr/0019-language&runtime-of-translation-worker.md) (proposed) picks Go
+[ADR-0019](../../docs/adr/0019-translation-worker-runtime.md) (proposed) picks Go
 for the translator pod. Its only reason is lower runtime RAM: each pod serves one track,
 and a warm pool of idle pods waits for work, so every pod's baseline is paid many times
 over. The ADR's first draft guessed "an idle Node pod with the SDKs loaded uses 100–150 MB
