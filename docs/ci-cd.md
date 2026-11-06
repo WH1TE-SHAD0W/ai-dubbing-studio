@@ -1,15 +1,18 @@
 # CI/CD
 
-The docs are checked and published by GitHub Actions. Two workflows do the
-work:
+GitHub Actions checks the docs and the translator code, and publishes the docs
+site. Three workflows do the work:
 
 - **Docs** (`.github/workflows/docs.yml`) checks the docs on every pull request
   that changes them, and again after each merge into `main`.
 - **Deploy docs** (`.github/workflows/deploy-docs.yml`) builds the site and
   publishes it to [GitHub Pages](https://wh1te-shad0w.github.io/ai-dubbing-studio/)
   whenever the docs change on `main`.
+- **Translator** (`.github/workflows/translator.yml`) checks the translator
+  worker, its contract with the API, and the API, on every pull request that
+  changes them. See [Translator workflow](#translator-workflow).
 
-The application code has no pipeline yet; see
+The app (`apps/web`) has no pipeline yet; see
 [Code CI (planned)](#code-ci-planned).
 
 ## How a docs change goes live
@@ -146,6 +149,56 @@ request on a `docs/` branch. For example, ADR-0017 was merged with lint errors,
 and [pull request #20](https://github.com/WH1TE-SHAD0W/ai-dubbing-studio/pull/20)
 fixed them.
 
+## Translator workflow
+
+The **Translator** workflow (`.github/workflows/translator.yml`) runs on every
+pull request that changes any of these, and again after a push to `main` or
+`development` that does:
+
+- anything in `apps/translator/`, `apps/api/` or `packages/contracts/`
+- `pnpm-lock.yaml`
+- `.github/workflows/translator.yml`
+
+Its three jobs run at the same time:
+
+| Job | What it runs | Fails when |
+|---|---|---|
+| Format, vet, generate, test | In `apps/translator`, with the Go version from `go.mod` and a Redis 8 service: `gofmt -l .`, `go vet ./...`, `go generate ./...` followed by `git diff --exit-code`, `go test -race ./...`, then `go test -race -tags integration ./...` against the Redis service. | A Go file isn't formatted, `go vet` finds a problem, the generated Go types no longer match the OpenAPI document, or a test fails, including a data race. |
+| Contract types, API tests (Postgres, Redis) | With Node 24, pnpm through Corepack, and Postgres 18 and Redis 8 services: `pnpm install --frozen-lockfile`, `pnpm --filter @ads/contracts gen:openapi` followed by `git diff --exit-code -- packages/contracts/src/generated`, then typecheck and test `@ads/contracts` and `@ads/api`. | The lockfile doesn't match `package.json`, the TypeScript types no longer match the OpenAPI document, a Zod schema no longer matches its generated type, or a test fails. The API's database tests run against the Postgres service, in their own `dubbing_test` database. |
+| Build image | `docker build` in `apps/translator`. | The worker's image doesn't build. |
+
+The OpenAPI document `packages/contracts/openapi/translator-control.yaml` is the
+one source for both sides' types, so the two "generated … up to date" steps
+keep the Go worker and the API from drifting apart.
+
+### Running these checks locally
+
+From the repository root, with Postgres and Redis running
+(`docker compose up -d postgres redis`) and `.env` loaded into the shell:
+
+```bash
+cd apps/translator
+gofmt -l .                                   # must print nothing
+go vet ./...
+go test -race ./...
+go test -race -tags integration ./...        # uses REDIS_URL
+cd ../..
+pnpm --filter @ads/contracts --filter @ads/api typecheck
+pnpm --filter @ads/contracts --filter @ads/api test
+```
+
+[Testing](testing.md) explains each test, and the Redis integration tests.
+
+### When a Translator check fails
+
+| Step | How to fix it |
+|---|---|
+| gofmt | Run `gofmt -w .` in `apps/translator` and commit. |
+| Generated code is up to date | You changed the OpenAPI document without regenerating, or edited a generated file. Run `go generate ./...` in `apps/translator` and commit `internal/control/api/types.gen.go`. |
+| Generated contract types are up to date | Same for the TypeScript side: run `pnpm --filter @ads/contracts gen:openapi` and commit `packages/contracts/src/generated/`. |
+| Typecheck | If it names `test/translator.test.ts`, a Zod schema in `packages/contracts/src/translator.ts` no longer matches the OpenAPI document; change one to match the other. |
+| `pnpm install --frozen-lockfile` | Run `pnpm install` and commit `pnpm-lock.yaml`. |
+
 ## What's enforced today
 
 The [branching strategy](branching-strategy.md) says every merge is a pull
@@ -175,8 +228,8 @@ missing.
 | Code checks | YGP-75 | Every pull request into `development`, `testing` or `main` | Installs with pnpm (cached), then runs lint, typecheck and the Vitest tests across the monorepo. Needs a Postgres service: without `DATABASE_URL`, the API tests that use the database are skipped and the run still passes. Shows pass or fail on the pull request. |
 | Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to GitHub's container registry (GHCR). If a build fails, nothing is pushed. |
 
-If [ADR-0019](adr/index.md) (Go for the translation worker, still proposed) is
-accepted, the code checks will also need a Go job for the worker.
+The Go worker's checks already run in the
+[Translator workflow](#translator-workflow).
 
 ### Image tags
 
