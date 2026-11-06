@@ -36,6 +36,11 @@ Proposed in decision records still under review:
 
 - **Host audio:** the host publishes once to a LiveKit source room and
   the workers subscribe to it ([ADR-0020](adr/0020-input-audio-stream.md)).
+- **Translation worker runtime:** Go with no web framework instead of
+  Node.js and Hono ([ADR-0019](adr/0019-translation-worker-runtime.md)).
+- **Translation workers:** a warm pool of single-use pods, one per
+  language track, that take their jobs from a Redis Stream
+  ([ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)).
 
 These docs live in the project's repository and are reviewed in pull requests like
 the code.

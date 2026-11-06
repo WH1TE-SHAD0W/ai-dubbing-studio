@@ -17,3 +17,9 @@
   and media.
 - Proposed ADR-0020: host audio reaches the translation workers through a
   LiveKit source room, with one output room per language (YGP-43).
+- Proposed ADR-0019: the translation worker written in Go with no web
+  framework; once accepted it supersedes ADR-0017 (YGP-47). It includes measurements
+  from a Node vs Go spike with the real SDKs (`benchmarks/runtime-test/`): Go uses about
+  half of Node's memory when idle and about a third with a live track.
+- Proposed ADR-0018: translation jobs dispatched through a Redis Stream to a
+  warm pool of single-use worker pods, one track per pod (YGP-91, YGP-98).
