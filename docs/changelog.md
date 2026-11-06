@@ -19,3 +19,5 @@
   warm pool of single-use worker pods, one track per pod (YGP-91, YGP-98).
 - Postgres in Docker Compose for local development, with a named volume and a
   health check; settings in `.env.example` (YGP-61).
+- LiveKit server in Docker Compose (v1.13.11), with its config in
+  `config/livekit.yaml`, keys from `.env` and a health check (YGP-68).

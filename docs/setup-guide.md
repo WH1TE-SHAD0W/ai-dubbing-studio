@@ -109,3 +109,37 @@ docker compose ps       # wait until STATUS shows (healthy)
   `docker compose down` and `docker compose up`.
 - `docker compose down -v` also deletes the volume, which wipes the database.
   Use it to start again from empty.
+
+## Run LiveKit
+
+LiveKit, the media server that carries the audio
+([ADR-0001](adr/0001-audio-fan-out.md)), runs in the same Compose file, so
+`docker compose up -d` starts it with Postgres. Its settings are in
+`config/livekit.yaml`; the API key and secret come from `.env`.
+
+1. Set `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` in `.env`. If your `.env` is
+   older than this section, copy the LiveKit lines from `.env.example` first.
+   Use a secret of at least 32 random characters, for example from
+   `openssl rand -base64 32`.
+2. Start it and check it:
+
+    ```bash
+    docker compose up -d
+    docker compose ps            # wait until livekit shows (healthy)
+    curl http://localhost:7880   # prints OK
+    ```
+
+| Port | Used for |
+|---|---|
+| 7880 (TCP) | The API and signalling. Hono calls the room API here, at `LIVEKIT_URL`. |
+| 7881 (TCP) | Media, for networks that block UDP. |
+| 7882 (UDP) | Media. All audio uses this one port. |
+
+- LiveKit only listens on this machine, like Postgres.
+- To test from a phone on the same Wi-Fi, set `LIVEKIT_BIND=0.0.0.0` and
+  `LIVEKIT_NODE_IP` to this machine's LAN address in `.env`, then run
+  `docker compose up -d` again. LiveKit tells browsers to send audio to
+  `LIVEKIT_NODE_IP`, so it must be an address the phone can reach.
+- If LiveKit keeps restarting, run `docker compose logs livekit`. A missing key
+  or secret in `.env` is the usual cause.
+- Never use LiveKit's `--dev` keys outside your own machine.
