@@ -1,17 +1,22 @@
-# Checks the Go translator worker on every pull request that changes it.
+# Checks the translator on every pull request that changes it: the Go worker,
+# the shared contract, and the API side (tracks, job stream, internal routes).
 name: Translator
 
 on:
   pull_request:
     paths:
       - "apps/translator/**"
-      - "packages/contracts/openapi/**"
+      - "apps/api/**"
+      - "packages/contracts/**"
+      - "pnpm-lock.yaml"
       - ".github/workflows/translator.yml"
   push:
     branches: [main, development]
     paths:
       - "apps/translator/**"
-      - "packages/contracts/openapi/**"
+      - "apps/api/**"
+      - "packages/contracts/**"
+      - "pnpm-lock.yaml"
       - ".github/workflows/translator.yml"
 
 defaults:
@@ -61,3 +66,53 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t ai-dubbing-studio-translator .
+
+  # The contract's TypeScript side and the API, against real Postgres and Redis
+  # (ADR-0002: queries are tested against a real database).
+  api:
+    name: Contract types, API tests (Postgres, Redis)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: dubbing
+          POSTGRES_PASSWORD: dubbing
+          POSTGRES_DB: dubbing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dubbing -d dubbing"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://dubbing:dubbing@localhost:5432/dubbing
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      # The TypeScript types are generated from the same OpenAPI document as the
+      # Go types; fail if they no longer match it.
+      - name: Generated contract types are up to date
+        run: |
+          pnpm --filter @ads/contracts gen:openapi
+          git diff --exit-code -- packages/contracts/src/generated
+      - run: pnpm --filter @ads/contracts --filter @ads/api typecheck
+      - run: pnpm --filter @ads/contracts --filter @ads/api test
