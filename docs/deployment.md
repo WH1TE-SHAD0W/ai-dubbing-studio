@@ -9,10 +9,15 @@ with Docker Compose as the backup; the image below is the same for both.
 | Container | Built from | What it does | Port |
 |---|---|---|---|
 | `postgres` | `postgres:18-alpine` | Host accounts and logins ([ADR-0002](adr/0002-session-and-account-storage.md)), on the `postgres-data` volume | 5432, published on `127.0.0.1` only |
-| `api` | `apps/api/Dockerfile` (Node 24 Alpine) | The Hono API: serves the built app, host logins with Better Auth ([ADR-0012](adr/0012-serving-pwa-bundle.md), [ADR-0015](adr/0015-auth-library.md)) | 3000 inside, `API_PORT` (default 3000) on `127.0.0.1` |
+| `redis` | `redis:8-alpine` | The translation job stream ([ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)), with its append-only file on the `redis-data` volume | 6379, published on `127.0.0.1` only |
+| `api` | `apps/api/Dockerfile` (Node 24 Alpine) | The Hono API: serves the built app, host logins with Better Auth, and the translator workers' `/internal` calls ([ADR-0012](adr/0012-serving-pwa-bundle.md), [ADR-0015](adr/0015-auth-library.md)) | 3000 inside, `API_PORT` (default 3000) on `127.0.0.1` |
+| `translator` (profile `translator`) | `apps/translator/Dockerfile` (Go, distroless) | Two translator workers, each translating one language of one session with Gemini, then restarting fresh | none; `/health` and `/ready` on 8080 inside |
 
-- The API starts once Postgres is healthy, and creates or updates its tables
-  before it accepts requests.
+- The API starts once Postgres and Redis are healthy, and creates or updates
+  its tables before it accepts requests.
+- The translator workers start only with `--profile translator`. They get only
+  `REDIS_URL`, `INTERNAL_API_TOKEN` and the Gemini settings, no database or
+  login secrets, and run as a non-root user on a read-only filesystem.
 - Both have a health check. The API's uses `GET /ready`, which also checks that
   Postgres answers; `GET /health` only checks that the process runs.
 - Both restart automatically unless stopped by hand.
@@ -57,15 +62,20 @@ docker compose logs -f api
   of the `api` container. Then set `BETTER_AUTH_URL` to the https address, so the
   login cookie is `Secure`, and list the proxy's address in `TRUSTED_PROXIES`, so
   rate limits see each client's real IP.
-- **Both ports are published on `127.0.0.1` only**, so only that machine (and a
+- **Every port is published on `127.0.0.1` only**, so only that machine (and a
   reverse proxy on it) can reach them.
-- **Secrets stay in `.env`**, which is git-ignored: the Postgres password and
-  `BETTER_AUTH_SECRET`. Changing the secret logs every host out.
+- **Keep `/internal` off the internet.** The reverse proxy should forward only
+  the app and `/api`; the workers reach `/internal` inside Docker. It also needs
+  the `INTERNAL_API_TOKEN`.
+- **Secrets stay in `.env`**, which is git-ignored: the Postgres password,
+  `BETTER_AUTH_SECRET`, `INTERNAL_API_TOKEN` and `GEMINI_API_KEY`. Changing
+  `BETTER_AUTH_SECRET` logs every host out.
 - **Back up the `postgres-data` volume**: it holds every host account.
   `docker compose down -v` deletes it.
-- **More than one API container works**: logins and rate limits are kept in
-  Postgres, not in memory.
+- **More than one API container works**: logins, rate limits and who owns each
+  translation track are kept in Postgres, not in memory.
 
-> **Planned changes:** a LiveKit container for listener audio, and a separate
-> dubbing container that talks to Gemini (ADR-0008, ADR-0009). See the
+> **Planned changes:** a LiveKit container for the host's and the listeners'
+> audio, which the translator workers will join instead of reading and writing
+> WAV files, and Kubernetes with the workers scaled on demand. See the
 > [decision records](adr/index.md).

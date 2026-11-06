@@ -1,8 +1,9 @@
 # Testing
 
-Every package is tested with [Vitest](https://vitest.dev/). The tests need no
-API key and no running server, so they are free and can run on every change.
-Only the API's main test needs a database: Postgres from Docker Compose.
+Every package is tested with [Vitest](https://vitest.dev/), and the translator
+worker with Go's own tests. The tests need no API key and no running server, so
+they are free and can run on every change. The API's database tests need
+Postgres from Docker Compose, and the job stream tests need Redis.
 
 ## Automated tests
 
@@ -20,11 +21,15 @@ Or for one package, for example `pnpm --filter @ads/web test`.
 
 | Where | What is tested |
 |---|---|
-| `packages/contracts/test/` | The shared schemas: join codes, password rules, the create-session rules, the dubbing-container request |
+| `packages/contracts/test/` | The shared schemas: join codes, password rules, the create-session rules, the dubbing-container request. `translator.test.ts` checks at type level that each translator schema equals the type generated from the OpenAPI document |
 | `apps/web/src/app.test.tsx` | The whole app with its real router: redirects, the Studio login guard, joining by code, the listener's waiting and not-found states, logging in, and creating a session and going live |
 | `apps/api/test/password.test.ts` | Argon2id hashing (the stored settings, salts, older settings still verifying, malformed hashes) and the common-password list |
-| `apps/api/test/env.test.ts` | The settings schema: defaults, comma lists, and an error naming each bad setting |
-| `apps/api/test/app.test.ts` | The whole API against Postgres: sign-up, login, the 12-hour login row, the failure messages, the login rate limit, logout, the host-only check, the placeholder routes and serving the app |
+| `apps/api/test/env.test.ts` | The settings schema: defaults, comma lists, the translator settings, and an error naming each bad setting |
+| `apps/api/test/app.test.ts` | The whole API against Postgres: sign-up, login, the 12-hour login row, the failure messages, the login rate limit, logout, the host-only check, the placeholder routes, serving the app, and `/internal` never answering with the app |
+| `apps/api/test/tracks.test.ts` | Translation tracks against Postgres: a claim race between eight workers, retried claims and reports, every conflict reason, failure retries up to the limit, release on SIGTERM, lease expiry, and when the sweeper re-sends a job |
+| `apps/api/test/internal-routes.test.ts` | The workers' `/internal` routes over HTTP: the token, request checks, and the answers checked against the contract |
+| `apps/api/test/queue.test.ts` | The job stream against Redis, read the way the Go worker reads it: the message fields, the backlog, removing stopped workers' consumers, failing fast while Redis is down |
+| `apps/translator/` (Go) | The worker: audio buffers, settings, the API client, the stream manager on a fake clock (GoAway resume, backoff, retries), the Gemini wire format against a local WebSocket server, every way a job ends, and the probes |
 
 The app tests run against the same **mock API** as `pnpm dev:mock`
 (`apps/web/src/mocks/handlers.ts`), intercepted in Node by
@@ -45,29 +50,80 @@ pnpm --filter @ads/api test      # with DATABASE_URL set, as in .env
 It uses a new email and a made-up client IP in each test, so it can run against
 a database that already has data, and repeatedly.
 
-## From the proof of concept
+The track tests (`tracks.test.ts`, `internal-routes.test.ts`) use a database of
+their own: `TEST_DATABASE_URL`, or the `DATABASE_URL` database with `_test`
+added (`dubbing_test`), created on first use. Left in the development
+database, their pending tracks would be sent to real workers by a running API.
+They delete their tracks at the end. `queue.test.ts` needs `REDIS_URL` (or
+`TEST_REDIS_URL`) and uses a stream of its own:
 
-The sections below describe the proof-of-concept backend, which has been
-removed. They are kept for when the dubbing container is rebuilt.
-
-### Testing against the real Gemini API
-
-To check the real service, the backend has a probe script. It needs an API key,
-and a few seconds of audio costs very little.
-
-```powershell
-cd backend
-powershell -File scripts/make-test-wav.ps1     # makes a speech WAV with Windows text-to-speech
-$env:GEMINI_API_KEY="..."; npx tsx scripts/probe.ts test-speech.wav sk
+```bash
+docker compose up -d postgres redis
+pnpm --filter @ads/api test      # with DATABASE_URL and REDIS_URL set, as in .env
 ```
 
-The probe streams the WAV in real time and reports:
+The test files run one at a time, as they share the database.
 
-- the time until the first translated audio arrives
-- how the transcript arrives
-- whether Gemini offers a resume handle
+### Translator worker
 
-It also writes `probe-out-sk.wav` so you can listen to the translation.
+From `apps/translator`, with Go installed:
+
+```bash
+go test -race ./...                                                       # unit tests
+REDIS_URL=redis://localhost:6379 go test -race -tags integration ./...    # also against Redis
+```
+
+The integration tests run the whole worker against a real Redis, with a fake
+API and a fake Gemini: one job from the stream to exit, a rejected claim that
+keeps waiting, and SIGTERM giving the track back.
+
+### Contract drift
+
+The OpenAPI document `packages/contracts/openapi/translator-control.yaml` is the
+one source for both sides. After changing it, regenerate both and commit the
+result:
+
+```bash
+pnpm --filter @ads/contracts gen:openapi    # TypeScript types
+cd apps/translator && go generate ./...     # Go types
+```
+
+CI regenerates both and fails if anything changed, and `pnpm typecheck` fails
+when a Zod schema no longer matches its generated type.
+
+### Against the real Gemini API
+
+`apps/translator/cmd/probe` streams a WAV file to Gemini Live Translate in real
+time and writes the translation. It needs an API key; a few seconds of audio
+cost very little.
+
+```powershell
+cd apps/translator
+powershell -File scripts/make-test-wav.ps1          # test-speech.wav, PCM16 mono 16 kHz
+$env:GEMINI_API_KEY = "..."
+go run ./cmd/probe -wav test-speech.wav -lang sk     # writes probe-out-sk.wav
+go run ./cmd/probe -wav test-speech.wav -lang sk -duration 13m   # GoAway and resume
+```
+
+It reports the time until the first translated audio (about 3 seconds), the
+transcripts, how often Gemini sends a resume handle, and, on a long run, when
+Gemini sends GoAway (about every 9 minutes) and how long the new connection
+took.
+
+### End to end
+
+The whole path, with the API, Redis, two workers and real Gemini, is in the
+[Setup Guide](setup-guide.md#run-the-translator-workers): open a track with
+`pnpm --filter @ads/api tracks open sk`, listen to the WAV in
+`apps/translator/media/out`, then end it. To see a takeover, `docker stop` the
+busy worker (it gives the track back and the other worker has it live within a
+second) or `docker kill` it (the lease runs out and another worker takes over
+within about 20 seconds).
+
+## From the proof of concept
+
+The section below describes the proof-of-concept backend, which has been
+removed. It is kept for when live sessions are rebuilt.
 
 ### Debugging a live session
 

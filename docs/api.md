@@ -4,9 +4,10 @@ The Hono API's HTTP endpoints, as they work today. The API serves the app on the
 same origin ([ADR-0012](adr/0012-serving-pwa-bundle.md)), so the browser calls
 every endpoint under `/api` on the address it opened.
 
-So far only host logins are built. The session and listener endpoints exist with
-the paths and request checks the app uses, but answer `501 Not Implemented`
-until sessions are stored and LiveKit is connected.
+So far host logins and the translator workers' internal API are built. The
+session and listener endpoints exist with the paths and request checks the app
+uses, but answer `501 Not Implemented` until sessions are stored and LiveKit is
+connected.
 
 **Host only** means the request needs the host's login cookie.
 
@@ -69,6 +70,56 @@ Without a login they answer `401` first.
 |---|---|---|
 | `GET /api/join/:code` | – | `501` for a valid 6-character code, `400` otherwise |
 | `POST /api/join/:code/token` | `{lang}` | `501` (LiveKit isn't connected), `400` for a bad code or language |
+
+## Translator workers (internal)
+
+The translator workers call these to take and keep a translation track: one
+target language of one session
+([ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)).
+The contract is the OpenAPI document
+`packages/contracts/openapi/translator-control.yaml`; the Go worker's client and
+these routes are both checked against it.
+
+- **Not for browsers.** Every call needs `Authorization: Bearer
+  <INTERNAL_API_TOKEN>`, the token shared with the workers, or it gets `401`.
+  Don't route `/internal` through a public reverse proxy or ingress.
+- An unknown path under `/internal` is a JSON `404`, never the app.
+- A worker finds its work as a message on the Redis Stream `translate:jobs`
+  (group `translators`), with `v`, `jobId`, `sessionId`, `trackId` and
+  `language`. Redis only delivers: the owner of each track and its lease are
+  kept in Postgres (table `translation_tracks`).
+
+| Call | Body → answer | Notes |
+|---|---|---|
+| `POST /internal/tracks/:trackId/claim` | `{workerId, jobId}` → `{trackId, sessionId, language, leaseTtlSec, heartbeatSec}` | Succeeds for a pending track, an expired lease, or a retried claim by the owner. The lease is 15 seconds. |
+| `POST /internal/tracks/:trackId/heartbeat` | `{workerId, state, stats?}` → `{leaseTtlSec}` | Every 5 seconds; renews the lease. `state` is `connecting`, `live` or `reconnecting`. |
+| `POST /internal/tracks/:trackId/status` | `{workerId, status, reason?}` → `{ok: true}` | `live` once the Gemini stream is open; `ended` when the worker stops on its own (240-minute limit); `failed` when it gave up. A retried `ended` or `failed` gets `200`. |
+| `POST /internal/tracks/:trackId/release` | `{workerId, reason: "sigterm"}` → `{ok: true}` | The worker is shutting down; the track goes straight to another worker. |
+
+A `409` tells the worker to stop, with the reason in `{reason, message}`:
+
+| Reason | On | What the worker does |
+|---|---|---|
+| `owned` | claim | Another worker has the track: drop the job, wait for the next. |
+| `ended` | claim | The track is over: drop the job. |
+| `unknown_track` | claim | No such track: drop the job. |
+| `ended` | heartbeat, status, release | The session ended: stop and exit. This is how a worker learns that the host ended the session. |
+| `not_owner` | heartbeat, status, release | The track went to another worker (this one lost its lease): stop at once and exit, without calling again. |
+
+Behind these, the API keeps tracks moving:
+
+- **A failed track** (`status failed`) goes to another worker, until 3 workers
+  have failed or vanished on it (`TRACK_MAX_ATTEMPTS`); then it is `failed`.
+- **A released track** goes to another worker at once and doesn't count as an
+  attempt.
+- **Every 5 seconds** a sweeper takes back tracks whose lease ran out (the worker
+  crashed) and sends their jobs again, sends jobs that couldn't be sent while
+  Redis was down, and re-sends a job no worker claimed within 30 seconds, once
+  every message on the stream has been delivered.
+
+Until sessions are stored, `pnpm --filter @ads/api tracks open <languages>` and
+`tracks end <session id>` stand in for a session's start and end (see the
+[Setup Guide](setup-guide.md#run-the-translator-workers)).
 
 ## Health
 

@@ -291,10 +291,12 @@ stateDiagram-v2
     - Auth is `Authorization: Bearer INTERNAL_API_TOKEN`. Never exposed through a public ingress.
 - **Job message:** stream `translate:jobs`, group `translators`. Fields are all strings, no secrets: `v` (`"1"`), `jobId`, `sessionId`, `trackId`, `language` (two letters). A malformed message is acked and dropped.
 - **Hono's side:**
-    - Track columns on `session_languages`: `track_id`, `track_status` (`pending|claimed|live|ended|failed`), `worker_id`, `lease_until`, `attempts`, `enqueued_at`. Every claim, heartbeat and status is one atomic `UPDATE … WHERE … RETURNING`.
-    - The lease sweeper runs every 5 s: expired leases go back to pending; pending tracks not enqueued for 30 s are enqueued again.
-    - It deletes idle stream consumers every 60 s.
-    - It re-enqueues all pending tracks when it (re)connects to Redis.
+    - Table `translation_tracks` (`apps/api/migrations/0001_translation_tracks.sql`), one row per session × language: `status` (`pending|claimed|live|ended|failed`), `worker_id`, `lease_until`, `reason`, `attempts`, `enqueued_at`. Every claim, heartbeat and status is one atomic `UPDATE … WHERE … RETURNING` (`apps/api/src/tracks/repo.ts`), so concurrent claims, and several API instances, get exactly one winner.
+    - `session_id` has no foreign key yet: sessions aren't stored. Until they are, `pnpm --filter @ads/api tracks open|end` stands in for `/start` and `/end`; the session routes will call the same `openSession` and `endSession`.
+    - A job that can't be sent (Redis down) stays unsent in Postgres (`enqueued_at` null) and is sent by the sweeper.
+    - The lease sweeper runs every 5 s: expired leases go back to pending (or failed after `TRACK_MAX_ATTEMPTS`); unsent jobs are sent; a job sent 30 s ago and not claimed is sent again, but only when the stream has no undelivered messages (otherwise it is most likely still waiting for a free worker).
+    - It deletes stream consumers idle for over 60 s, every 60 s.
+    - It sends the unsent jobs whenever it (re)connects to Redis.
 
 ---
 
@@ -331,7 +333,7 @@ Environment variables and defaults are listed in [README.md](README.md#configura
     - Go with the standard library and an OpenAPI contract (0019);
     - live means ready (0020).
 - **Fills in or departs:**
-    1. Jobs are enqueued on **`POST /sessions/{id}/start`**, not at session creation as in ADR-0020. That matches the PWA's draft → live flow.
+    1. Jobs are enqueued on **`POST /sessions/{id}/start`**, not at session creation as in ADR-0020. That matches the PWA's draft → live flow. Until sessions are stored, the `tracks` command stands in for it.
     2. **`BLOCK 1000`** instead of 5000 (see §4.2).
     3. **The Live Translate model** replaces the earlier native-audio-with-prompt idea.
     4. **`status failed` means "retry me"**: Hono re-enqueues up to `TRACK_MAX_ATTEMPTS`, then marks the track failed. This is the dead-letter handling ADR-0018 asked for.
@@ -368,8 +370,14 @@ packages/contracts/openapi/translator-control.yaml
 - [x] Contract, Go worker, WAV adapter, Dockerfile, Compose, CI workflow.
 - [x] Unit tests (race detector), the Gemini wire-protocol test against a local WebSocket server, and integration tests with real Redis.
 - [x] Probe runs against the real Gemini API, including GoAway and resume.
-- [ ] Hono: migration, Redis client, internal endpoints, sweeper, `/start` and `/end` hooks (needs the API on `development`).
-- [ ] End-to-end run with Hono and real Gemini through Compose.
+- [x] Hono: migration, Redis client, internal endpoints, sweeper, and a `tracks` command in place of the `/start` and `/end` hooks.
+- [x] End-to-end run with Hono and real Gemini through Compose (2026-11-06):
+    - A track was claimed as soon as it was opened, live 0.3 s later, and translated audio started about 3 s after that.
+    - `docker stop` of the busy worker: released, claimed by the idle worker 21 ms later, live after 280 ms; not counted as an attempt.
+    - `docker kill`: another worker took over 13.7 s later (expired lease), counted as one attempt.
+    - Ending the session stopped the workers 2 s and 5 s later (their next heartbeat); fresh workers were ready again.
+    - Memory: 5.5 MiB idle, 10.7 MiB with a live track; the API 34 MiB.
+- [ ] `/start` and `/end` call `openSession` and `endSession` once sessions are stored (sessions ticket), with the foreign key on `session_id`.
 
 ## 12. Acceptance criteria (this phase)
 
@@ -383,7 +391,8 @@ packages/contracts/openapi/translator-control.yaml
 - [x] GoAway → stream resumed on a new connection, audio continues; repeated failures → `status failed`.
 - [x] Removes its stream consumer on exit; nothing pending is left behind.
 - [x] Reads no secret other than `INTERNAL_API_TOKEN` and `GEMINI_API_KEY`; the key is scrubbed from errors.
-- [ ] Memory stays flat over a 2-hour session; idle RSS under 40 MB (measure in the end-to-end run).
+- [x] Idle memory under 40 MB (5.5 MiB in the end-to-end run).
+- [ ] Memory stays flat over a 2-hour session.
 
 ## 13. Still to verify
 

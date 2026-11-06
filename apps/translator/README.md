@@ -14,12 +14,23 @@ written to a WAV file ([media/in](media/in/README.md)). The `media.Source` and
 You need Go (the version in `go.mod`) for local runs, or only Docker for Compose.
 
 ```bash
-# from the repository root: Redis plus two workers (needs GEMINI_API_KEY and INTERNAL_API_TOKEN in .env)
+# from the repository root: Postgres, Redis, the API and two workers
+# (needs GEMINI_API_KEY and INTERNAL_API_TOKEN in .env)
 docker compose --profile translator up -d --build
+
+# sessions aren't stored yet: open test tracks, then end them
+pnpm --filter @ads/api tracks open sk de
+pnpm --filter @ads/api tracks end <session id>
 ```
 
-The workers call the API's internal endpoints at `CONTROL_API_URL` (default: the API on
-the host, port 3000). Each worker answers two probes on port 8080:
+Put the host audio in `media/in/input.wav` first; the translation appears in
+`media/out/`. The whole walk-through is in the Setup Guide
+(`docs/setup-guide.md`, "Run the translator workers").
+
+The workers call the API's internal endpoints at `CONTROL_API_URL`: the `api`
+container in Compose, or the API on your machine with
+`TRANSLATOR_CONTROL_API_URL=http://host.docker.internal:3000` in `.env`. Each
+worker answers two probes on port 8080:
 
 | Endpoint | 200 when |
 |---|---|
