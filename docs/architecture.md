@@ -97,6 +97,24 @@ sequenceDiagram
 
 Listeners have no account. They only need the join code.
 
+### Who gets which LiveKit token
+
+Only Hono holds the LiveKit secret. Everyone else gets a token for exactly one
+room, allowed to do exactly one thing there
+([ADR-0020](adr/0020-input-audio-stream.md)):
+
+| Who | Room | Allowed | Identity |
+|---|---|---|---|
+| Listener | Their language's output room, `ses-<session>-<lang>-0` | Listen only | `listener-<random id>` |
+| Host | The source room, `ses-<session>-src` | Send their microphone only | `host-<user id>` |
+| Translation worker | The source room | Listen only, hidden from the room | `worker-<worker id>` |
+| Translation worker | Its language's output room | Publish the dub only | `worker-<worker id>` |
+
+Every token expires after 10 minutes. It only has to be valid when its holder
+connects; LiveKit keeps the connection after that. The tokens are made in
+`apps/api/src/livekit/tokens.ts` (YGP-71). The routes hand them out once
+sessions are stored.
+
 ### A host logs in
 
 ```mermaid

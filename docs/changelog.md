@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- LiveKit tokens in the API: a listener token (listen only, one output room), a
+  host token (microphone only, the source room) and a worker's two tokens
+  (hear the source room hidden, publish to its output room), all expiring after
+  10 minutes (YGP-71).
 - LiveKit rooms in the API: room names from the session and language
   (ADR-0020), creating a session's source room and one output room per
   language, and deleting them in two steps; new `LIVEKIT_` settings, passed to
