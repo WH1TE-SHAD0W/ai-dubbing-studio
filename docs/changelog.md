@@ -34,5 +34,7 @@
   and host-login flows.
 - "Architecture layers" page with diagrams for the App, API, dubbing container
   and media.
+- Proposed ADR-0018: translation jobs dispatched through a Redis Stream to a
+  warm pool of single-use worker pods, one track per pod (YGP-91, YGP-98).
 - Postgres in Docker Compose for local development, with a named volume and a
   health check; settings in `.env.example` (YGP-61).
