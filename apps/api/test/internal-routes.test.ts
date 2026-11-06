@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import {
   apiErrorSchema,
   claimConflictSchema,
@@ -11,36 +10,31 @@ import {
 import { Hono } from "hono";
 import type pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createPool } from "../src/db.ts";
-import { migrateSqlFiles } from "../src/migrate.ts";
 import { internalRoutes } from "../src/routes/internal.ts";
 import { createTrackService, type TrackService } from "../src/tracks/service.ts";
-import { TRACKS_DATABASE_URL, ensureTracksDatabase } from "./db.ts";
+import { TEST_DATABASE_URL, TEST_INTERNAL_TOKEN, deleteSessions, insertSession, openTestDatabase } from "./db.ts";
 
 // The translator workers' API over HTTP, against a real Postgres, checked
 // against the shared contract (the Go worker's client is tested against the
-// same OpenAPI document). Runs in its own database (see db.ts). The
-// tracks made here are deleted at the end, so a running API never sends them
-// to real workers.
-const MIGRATIONS = fileURLToPath(new URL("../migrations", import.meta.url));
-const TOKEN = "internal-token-".repeat(3);
+// same OpenAPI document). Runs in a database of its own (see db.ts); the
+// sessions made here are deleted at the end, and their tracks with them.
+const TOKEN = TEST_INTERNAL_TOKEN;
 
-describe.skipIf(!TRACKS_DATABASE_URL)("internal routes for the translator workers", () => {
+describe.skipIf(!TEST_DATABASE_URL)("internal routes for the translator workers", () => {
   let pool: pg.Pool;
   let tracks: TrackService;
   let app: Hono;
   const sessions: string[] = [];
 
   beforeAll(async () => {
-    await ensureTracksDatabase();
-    pool = createPool(TRACKS_DATABASE_URL!);
-    await migrateSqlFiles(pool, MIGRATIONS);
+    pool = await openTestDatabase();
     tracks = createTrackService(pool, { send: async () => "1-0" }, { leaseTtlSec: 15, heartbeatSec: 5, maxAttempts: 3 });
     app = new Hono().route("/internal", internalRoutes({ token: TOKEN, tracks }));
   });
   afterAll(async () => {
-    await pool?.query("delete from translation_tracks where session_id = any($1::uuid[])", [sessions]);
-    await pool?.end();
+    if (!pool) return;
+    await deleteSessions(pool, sessions);
+    await pool.end();
   });
 
   function post(path: string, body: unknown, token: string | null = TOKEN) {
@@ -49,7 +43,7 @@ describe.skipIf(!TRACKS_DATABASE_URL)("internal routes for the translator worker
     return app.request(path, { method: "POST", headers, body: JSON.stringify(body) });
   }
   async function openTrack(lang = "sk") {
-    const sessionId = randomUUID();
+    const sessionId = await insertSession(pool, [lang]);
     sessions.push(sessionId);
     const [track] = await tracks.openSession(sessionId, [lang]);
     return { sessionId, trackId: track!.id };

@@ -1,21 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import type pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createPool } from "../src/db.ts";
-import { migrateSqlFiles } from "../src/migrate.ts";
 import type { JobToSend } from "../src/queue/jobs.ts";
 import { createTrackService, type TrackService } from "../src/tracks/service.ts";
 import { startSweeper } from "../src/tracks/sweeper.ts";
-import { TRACKS_DATABASE_URL, ensureTracksDatabase } from "./db.ts";
+import { TEST_DATABASE_URL, deleteSessions, insertSession, openTestDatabase } from "./db.ts";
 
 // Translation tracks against a real Postgres (ADR-0002: queries need a real
 // database): who owns a track, its lease, and the sweeper. Redis is replaced by
 // an in-memory sender. Runs in a database of its own (see db.ts), skipped
 // without DATABASE_URL or TEST_DATABASE_URL. The sweeper works on the whole
-// table, so assertions only look at the tracks each test made; those are
-// deleted at the end.
-const MIGRATIONS = fileURLToPath(new URL("../migrations", import.meta.url));
+// table, so assertions only look at the tracks each test made; their
+// sessions are deleted at the end, and the tracks with them.
 
 function fakeJobs() {
   const sent: JobToSend[] = [];
@@ -30,25 +26,25 @@ function fakeJobs() {
   };
 }
 
-describe.skipIf(!TRACKS_DATABASE_URL)("translation tracks against Postgres", () => {
+describe.skipIf(!TEST_DATABASE_URL)("translation tracks against Postgres", () => {
   let pool: pg.Pool;
   let jobs: ReturnType<typeof fakeJobs>;
   let tracks: TrackService;
   const sessions: string[] = [];
-  const newSession = () => {
-    const id = randomUUID();
+  // A live session with these target languages; its tracks are opened by the tests.
+  const newSession = async (langs: string[]) => {
+    const id = await insertSession(pool, langs);
     sessions.push(id);
     return id;
   };
 
   beforeAll(async () => {
-    await ensureTracksDatabase();
-    pool = createPool(TRACKS_DATABASE_URL!);
-    await migrateSqlFiles(pool, MIGRATIONS);
+    pool = await openTestDatabase();
   });
   afterAll(async () => {
-    await pool?.query("delete from translation_tracks where session_id = any($1::uuid[])", [sessions]);
-    await pool?.end();
+    if (!pool) return;
+    await deleteSessions(pool, sessions);
+    await pool.end();
   });
   beforeEach(() => {
     jobs = fakeJobs();
@@ -56,7 +52,7 @@ describe.skipIf(!TRACKS_DATABASE_URL)("translation tracks against Postgres", () 
   });
 
   async function openOne(lang = "sk") {
-    const sessionId = newSession();
+    const sessionId = await newSession([lang]);
     const [track] = await tracks.openSession(sessionId, [lang]);
     return { sessionId, trackId: track!.id };
   }
@@ -76,7 +72,7 @@ describe.skipIf(!TRACKS_DATABASE_URL)("translation tracks against Postgres", () 
 
   describe("a session's tracks", () => {
     it("are pending, one per language, each with its job sent once", async () => {
-      const sessionId = newSession();
+      const sessionId = await newSession(["sk", "de"]);
       const opened = await tracks.openSession(sessionId, ["sk", "de"]);
       expect(opened.map((t) => [t.lang, t.status])).toEqual([
         ["de", "pending"],

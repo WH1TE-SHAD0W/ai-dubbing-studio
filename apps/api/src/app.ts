@@ -9,6 +9,7 @@ import { isDatabaseUp } from "./db.ts";
 import { internalRoutes } from "./routes/internal.ts";
 import { joinRoutes } from "./routes/join.ts";
 import { sessionRoutes } from "./routes/sessions.ts";
+import { type SessionService, createSessionService } from "./sessions/service.ts";
 import { pwa } from "./static.ts";
 import type { TrackService } from "./tracks/service.ts";
 
@@ -24,8 +25,8 @@ export type AppDeps = {
 };
 
 // The API routes under /api, typed for Hono's RPC client (ADR-0016).
-export function apiRoutes(auth: Auth) {
-  return new Hono().route("/sessions", sessionRoutes(auth)).route("/join", joinRoutes());
+export function apiRoutes(auth: Auth, sessions: SessionService) {
+  return new Hono().route("/sessions", sessionRoutes(auth, sessions)).route("/join", joinRoutes(sessions));
 }
 export type ApiRoutes = ReturnType<typeof apiRoutes>;
 
@@ -39,6 +40,8 @@ async function friendlierRateLimit(res: Response): Promise<Response> {
 
 export function createApp({ auth, pool, webDist, trustForwarded, internal }: AppDeps) {
   const app = new Hono();
+  // Starting and ending a session opens and ends its translation tracks.
+  const sessions = createSessionService(pool, internal.tracks);
 
   app.use(secureHeaders());
   // Method, path, status and time only: no bodies, cookies or query strings.
@@ -53,7 +56,7 @@ export function createApp({ auth, pool, webDist, trustForwarded, internal }: App
   // Better Auth: sign-up, login, logout, get-session (ADR-0015).
   app.on(["GET", "POST"], "/api/auth/*", async (c) => friendlierRateLimit(await auth.handler(withClientIp(c, trustForwarded))));
 
-  app.route("/api", apiRoutes(auth));
+  app.route("/api", apiRoutes(auth, sessions));
   app.all("/api/*", (c) => c.json({ message: "Not found." }, 404));
 
   // The translator workers (ADR-0018). Not part of the browser's API, and never
