@@ -1,6 +1,6 @@
 # @ads/api
 
-The Hono API from the [target architecture](../../docs/architecture.md). It serves the built PWA and host logins on one origin, with accounts in Postgres, and hands translation tracks to the translator workers (`apps/translator`). Sessions, joining and LiveKit tokens are still placeholders that answer `501`.
+The Hono API from the [target architecture](../../docs/architecture.md). It serves the built PWA and host logins on one origin, with accounts in Postgres, stores sessions, and hands each live session's languages to the translator workers (`apps/translator`). Only the LiveKit listener token is still a placeholder that answers `501`.
 
 ## What works
 
@@ -10,6 +10,7 @@ The Hono API from the [target architecture](../../docs/architecture.md). It serv
 | Postgres | One `pg` pool, shared with Better Auth. Better Auth's tables are created or updated on start. | [ADR-0002](../../docs/adr/0002-session-and-account-storage.md) |
 | Host logins | Better Auth at `/api/auth`: sign-up, login, logout, get-session. | [ADR-0003](../../docs/adr/0003-host-authentication.md), [ADR-0015](../../docs/adr/0015-auth-library.md) |
 | Validation | Request bodies and parameters are checked with the shared `@ads/contracts` Zod schemas; errors are `{ message }`. | [ADR-0016](../../docs/adr/0016-schema-validator.md) |
+| Sessions | `sessions` and `session_languages`: draft → live → ended, one host each, join codes unique among sessions that haven't ended. Going live opens one translation track per language; ending ends them. | [ADR-0002](../../docs/adr/0002-session-and-account-storage.md) |
 | Translation tracks | One per session and target language in `translation_tracks`: owner and lease, claimed and renewed by the workers through `/internal` (bearer `INTERNAL_API_TOKEN`). Jobs go to the workers on the Redis Stream `translate:jobs`; a sweeper takes tracks back from crashed workers. | [ADR-0018](../../docs/adr/0018-autoscaling-architecture-of-translation-container.md) |
 
 How ADR-0003 is configured:
@@ -26,19 +27,13 @@ How ADR-0003 is configured:
 
 | Route | Answers |
 |---|---|
-| `POST /api/sessions`, `GET /api/sessions/:id`, `POST /api/sessions/:id/start`, `POST /api/sessions/:id/end` | `401` without a login, `400` for a request the contract rejects, otherwise `501` |
-| `GET /api/join/:code` | `400` for a malformed code, otherwise `501` |
 | `POST /api/join/:code/token` | `400` for a malformed code or unknown language, otherwise `501` (LiveKit isn't connected) |
 
-Not connected yet: LiveKit (ADR-0001, ADR-0013). Until sessions are stored, a development command opens and ends translation tracks:
+Not connected yet: LiveKit (ADR-0001, ADR-0013). To see which translator worker has each track of a session, with its lease and attempts:
 
 ```bash
-pnpm --filter @ads/api tracks open sk de        # a made-up session; prints its id
 pnpm --filter @ads/api tracks list [<session id>]
-pnpm --filter @ads/api tracks end <session id>  # the workers stop
 ```
-
-The session routes will call the same functions (`openSession` and `endSession` in `src/tracks/service.ts`) on `/start` and `/end`.
 
 ## Run it
 
@@ -102,7 +97,7 @@ docker compose up -d postgres redis
 pnpm --filter @ads/api test      # with DATABASE_URL and REDIS_URL set, e.g. from .env
 ```
 
-`test/app.test.ts` runs the whole app against Postgres: sign-up, login, the 12-hour login row, the Argon2id hash, the failure messages, the login rate limit, logout, the host-only check, the placeholders and the static files. `test/tracks.test.ts` and `test/internal-routes.test.ts` cover translation tracks and the `/internal` routes in a database of their own (`<database>_test`, created on first use), so a running API never sends their tracks to real workers. `test/queue.test.ts` runs the job stream against Redis. Without `DATABASE_URL` (or `TEST_DATABASE_URL`) and `REDIS_URL`, those are skipped and only the unit tests run.
+`test/app.test.ts` runs the whole app against Postgres: sign-up, login, the 12-hour login row, the Argon2id hash, the failure messages, the login rate limit, logout, the host-only check, sessions from create to end with their translation jobs, joining by code, and the static files. `test/tracks.test.ts` and `test/internal-routes.test.ts` cover translation tracks and the `/internal` routes. All of them use a database of their own (`<database>_test`, created on first use), so a running API never sends their tracks to real workers. `test/queue.test.ts` runs the job stream against Redis. Without `DATABASE_URL` (or `TEST_DATABASE_URL`) and `REDIS_URL`, those are skipped and only the unit tests run.
 
 ## Layout
 
@@ -115,10 +110,11 @@ pnpm --filter @ads/api test      # with DATABASE_URL and REDIS_URL set, e.g. fro
 | `src/migrate.ts` | Creates or updates Better Auth's tables, and applies `migrations/*.sql` |
 | `migrations/` | Numbered SQL migrations (ADR-0002), each applied once |
 | `src/queue/jobs.ts` | The Redis job stream (ioredis) |
+| `src/sessions/` | Sessions: SQL, and the service that opens and ends their translation tracks |
 | `src/tracks/` | Translation tracks: SQL, the service the routes call, the sweeper |
-| `src/cli/tracks.ts` | The development `tracks` command |
+| `src/cli/tracks.ts` | The development `tracks list` command |
 | `src/auth/` | Better Auth options, Argon2id, common passwords, client IP, host-only and internal-token middleware |
-| `src/routes/` | `/api/sessions` and `/api/join` (placeholders), `/internal` for the workers |
+| `src/routes/` | `/api/sessions`, `/api/join` (the token is a placeholder), `/internal` for the workers |
 | `src/static.ts` | The PWA and its cache headers |
 | `src/validate.ts` | Zod validation with `{ message }` errors |
 | `Dockerfile` | Builds the PWA and the API bundle, runs as the `node` user |

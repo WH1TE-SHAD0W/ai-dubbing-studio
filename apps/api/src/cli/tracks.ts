@@ -23,7 +23,7 @@ if (command !== "list") {
   process.exit(command ? 1 : 0);
 }
 if (sessionId !== undefined && !z.uuid().safeParse(sessionId).success) {
-  console.error(`Give a session id, as the Studio's address shows it (/studio/<id>).\n${USAGE}`);
+  console.error(`Give a session id, as the Studio's address shows it (/studio?session=<id>).\n${USAGE}`);
   process.exit(1);
 }
 

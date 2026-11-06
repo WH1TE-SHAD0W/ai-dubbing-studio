@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Sessions are stored (ADR-0002): a host creates a draft with a join code,
+  takes it live and ends it, and only sees their own. Going live opens one
+  translation track per target language, which idle translator workers pick
+  up; ending it stops them. Listeners can look a session up by its code. Each
+  language in a session shows its translation track's status.
 - `apps/translator`: the translator worker in Go (ADR-0018 to ADR-0020). Each
   process takes one job from the Redis Stream `translate:jobs`, claims the
   track from the API, streams the host's audio through one Gemini Live
@@ -15,7 +20,7 @@
 - `apps/api`: translation tracks in Postgres (the first numbered SQL
   migration), the Redis job stream, the workers' `/internal` routes behind a
   shared token, and a sweeper that recovers tracks from crashed workers. A
-  `tracks` command opens and ends test tracks until sessions are stored.
+  `tracks list` command shows which worker has each track.
 - Redis and the translator workers (profile `translator`) in Docker Compose;
   `REDIS_URL`, `INTERNAL_API_TOKEN` and the Gemini settings in `.env.example`.
 - A Translator CI workflow: Go format, vet, race and Redis integration tests,

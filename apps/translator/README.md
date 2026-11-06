@@ -18,13 +18,13 @@ You need Go (the version in `go.mod`) for local runs, or only Docker for Compose
 # (needs GEMINI_API_KEY and INTERNAL_API_TOKEN in .env)
 docker compose --profile translator up -d --build
 
-# sessions aren't stored yet: open test tracks, then end them
-pnpm --filter @ads/api tracks open sk de
-pnpm --filter @ads/api tracks end <session id>
+docker compose logs -f api translator
 ```
 
-Put the host audio in `media/in/input.wav` first; the translation appears in
-`media/out/`. The whole walk-through is in the Setup Guide
+Put the host audio in `media/in/input.wav` first. Then create a session in the
+Studio (<http://localhost:3000/studio>) and press **Go live**: one idle worker
+takes each target language, and the translation appears in `media/out/`.
+**End session** stops them. The whole walk-through is in the Setup Guide
 (`docs/setup-guide.md`, "Run the translator workers").
 
 The workers call the API's internal endpoints at `CONTROL_API_URL`: the `api`

@@ -3,10 +3,10 @@
 How to run AI Dubbing Studio on your own machine while it is being rebuilt. So
 far there are the shared schemas, the app (the React PWA), the first part of
 the Hono API (it serves the app and handles host logins, with accounts in
-Postgres) and the translator workers, which take translation jobs from Redis
-and translate with Gemini. Stored sessions and LiveKit are not built yet. The
-plan is in the [Architecture](architecture.md) page and the
-[decision records](adr/index.md).
+Postgres), sessions, and the translator workers, which translate each target
+language of a live session with Gemini. LiveKit is not connected yet, so the
+workers read and write WAV files instead of live audio. The plan is in the
+[Architecture](architecture.md) page and the [decision records](adr/index.md).
 
 ## What you need
 
@@ -84,9 +84,9 @@ docker compose up --build    # open http://localhost:3000
 ```
 
 The API waits for Postgres and Redis to be healthy, creates its tables on the
-first start, then serves the app. You can register a host, log in and log out. Creating a
-session or joining one shows "isn't available yet", because sessions and LiveKit
-aren't built.
+first start, then serves the app. You can register a host, log in, create a
+session and take it live or end it, and look it up by its code. Listening shows
+"isn't available yet", because LiveKit isn't connected.
 
 ```bash
 docker compose ps            # all should show (healthy)
@@ -115,30 +115,33 @@ audio from a WAV file and writes the translation to another one.
     docker compose --profile translator up -d --build
     ```
 
-3. Sessions aren't stored yet, so a development command stands in for a
-   session's start: it opens one track per language and puts their jobs on the
-   stream. It runs on your machine against Postgres and Redis in Docker:
+3. Watch the API and the workers in a second terminal:
 
     ```bash
-    pnpm --filter @ads/api tracks open sk de    # prints the session id
-    pnpm --filter @ads/api tracks list          # claimed, then live
+    docker compose logs -f api translator
     ```
 
-    Each track is taken by one idle worker, which opens a Gemini stream. The
-    translation is written to `apps/translator/media/out/` as
-    `<session>-<language>-<worker>.wav`. Translated speech starts about 3
-    seconds after the first words.
+4. Open the Studio (<http://localhost:3000/studio>), register a host, and
+   create a session with one or two target languages. Then press **Go live**.
+   The API opens one translation track per language, and the log shows each
+   one `claimed` by an idle worker, then `live` once its Gemini stream is open,
+   within a second. Translated speech starts about 3 seconds later, written to
+   `apps/translator/media/out/` as `<session>-<language>-<worker>.wav`.
 
-4. End the session. Each worker stops at its next heartbeat (within 5 seconds)
-   and exits, and a fresh one takes its place.
+5. Press **End session**. Each worker stops at its next heartbeat (within 5
+   seconds) and exits, and a fresh one takes its place.
 
-    ```bash
-    pnpm --filter @ads/api tracks end <session id>
-    ```
+To see which worker has which track, with its lease and attempts:
 
-A worker uses Gemini only while it has a track. An open track keeps streaming
-(silence once the WAV ends) until it is ended, or for at most 240 minutes
-(`MAX_JOB_MINUTES`), so end test sessions when you are done.
+```bash
+pnpm --filter @ads/api tracks list    # or: tracks list <session id>
+```
+
+The session id is in the Studio's address (`/studio?session=<id>`).
+
+A worker uses Gemini only while it has a track. A live session's tracks keep
+streaming (silence once the WAV ends) until the session ends, or for at most 240
+minutes (`MAX_JOB_MINUTES`), so end test sessions when you are done.
 
 ```bash
 docker compose logs -f translator   # JSON lines, one job per worker process
@@ -229,8 +232,8 @@ docker compose ps                     # wait until STATUS shows (healthy)
 - The API creates Better Auth's tables (`user`, `account`, `logins`,
   `verification`, `rateLimit`) when it starts, and adds any that are missing
   after an update. Our own tables come from the numbered files in
-  `apps/api/migrations` (so far `translation_tracks`), each applied once and
-  recorded in `schema_migrations`.
+  `apps/api/migrations` (`translation_tracks`, `sessions`,
+  `session_languages`), each applied once and recorded in `schema_migrations`.
 - The data is kept in the `postgres-data` volume, so it survives
   `docker compose down` and `docker compose up`.
 - `docker compose down -v` also deletes the volume, which wipes the database.

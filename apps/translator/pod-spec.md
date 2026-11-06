@@ -292,7 +292,7 @@ stateDiagram-v2
 - **Job message:** stream `translate:jobs`, group `translators`. Fields are all strings, no secrets: `v` (`"1"`), `jobId`, `sessionId`, `trackId`, `language` (two letters). A malformed message is acked and dropped.
 - **Hono's side:**
     - Table `translation_tracks` (`apps/api/migrations/0001_translation_tracks.sql`), one row per session × language: `status` (`pending|claimed|live|ended|failed`), `worker_id`, `lease_until`, `reason`, `attempts`, `enqueued_at`. Every claim, heartbeat and status is one atomic `UPDATE … WHERE … RETURNING` (`apps/api/src/tracks/repo.ts`), so concurrent claims, and several API instances, get exactly one winner.
-    - `session_id` has no foreign key yet: sessions aren't stored. Until they are, `pnpm --filter @ads/api tracks open|end` stands in for `/start` and `/end`; the session routes will call the same `openSession` and `endSession`.
+    - Each track belongs to one of its session's languages (foreign key to `session_languages`, deleted with the session). `POST /sessions/{id}/start` opens the tracks and sends their jobs; `/end` ends them (`apps/api/src/sessions/service.ts`).
     - A job that can't be sent (Redis down) stays unsent in Postgres (`enqueued_at` null) and is sent by the sweeper.
     - The lease sweeper runs every 5 s: expired leases go back to pending (or failed after `TRACK_MAX_ATTEMPTS`); unsent jobs are sent; a job sent 30 s ago and not claimed is sent again, but only when the stream has no undelivered messages (otherwise it is most likely still waiting for a free worker).
     - It deletes stream consumers idle for over 60 s, every 60 s.
@@ -333,7 +333,7 @@ Environment variables and defaults are listed in [README.md](README.md#configura
     - Go with the standard library and an OpenAPI contract (0019);
     - live means ready (0020).
 - **Fills in or departs:**
-    1. Jobs are enqueued on **`POST /sessions/{id}/start`**, not at session creation as in ADR-0020. That matches the PWA's draft → live flow. Until sessions are stored, the `tracks` command stands in for it.
+    1. Jobs are enqueued on **`POST /sessions/{id}/start`**, not at session creation as in ADR-0020. That matches the PWA's draft → live flow.
     2. **`BLOCK 1000`** instead of 5000 (see §4.2).
     3. **The Live Translate model** replaces the earlier native-audio-with-prompt idea.
     4. **`status failed` means "retry me"**: Hono re-enqueues up to `TRACK_MAX_ATTEMPTS`, then marks the track failed. This is the dead-letter handling ADR-0018 asked for.
@@ -377,7 +377,7 @@ packages/contracts/openapi/translator-control.yaml
     - `docker kill`: another worker took over 13.7 s later (expired lease), counted as one attempt.
     - Ending the session stopped the workers 2 s and 5 s later (their next heartbeat); fresh workers were ready again.
     - Memory: 5.5 MiB idle, 10.7 MiB with a live track; the API 34 MiB.
-- [ ] `/start` and `/end` call `openSession` and `endSession` once sessions are stored (sessions ticket), with the foreign key on `session_id`.
+- [x] Sessions stored; `/start` and `/end` open and end the tracks. From the Studio (2026-11-06): Go live → both tracks claimed 28 ms later, live within 0.5 s, translated audio 3 s later; End session → both workers stopped at their next heartbeat (4.5 s).
 
 ## 12. Acceptance criteria (this phase)
 

@@ -25,7 +25,7 @@ Or for one package, for example `pnpm --filter @ads/web test`.
 | `apps/web/src/app.test.tsx` | The whole app with its real router: redirects, the Studio login guard, joining by code, the listener's waiting and not-found states, logging in, and creating a session and going live |
 | `apps/api/test/password.test.ts` | Argon2id hashing (the stored settings, salts, older settings still verifying, malformed hashes) and the common-password list |
 | `apps/api/test/env.test.ts` | The settings schema: defaults, comma lists, the translator settings, and an error naming each bad setting |
-| `apps/api/test/app.test.ts` | The whole API against Postgres: sign-up, login, the 12-hour login row, the failure messages, the login rate limit, logout, the host-only check, the placeholder routes, serving the app, and `/internal` never answering with the app |
+| `apps/api/test/app.test.ts` | The whole API against Postgres: sign-up, login, the 12-hour login row, the failure messages, the login rate limit, logout, sessions (created as drafts, only their host sees them, going live sends one translation job per language, ending ends the tracks, both safe to repeat), joining by code, serving the app, and `/internal` never answering with the app |
 | `apps/api/test/tracks.test.ts` | Translation tracks against Postgres: a claim race between eight workers, retried claims and reports, every conflict reason, failure retries up to the limit, release on SIGTERM, lease expiry, and when the sweeper re-sends a job |
 | `apps/api/test/internal-routes.test.ts` | The workers' `/internal` routes over HTTP: the token, request checks, and the answers checked against the contract |
 | `apps/api/test/queue.test.ts` | The job stream against Redis, read the way the Go worker reads it: the message fields, the backlog, removing stopped workers' consumers, failing fast while Redis is down |
@@ -40,7 +40,8 @@ schemas, so a test fails if the app sends something the contract doesn't allow.
 
 `apps/api/test/app.test.ts` calls the real Hono app with a real Better Auth and
 database, without starting a server. It needs `DATABASE_URL` (or
-`TEST_DATABASE_URL`, which wins) and is skipped without it:
+`TEST_DATABASE_URL`, which wins) and is skipped without it. Redis is replaced by
+an in-memory job sender:
 
 ```bash
 docker compose up -d postgres
@@ -50,11 +51,11 @@ pnpm --filter @ads/api test      # with DATABASE_URL set, as in .env
 It uses a new email and a made-up client IP in each test, so it can run against
 a database that already has data, and repeatedly.
 
-The track tests (`tracks.test.ts`, `internal-routes.test.ts`) use a database of
-their own: `TEST_DATABASE_URL`, or the `DATABASE_URL` database with `_test`
-added (`dubbing_test`), created on first use. Left in the development
-database, their pending tracks would be sent to real workers by a running API.
-They delete their tracks at the end. `queue.test.ts` needs `REDIS_URL` (or
+All the database tests use a database of their own: `TEST_DATABASE_URL`, or the
+`DATABASE_URL` database with `_test` added (`dubbing_test`), created on first
+use. Left in the development database, their pending translation tracks would be
+sent to real workers by a running API. They delete the sessions they made at
+the end, and the tracks with them. `queue.test.ts` needs `REDIS_URL` (or
 `TEST_REDIS_URL`) and uses a stream of its own:
 
 ```bash
@@ -113,12 +114,14 @@ took.
 ### End to end
 
 The whole path, with the API, Redis, two workers and real Gemini, is in the
-[Setup Guide](setup-guide.md#run-the-translator-workers): open a track with
-`pnpm --filter @ads/api tracks open sk`, listen to the WAV in
-`apps/translator/media/out`, then end it. To see a takeover, `docker stop` the
+[Setup Guide](setup-guide.md#run-the-translator-workers): create a session in
+the Studio, press **Go live**, watch the logs, listen to the WAVs in
+`apps/translator/media/out`, then press **End session**. To see a takeover, go
+live with one language (so the other worker is idle), then `docker stop` the
 busy worker (it gives the track back and the other worker has it live within a
 second) or `docker kill` it (the lease runs out and another worker takes over
-within about 20 seconds).
+within about 20 seconds). `pnpm --filter @ads/api tracks list` shows which
+worker has each track.
 
 ## From the proof of concept
 
