@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- API image built on every pull request and pushed to Docker Hub after a merge
+  into `testing` or `main`, tagged with the commit SHA plus `testing` or `prod`
+  (YGP-52).
 - Code checks on every pull request: typecheck, tests with a Postgres
   database, and build (YGP-75).
 - CI/CD page: the docs checks, publishing the site, running and fixing the

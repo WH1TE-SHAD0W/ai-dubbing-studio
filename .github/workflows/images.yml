@@ -1,0 +1,75 @@
+# Builds the container images (YGP-52). On a pull request it only builds them,
+# to prove they still build. After a merge into testing or main it also pushes
+# them to Docker Hub, tagged with the commit SHA plus "testing" or "prod".
+name: Images
+
+on:
+  pull_request:
+    branches: [development, testing, main]
+  push:
+    branches: [testing, main]
+
+permissions:
+  contents: read
+
+# A new push to the same branch or pull request cancels the old run.
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API image
+    runs-on: ubuntu-latest
+    env:
+      # Set by an admin under Settings → Secrets and variables → Actions.
+      # DOCKERHUB_TOKEN is an access token, never the account password.
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Push only after a merge, and only when the Docker Hub secrets exist.
+      - name: Decide whether to push
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "push=false" >> "$GITHUB_OUTPUT"
+            if [ "${{ github.event_name }}" = "push" ]; then
+              echo "::warning::DOCKERHUB_USERNAME or DOCKERHUB_TOKEN isn't set, so the image was built but not pushed."
+            fi
+          fi
+
+      # The tags: the full commit SHA always, plus testing or prod by branch.
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_USERNAME || 'local' }}/ai-dubbing-studio-api
+          tags: |
+            type=sha,format=long,prefix=
+            type=raw,value=testing,enable=${{ github.ref == 'refs/heads/testing' }}
+            type=raw,value=prod,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: steps.mode.outputs.push == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+
+      # Pushes only if the whole build passed, so a failed build pushes nothing.
+      - name: Build (and push after a merge)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: ${{ steps.mode.outputs.push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
