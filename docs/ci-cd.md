@@ -226,6 +226,7 @@ production environments run.
 |---|---|
 | A pull request into `development`, `testing` or `main` | Builds each image, to prove it still builds. Nothing is pushed. |
 | A merge (push) into `testing` or `main` | Builds each image and pushes it to Docker Hub with its [tags](#image-tags). |
+| A release tag such as `v0.1.0` is pushed | Builds each image and pushes it with the version as a tag as well (`0.1.0`). |
 
 | Job | Image | Built from |
 |---|---|---|
@@ -255,6 +256,7 @@ Every image gets more than one tag:
 | The commit SHA, for example `a7fa5e4…` | Every image | Finding exactly which code an image was built from, and rolling back to it. |
 | `testing` | Images built from `testing` | The test environment. |
 | `prod` | Images built from `main` | Production. |
+| The version, for example `0.1.0` | Images built from a release tag (`v0.1.0`) | Knowing which images make up a release, such as the MVP. |
 
 The test environment only ever runs the `testing` tag and production only runs
 `prod` (YGP-81), so a test deployment never picks up an image that hasn't been
