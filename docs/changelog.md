@@ -15,6 +15,8 @@
   and host-login flows.
 - "Architecture layers" page with diagrams for the App, API, dubbing container
   and media.
+- Proposed ADR-0020: host audio reaches the translation workers through a
+  LiveKit source room, with one output room per language (YGP-43).
 - Proposed ADR-0019: the translation worker written in Go with no web
   framework; once accepted it supersedes ADR-0017 (YGP-47). It includes measurements
   from a Node vs Go spike with the real SDKs (`benchmarks/runtime-test/`): Go uses about
