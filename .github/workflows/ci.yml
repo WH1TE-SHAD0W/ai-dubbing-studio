@@ -1,0 +1,78 @@
+# Checks the code on every pull request: typecheck, tests and build.
+name: CI
+
+on:
+  pull_request:
+    branches: [development, testing, main]
+  push:
+    branches: [development, testing, main]
+
+# Read-only: these checks never write to the repo.
+permissions:
+  contents: read
+
+# A new push to the same pull request cancels the old run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Installs the pnpm version pinned in package.json ("packageManager").
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      # --frozen-lockfile fails if pnpm-lock.yaml is out of date.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    # A throwaway Postgres for the API's database tests. Same version as Compose.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: dubbing
+          POSTGRES_DB: dubbing
+          # No password: this database only exists inside the run.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dubbing"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Without this the database tests are skipped, and the run still passes.
+      TEST_DATABASE_URL: postgres://dubbing@localhost:5432/dubbing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
