@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Deployment page rewritten for the current plan: Postgres and the API in
+  Docker Compose (built), K3s with Argo CD (planned), rolling back, checking a
+  deploy and backing up the database (YGP-83).
 - Docs checks on every pull request: strict site build, Markdown lint, spell check
   and link check (YGP-32).
 - Pull request template and a "Writing the docs" page.
