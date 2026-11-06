@@ -1,8 +1,8 @@
 # Testing
 
 Every package is tested with [Vitest](https://vitest.dev/). The tests need no
-API key, no database and no running server, so they are free and can run on
-every change.
+API key and no running server, so they are free and can run on every change.
+Only the API's main test needs a database: Postgres from Docker Compose.
 
 ## Automated tests
 
@@ -22,11 +22,28 @@ Or for one package, for example `pnpm --filter @ads/web test`.
 |---|---|
 | `packages/contracts/test/` | The shared schemas: join codes, password rules, the create-session rules, the dubbing-container request |
 | `apps/web/src/app.test.tsx` | The whole app with its real router: redirects, the Studio login guard, joining by code, the listener's waiting and not-found states, logging in, and creating a session and going live |
+| `apps/api/test/password.test.ts` | Argon2id hashing (the stored settings, salts, older settings still verifying, malformed hashes) and the common-password list |
+| `apps/api/test/env.test.ts` | The settings schema: defaults, comma lists, and an error naming each bad setting |
+| `apps/api/test/app.test.ts` | The whole API against Postgres: sign-up, login, the 12-hour login row, the failure messages, the login rate limit, logout, the host-only check, the placeholder routes and serving the app |
 
 The app tests run against the same **mock API** as `pnpm dev:mock`
 (`apps/web/src/mocks/handlers.ts`), intercepted in Node by
 [MSW](https://mswjs.io/). The mock validates each request with the shared
 schemas, so a test fails if the app sends something the contract doesn't allow.
+
+### API tests against Postgres
+
+`apps/api/test/app.test.ts` calls the real Hono app with a real Better Auth and
+database, without starting a server. It needs `DATABASE_URL` (or
+`TEST_DATABASE_URL`, which wins) and is skipped without it:
+
+```bash
+docker compose up -d postgres
+pnpm --filter @ads/api test      # with DATABASE_URL set, as in .env
+```
+
+It uses a new email and a made-up client IP in each test, so it can run against
+a database that already has data, and repeatedly.
 
 ## From the proof of concept
 

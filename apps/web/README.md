@@ -1,6 +1,6 @@
 # @ads/web
 
-The React PWA for hosts and listeners, rebuilt to the [target architecture](../../docs/architecture.md). It has the five pages from [ADR-0014](../../docs/adr/0014-pages.md): Register, Login, Join, Studio and Listener. There is no API yet, so it runs against a mock API in the browser.
+The React PWA for hosts and listeners, rebuilt to the [target architecture](../../docs/architecture.md). It has the five pages from [ADR-0014](../../docs/adr/0014-pages.md): Register, Login, Join, Studio and Listener. The Hono API ([`apps/api`](../api)) so far handles only host logins, so for the rest the app runs against a mock API in the browser.
 
 ## Stack
 
@@ -30,7 +30,7 @@ In mock mode:
 - Join the live demo session with code `DEMO42`, or `WAIT01` for one that hasn't started.
 - Listening gets as far as connecting to LiveKit, then shows a connection error, because there is no LiveKit server behind the mocks.
 
-Against a real API on port 3000 (once it exists), run `pnpm dev`. The dev server forwards `/api` there; set `API_URL` to use another address.
+Against the real API on port 3000 (see [`apps/api`](../api)), run `pnpm dev`; the API needs `TRUSTED_ORIGINS=http://localhost:5173` for logins from here. The dev server forwards `/api` there; set `API_URL` to use another address.
 
 ```bash
 pnpm typecheck
