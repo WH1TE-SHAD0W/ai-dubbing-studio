@@ -71,6 +71,7 @@ reads it, is explained in [Deployment](deployment.md#settings-in-env).
 | `TRUSTED_ORIGINS` | Other origins allowed to log in, comma-separated. The Vite dev server (`http://localhost:5173`) needs to be listed. |
 | `TRUSTED_PROXIES` | Reverse proxies in front of the API (IPs or CIDR ranges), so it can tell the real client IP for rate limits. Empty when browsers connect directly. |
 | `API_PORT` | Port Docker Compose publishes the API on. Default 3000. |
+| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | **Required by the `livekit` container.** Its key, and a secret of at least 32 random characters. See [Run LiveKit](#run-livekit). |
 | `REDIS_URL` | How the API reaches Redis when it runs outside Docker: `redis://localhost:6379`. Inside Docker Compose it is `redis://redis:6379`. |
 | `INTERNAL_API_TOKEN` | **Required.** Shared by the API and the translator workers for their `/internal` calls: at least 32 random characters, for example from `openssl rand -hex 32`. |
 | `GEMINI_API_KEY` | For the translator workers. Only the workers read it. |
@@ -80,7 +81,7 @@ reads it, is explained in [Deployment](deployment.md#settings-in-env).
 
 ## Run with Docker
 
-Postgres, Redis and the API, with the built app:
+Postgres, Redis, LiveKit and the API, with the built app:
 
 ```bash
 docker compose up --build    # open http://localhost:3000

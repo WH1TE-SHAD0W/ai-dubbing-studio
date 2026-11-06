@@ -25,7 +25,7 @@ flowchart TB
     Player["Media element and Media Session<br/>playback, lock-screen controls"]
   end
 
-  SFU["LiveKit (not built)"]
+  SFU["LiveKit (not used yet)"]
 
   API -- "logins, sessions" --- Host
   API -- "join by code" --- Listener
@@ -321,8 +321,9 @@ that gets `409` leaves the worker idle, still waiting.
 
 A self-hosted LiveKit SFU will carry the audio
 ([ADR-0001](adr/0001-audio-fan-out.md),
-[ADR-0020](adr/0020-input-audio-stream.md)). **It isn't connected yet.** The
-host publishes once to a source room for the session; each language's worker
+[ADR-0020](adr/0020-input-audio-stream.md)). **The server runs in Docker
+Compose (`config/livekit.yaml`), but nothing connects to it yet.** The host
+publishes once to a source room for the session; each language's worker
 subscribes to it and publishes its translation to that language's room; each
 listener joins only the room of their language, so the workers' load doesn't
 grow with the number of listeners. Slovak and German are examples here.
@@ -332,7 +333,7 @@ grow with the number of listeners. Slovak and German are examples here.
 flowchart TB
   Host["Host (PWA)"]
 
-  subgraph Media["LiveKit (self-hosted SFU, not built)"]
+  subgraph Media["LiveKit (self-hosted SFU, not used yet)"]
     Source["Source room<br/>the host's audio"]
     Slovak["Slovak room"]
     German["German room"]

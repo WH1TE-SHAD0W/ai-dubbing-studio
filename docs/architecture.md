@@ -31,7 +31,8 @@ Cost grows with the number of languages, not listeners.
 | API: host logins, sessions (create, go live, end), joining by code | Built |
 | API: translation tracks, the Redis job stream, the workers' internal API, the sweeper that recovers tracks | Built |
 | Translator workers (Go) with Gemini Live Translate | Built. Until LiveKit is connected, a worker reads the host's audio from a WAV file and writes the translation to another one. |
-| LiveKit: the host's audio in, translated audio out, listener tokens | Not built |
+| LiveKit server | Runs in Docker Compose (`config/livekit.yaml`), but nothing uses it yet |
+| LiveKit in the app, the API and the workers: the host's audio in, translated audio out, listener tokens | Not built |
 | Captions | Not built |
 
 ```mermaid
@@ -45,7 +46,7 @@ flowchart TB
     DB[("PostgreSQL<br/>accounts, sessions,<br/>who translates each language")]
     Q[("Redis Stream<br/>translate:jobs")]
     W["Translator workers (Go)<br/>1 worker = 1 language of 1 session"]
-    SFU["LiveKit (not built)<br/>source room, 1 room per language"]
+    SFU["LiveKit (not used yet)<br/>source room, 1 room per language"]
   end
 
   Gemini["Gemini Live Translate API"]
@@ -63,7 +64,8 @@ flowchart TB
   SFU -. "chosen language (WebRTC)" .-> Listener
 ```
 
-Dotted lines are the LiveKit parts that aren't built yet.
+Dotted lines are the LiveKit parts that aren't built yet: the LiveKit server
+runs in Docker Compose, but nothing connects to it so far.
 
 ## Step by step
 

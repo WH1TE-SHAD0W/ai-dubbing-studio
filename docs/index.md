@@ -33,9 +33,11 @@ Working today, in Docker Compose:
 
 Not built yet:
 
-- **LiveKit**, which carries the audio: the host's microphone in, and each
-  language out to its listeners. Until then a worker reads the host's audio
-  from a WAV file and writes the translation to another one.
+- **Using LiveKit**, which carries the audio: the host's microphone in, and
+  each language out to its listeners. Its server already runs in Docker
+  Compose, but the app, the API and the workers don't connect to it yet.
+  Until they do, a worker reads the host's audio from a WAV file and writes
+  the translation to another one.
 - **Captions.**
 
 The [decision records](adr/index.md) behind it:
