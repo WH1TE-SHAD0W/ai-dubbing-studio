@@ -37,6 +37,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
+
   # The Hono API: Better Auth logins, the API routes and the built PWA, on one
   # port (ADR-0007, ADR-0012). LiveKit and the dubbing container aren't wired yet.
   api:
