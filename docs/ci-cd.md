@@ -223,7 +223,7 @@ Not built yet; planned in Jira.
 
 | Workflow | Jira | Runs on | What it does |
 |---|---|---|---|
-| Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to GitHub's container registry (GHCR). If a build fails, nothing is pushed. |
+| Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to Docker Hub, logging in with an access token stored as a GitHub Actions secret. If a build fails, nothing is pushed. |
 
 ### Image tags
 
