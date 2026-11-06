@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- CI/CD page: the docs checks, publishing the site, running and fixing the
+  checks, what's enforced today, and the planned code CI (YGP-77).
 - Docs checks on every pull request: strict site build, Markdown lint, spell check
   and link check (YGP-32).
 - Pull request template and a "Writing the docs" page.
