@@ -1,15 +1,20 @@
 # Setup Guide
 
-How to run AI Dubbing Studio on your own machine while it is being rebuilt. Only
-the shared schemas and the app (the React PWA) exist so far; the Hono API and the
-dubbing container are not built yet. The plan is in the
-[Architecture](architecture.md) page and the [decision records](adr/index.md).
+How to run AI Dubbing Studio on your own machine while it is being rebuilt. So
+far there are the shared schemas, the app (the React PWA) and the first part of
+the Hono API: it serves the app and handles host logins, with accounts in
+Postgres. Sessions, LiveKit and the dubbing container are not built yet. The plan
+is in the [Architecture](architecture.md) page and the
+[decision records](adr/index.md).
 
 ## What you need
 
-- [Node.js](https://nodejs.org/) 24 or later.
+- [Node.js](https://nodejs.org/) 24.7 or later (the API hashes passwords with
+  Argon2 from `node:crypto`).
 - pnpm, through Corepack, which comes with Node. Run `corepack enable` once (see
   [Install](#install)); the version is pinned in the root `package.json`.
+- [Docker](https://docs.docker.com/get-docker/) with Docker Compose, for
+  Postgres and the API container.
 
 ## Install
 
@@ -35,12 +40,50 @@ published malicious release.
 |---|---|---|
 | `packages/contracts` | `@ads/contracts` | Zod schemas shared by the app, the API and the dubbing container ([ADR-0016](adr/0016-schema-validator.md)) |
 | `apps/web` | `@ads/web` | The React PWA ([ADR-0010](adr/0010-mobile-native.md), [ADR-0014](adr/0014-pages.md)) |
+| `apps/api` | `@ads/api` | The Hono API: serves the app, host logins with Better Auth ([ADR-0007](adr/0007-backend-framework.md), [ADR-0012](adr/0012-serving-pwa-bundle.md), [ADR-0015](adr/0015-auth-library.md)) |
 
-## Run the app
+## Settings (`.env`)
 
-There is no API yet, so the app normally runs with a **mock API** in the browser
-([MSW](https://mswjs.io/)). It answers the same requests the Hono API will, using
-the same schemas.
+Docker Compose and the API read their settings from a `.env` file at the
+repository root, which Git ignores. Start from the example:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Purpose |
+|---|---|
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | The database account Postgres creates on its first start. Change the password; keep it free of `@ : / ? #`, as it goes into a URL. |
+| `DATABASE_URL` | How the API connects when it runs outside Docker. Use the same password. |
+| `BETTER_AUTH_SECRET` | **Required.** Signs the login cookies: at least 32 random characters, for example from `openssl rand -base64 32`. Changing it logs every host out. |
+| `BETTER_AUTH_URL` | The address the browser opens. Default `http://localhost:3000`. With https the login cookie becomes `Secure`. |
+| `TRUSTED_ORIGINS` | Other origins allowed to log in, comma-separated. The Vite dev server (`http://localhost:5173`) needs to be listed. |
+| `TRUSTED_PROXIES` | Reverse proxies in front of the API (IPs or CIDR ranges), so it can tell the real client IP for rate limits. Empty when browsers connect directly. |
+| `API_PORT` | Port Docker Compose publishes the API on. Default 3000. |
+
+## Run with Docker
+
+Postgres and the API, with the built app, in two containers:
+
+```bash
+docker compose up --build    # open http://localhost:3000
+```
+
+The API waits for Postgres to be healthy, creates its tables on the first start,
+then serves the app. You can register a host, log in and log out. Creating a
+session or joining one shows "isn't available yet", because sessions and LiveKit
+aren't built.
+
+```bash
+docker compose ps            # both should show (healthy)
+docker compose logs -f api   # requests and start-up messages
+```
+
+## Run the app with a mock API
+
+To work on the app without Docker, run it with a **mock API** in the browser
+([MSW](https://mswjs.io/)). It answers the same requests the Hono API does, using
+the same schemas, including the parts the API doesn't have yet.
 
 ```bash
 pnpm dev:mock
@@ -57,16 +100,28 @@ Open <http://localhost:5173>. In mock mode:
 
 The mock data is kept for the browser tab, so a reload keeps you logged in.
 
-To run against a real API instead (once it exists), start it on port 3000 and
-run:
+## Run the API on your machine
+
+To work on the API, run it with Node against Postgres in Docker. Node runs the
+TypeScript files directly, and restarts when they change:
 
 ```bash
-pnpm dev
+docker compose up -d postgres
+pnpm --filter @ads/web build     # the app the API serves
+pnpm --filter @ads/api dev       # http://localhost:3000
+```
+
+To work on the app against the real API, keep the API running and start the
+Vite dev server in a second terminal:
+
+```bash
+pnpm dev                         # http://localhost:5173
 ```
 
 The dev server forwards `/api` to `http://localhost:3000`; set `API_URL` to use
-another address. In production Hono serves the built app itself, on the same
-origin ([ADR-0012](adr/0012-serving-pwa-bundle.md)).
+another address. Log in through <http://localhost:5173> only when
+`TRUSTED_ORIGINS` lists it. In production Hono serves the built app itself, on
+the same origin ([ADR-0012](adr/0012-serving-pwa-bundle.md)).
 
 ## Build
 
@@ -87,24 +142,23 @@ pnpm --filter @ads/web preview
 The microphone and the service worker only work in a **secure context**.
 `localhost` counts as one. Anywhere else (a LAN address or a server), serve the
 app over HTTPS.
-The microphone, screen wake lock and service worker only work in a **secure
-context**. `localhost` counts as one. Anywhere else (a LAN address or a server),
-serve the app over HTTPS. nginx passes on `X-Forwarded-Proto`, so the login
-cookie becomes `Secure` automatically behind HTTPS.
 
 ## Run Postgres
 
 The database runs in Docker Compose (`docker-compose.yml` at the repository
-root). Its settings come from a `.env` file, which Git ignores.
+root), with the settings from [`.env`](#settings-env).
 
 ```bash
-cp .env.example .env    # then change POSTGRES_PASSWORD and DATABASE_URL to match
-docker compose up -d    # start Postgres in the background
-docker compose ps       # wait until STATUS shows (healthy)
+docker compose up -d postgres   # start only Postgres, in the background
+docker compose ps               # wait until STATUS shows (healthy)
 ```
 
 - Postgres listens on `localhost:5432` only, so other machines on the network
-  can't reach it. The API connects with `DATABASE_URL` from `.env`.
+  can't reach it. The API in Docker reaches it as `postgres:5432`; the API on
+  your machine connects with `DATABASE_URL` from `.env`.
+- The API creates Better Auth's tables (`user`, `account`, `logins`,
+  `verification`, `rateLimit`) when it starts, and adds any that are missing
+  after an update.
 - The data is kept in the `postgres-data` volume, so it survives
   `docker compose down` and `docker compose up`.
 - `docker compose down -v` also deletes the volume, which wipes the database.
