@@ -44,10 +44,10 @@ published malicious release.
 
 | Folder | Package | What it is |
 |---|---|---|
-| `packages/contracts` | `@ads/contracts` | Zod schemas shared by the app, the API and the dubbing container ([ADR-0016](adr/0016-schema-validator.md)) |
+| `packages/contracts` | `@ads/contracts` | Zod schemas shared by the app and the API ([ADR-0016](adr/0016-schema-validator.md)) |
 | `apps/web` | `@ads/web` | The React PWA ([ADR-0010](adr/0010-mobile-native.md), [ADR-0014](adr/0014-pages.md)) |
 | `apps/api` | `@ads/api` | The Hono API: serves the app, host logins with Better Auth, and hands translation tracks to the workers ([ADR-0007](adr/0007-backend-framework.md), [ADR-0012](adr/0012-serving-pwa-bundle.md), [ADR-0015](adr/0015-auth-library.md), [ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)) |
-| `apps/translator` | (Go module) | The translator worker: one language of one session per process, through Gemini Live Translate ([ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)); design in `apps/translator/pod-spec.md` |
+| `apps/translator` | (Go module) | The translator worker: one language of one session per process, through Gemini Live Translate ([ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md), [ADR-0019](adr/0019-translation-worker-runtime.md)); design in `apps/translator/pod-spec.md` |
 | `packages/contracts/openapi` | | The OpenAPI contract between the API and the workers, from which both sides' types are generated |
 
 ## Settings (`.env`)
@@ -58,6 +58,9 @@ repository root, which Git ignores. Start from the example:
 ```bash
 cp .env.example .env
 ```
+
+The table below is the short version; every setting, with its default and who
+reads it, is explained in [Deployment](deployment.md#settings-in-env).
 
 | Variable | Purpose |
 |---|---|

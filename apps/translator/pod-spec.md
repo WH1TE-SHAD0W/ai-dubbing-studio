@@ -328,16 +328,18 @@ Environment variables and defaults are listed in [README.md](README.md#configura
 
 ## 9. Relation to the ADRs
 
+ADR-0018, ADR-0019 and ADR-0020 are accepted; ADR-0019 supersedes ADR-0017.
+
 - **Follows:**
     - single-use workers and a warm pool (0018);
+    - jobs sent when the session goes live (**`POST /sessions/{id}/start`**), as 0018 and 0020 now say;
     - Go with the standard library and an OpenAPI contract (0019);
     - live means ready (0020).
 - **Fills in or departs:**
-    1. Jobs are enqueued on **`POST /sessions/{id}/start`**, not at session creation as in ADR-0020. That matches the PWA's draft → live flow.
-    2. **`BLOCK 1000`** instead of 5000 (see §4.2).
-    3. **The Live Translate model** replaces the earlier native-audio-with-prompt idea.
-    4. **`status failed` means "retry me"**: Hono re-enqueues up to `TRACK_MAX_ATTEMPTS`, then marks the track failed. This is the dead-letter handling ADR-0018 asked for.
-    5. Until LiveKit, the stop signal is **heartbeat `409 ended`**.
+    1. **`BLOCK 1000`** instead of 5000 (see §4.2).
+    2. **The Live Translate model** replaces the earlier native-audio-with-prompt idea.
+    3. **`status failed` means "retry me"**: Hono re-enqueues up to `TRACK_MAX_ATTEMPTS`, then marks the track failed. This is the dead-letter handling ADR-0018 asked for.
+    4. Until LiveKit, the stop signal is **heartbeat `409 ended`**.
 
 ---
 

@@ -123,33 +123,59 @@ second) or `docker kill` it (the lease runs out and another worker takes over
 within about 20 seconds). `pnpm --filter @ads/api tracks list` shows which
 worker has each track.
 
-## From the proof of concept
+## Debugging the translator
 
-The section below describes the proof-of-concept backend, which has been
-removed. It is kept for when live sessions are rebuilt.
-
-### Debugging a live session
-
-When the app connects but Gemini doesn't respond, read the backend logs:
+When a session goes live but nothing is translated, follow one language through
+the logs:
 
 ```bash
-docker compose logs -f backend
+docker compose logs -f api translator
 ```
 
-Set `LOG_LEVEL=debug` in `.env` for a trace of every Gemini message and a
-session report every 5 seconds. Logs hold counts, timings and message types
-only, never audio, transcript text or the API key.
+The API's lines, in the order they should appear:
 
 | Log line | What it tells you |
 |---|---|
-| `gemini connected (server accepted the setup)` | The model name, key and settings were accepted. |
-| `host audio: first frame received` | The host's microphone audio reaches the backend. If this never appears, the problem is the microphone or the WebSocket, not Gemini. |
-| `gemini: first translated audio received` | Gemini answered. |
-| WARN `host is connected but no audio frames are arriving` | The microphone isn't capturing (blocked, or the browser needs a tap to start audio). |
-| WARN `host audio is arriving but it is silent` | Wrong or muted input. For a mixer or video audio, turn **Voice cleanup** off in the studio's Microphone card. |
-| WARN `gemini is not responding to speech` | 8 seconds of speech sent with no translated audio back. `likelyCause` says why. |
-| `session ended` | Final counts for the whole session. |
+| `sessions: <id> is live; opening 2 translation track(s): sk, de` | **Go live** reached the API and the jobs were sent. |
+| `tracks: can't send the job for track <id> yet` | Redis was unreachable. The job stays in Postgres and is sent when Redis is back. |
+| `tracks: <worker> claimed <track> (sk, …)` | A worker took the language. If this never comes, no worker is idle: check `docker compose ps` and `TRANSLATOR_REPLICAS`. |
+| `tracks: <track> is live (<worker>)` | That worker's Gemini stream is open. |
+| `tracks: <worker> released <track> (sigterm)` | The worker was stopped and gave the track back; another one takes it. |
+| `tracks: lease on <track> ran out` | The worker stopped sending heartbeats (it crashed); the track goes to another worker. |
+| `tracks: <worker> failed on <track>: …` | The worker gave up, with its reason; another worker tries, up to 3 times. |
+| `sessions: <id> ended (host_ended)` | **End session**; the workers stop at their next heartbeat. |
 
-While a session is live, `GET /api/sessions/<id>/debug` (host login needed) gives
-a detailed snapshot for each language. The spoken language must differ from the
-target language, or Gemini stays silent.
+A worker's lines (JSON, each with `workerId`, `trackId` and `language`):
+
+| `msg` | What it tells you |
+|---|---|
+| `worker starting`, then nothing | Idle and waiting for a job. That's normal. |
+| `track claimed` | It got a job and the API gave it the track. |
+| `claim rejected, job dropped` | Another worker already had the track, or it had ended. Normal after a takeover. |
+| `gemini: stream open`, `track live` | The Gemini stream is open. If `stream open` never comes, check `GEMINI_API_KEY` and `GEMINI_MODEL`. |
+| `gemini: first translated audio` | Gemini answered, normally about 3 seconds after the first words. If it never comes, check the input WAV in `apps/translator/media/in`, and that it isn't already in the target language. |
+| `gemini: goAway`, `gemini: replacing stream`, `gemini: stream replaced` | Gemini asked for a new connection, about every 9 minutes; the worker moved to it without a gap. |
+| WARN `gemini: stream closed` | The stream failed; the worker reconnects after 0.5, 1.5 and 4 seconds, and gives up after 3 failures in a row. |
+| `session ended (heartbeat 409)`, `job finished` | The session ended, and the worker exited. A fresh one starts. |
+| WARN `fenced: another worker owns the track` | This worker lost the track (it was cut off too long); it stops without another call. |
+| WARN `reading the stream failed`, `redis not ready` | Redis is unreachable. An idle worker exits after 60 seconds of it, so Docker Compose restarts it. |
+
+To see which worker has each track right now, with its lease and attempts:
+
+```bash
+pnpm --filter @ads/api tracks list
+```
+
+To look at the job stream itself: `pending` should be 0, because a worker
+acknowledges each job as soon as it claims it, and `lag` counts the jobs still
+waiting for a free worker.
+
+```bash
+docker compose exec redis redis-cli XINFO GROUPS translate:jobs
+```
+
+Logs hold ids, counts and timings only, never audio or the API keys. With
+`TRANSLATOR_LOG_LEVEL=debug` a worker adds a line for each transcript it
+receives: its length and the language Gemini detected, not its text. A
+detected language equal to the target means the input is already in that
+language, and Gemini stays silent.

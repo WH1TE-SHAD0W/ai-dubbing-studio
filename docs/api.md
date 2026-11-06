@@ -133,7 +133,7 @@ A session's start opens its tracks and its end ends them (see
 
 ## Health
 
-These are outside `/api`, for Docker and Kubernetes.
+These are outside `/api`, for the Docker health checks.
 
 | Call | Answers |
 |---|---|
