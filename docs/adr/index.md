@@ -21,5 +21,6 @@ Accepted ADRs are not edited; a new ADR supersedes an old one.
 | [0016](0016-schema-validator.md)                 | Zod for schemas and validation                   | Accepted |
 | [0017](0017-translation-plane.md)                | Dubbing container framework and runtime          | Accepted |
 | [0019](0019-translation-worker-runtime.md)       | Go for the translation worker                    | Proposed |
+| [0018](0018-autoscaling-architecture-of-translation-container.md) | Redis Streams dispatch for translation workers   | Proposed |
 
 Numbers 0004–0006 were not used.

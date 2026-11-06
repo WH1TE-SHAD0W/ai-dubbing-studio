@@ -36,6 +36,9 @@ Proposed in decision records still under review:
 
 - **Translation worker runtime:** Go with no web framework instead of
   Node.js and Hono ([ADR-0019](adr/0019-translation-worker-runtime.md)).
+- **Translation workers:** a warm pool of single-use pods, one per
+  language track, that take their jobs from a Redis Stream
+  ([ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)).
 
 These docs live in the project's repository and are reviewed in pull requests like
 the code.
