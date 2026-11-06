@@ -16,4 +16,6 @@
 - "Architecture layers" page with diagrams for the App, API, dubbing container
   and media.
 - Proposed ADR-0019: the translation worker written in Go with no web
-  framework; once accepted it supersedes ADR-0017 (YGP-47).
+  framework; once accepted it supersedes ADR-0017 (YGP-47). It includes measurements
+  from a Node vs Go spike with the real SDKs (`benchmarks/runtime-test/`): Go uses about
+  half of Node's memory when idle and about a third with a live track.
