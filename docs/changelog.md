@@ -2,47 +2,38 @@
 
 ## Unreleased
 
-- Docs brought up to date with what works: Home page, Architecture and
-  Layers (with the session and worker flows), User Guide, README, Deployment
-  (every `.env` setting), Testing (debugging the translator) and CI/CD (the
-  Translator workflow).
+- Home page, Architecture, Architecture layers, User Guide, README and CI/CD
+  updated to what works today; Deployment explains every `.env` setting.
 - ADR-0018, ADR-0019 and ADR-0020 accepted; ADR-0017 superseded by ADR-0019.
-- Listeners can look a session up by its join code.
-- The API's session answer gives each language's translation status
-  (`trackStatus`).
-- Ending a session stops its translator workers within 5 seconds.
-- Going live sends one translation job per target language; idle workers pick
-  them up within a second.
-- Sessions are stored: a host creates one with a join code, takes it live and
-  ends it, and only sees their own.
-- Logging in works from an address listed in `TRUSTED_ORIGINS` with a trailing
-  slash (it was refused with "Invalid origin").
-- The API's database tests run in their own `_test` database, so a running API
-  never sends their tracks to real workers.
-- A `tracks list` command shows which worker has each track.
-- A worker that is stopped gives its track back and another one takes it
-  within a second; a crashed worker's track is taken over once its lease runs
-  out.
-- The API takes tracks back from crashed workers and re-sends jobs that Redis
-  lost or couldn't take (the sweeper, every 5 seconds).
-- The API hands out translation tracks to the workers: claim, heartbeat,
-  status and release on `/internal`, behind a shared token.
-- The API's first SQL migrations: `translation_tracks`, then `sessions` and
-  `session_languages`.
-- Translator workers connect to Gemini Live Translate, and move to a new
-  connection without a gap when Gemini asks (about every 9 minutes).
-- Translator workers take one job each from the Redis Stream, claim the track
-  from the API, heartbeat while they work, and exit after it; a fresh worker
-  takes their place.
-- Translator worker added in Go (`apps/translator`), with `/health` and
-  `/ready`, a Gemini probe command and a 41 MB image. Until LiveKit is
-  connected, it reads and writes WAV files.
-- The contract between the API and the workers as an OpenAPI document, with Go
-  and TypeScript types generated from it.
-- Redis added to Docker Compose, and the translator workers as the
-  `translator` profile; new settings in `.env.example`.
-- Translator CI workflow: Go checks and tests (with Redis), contract drift, the
-  API tests against Postgres and Redis, and the worker image build.
+- Logging in works from an address in `TRUSTED_ORIGINS` written with a
+  trailing slash (it was refused with "Invalid origin").
+- The API's database tests run in their own `_test` database, so a running
+  API never sends their tracks to real workers.
+- Sessions are stored (ADR-0002): a host creates a draft with a join code,
+  takes it live and ends it, and only sees their own. Going live opens one
+  translation track per target language, which idle translator workers pick
+  up; ending it stops them. Listeners can look a session up by its code. Each
+  language in a session shows its translation track's status.
+- `apps/translator`: the translator worker in Go (ADR-0018 to ADR-0020). Each
+  process takes one job from the Redis Stream `translate:jobs`, claims the
+  track from the API, streams the host's audio through one Gemini Live
+  Translate session (resumed seamlessly when Gemini asks it to reconnect), then
+  exits so a fresh process takes its place. Audio is read from and written to
+  WAV files until LiveKit is connected. `/health` and `/ready` probes, a probe
+  command for the real Gemini API, and a 41 MB distroless image.
+- `packages/contracts/openapi/translator-control.yaml`: the API the workers
+  call, with Go and TypeScript types generated from it and Zod schemas checked
+  against them.
+- `apps/api`: translation tracks in Postgres (the first numbered SQL
+  migration), the Redis job stream, the workers' `/internal` routes behind a
+  shared token, and a sweeper that recovers tracks from crashed workers. A
+  `tracks list` command shows which worker has each track.
+- Redis and the translator workers (profile `translator`) in Docker Compose;
+  `REDIS_URL`, `INTERNAL_API_TOKEN` and the Gemini settings in `.env.example`.
+- A Translator CI workflow: Go format, vet, race and Redis integration tests,
+  generated-code drift on both sides, the API tests against Postgres and Redis,
+  and the image build.
+- API, Setup Guide, Testing and Deployment pages updated for the translator.
 - `apps/api`: the Hono API, first part. It serves the built app with cache
   headers, connects to Postgres and handles host sign-up, login and logout with
   Better Auth, configured as ADR-0003 decides (12-hour logins in a `logins`
