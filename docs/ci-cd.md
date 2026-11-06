@@ -173,7 +173,7 @@ missing.
 | Workflow | Jira | Runs on | What it does |
 |---|---|---|---|
 | Code checks | YGP-75 | Every pull request into `development`, `testing` or `main` | Installs with pnpm (cached), then runs lint, typecheck and the Vitest tests across the monorepo. Needs a Postgres service: without `DATABASE_URL`, the API tests that use the database are skipped and the run still passes. Shows pass or fail on the pull request. |
-| Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to GitHub's container registry (GHCR). If a build fails, nothing is pushed. |
+| Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to Docker Hub, logging in with an access token stored as a GitHub Actions secret. If a build fails, nothing is pushed. |
 
 If [ADR-0019](adr/index.md) (Go for the translation worker, still proposed) is
 accepted, the code checks will also need a Go job for the worker.
