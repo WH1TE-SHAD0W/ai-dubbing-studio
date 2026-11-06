@@ -70,7 +70,7 @@ deploys to the cluster by hand.
 flowchart LR
     merge["Merge into<br>testing or main"] --> build["Image build<br>(YGP-52)"]
     build --> hub["Docker Hub"]
-    git["Manifests in Git<br>(YGP-81)"] --> argo["Argo CD<br>(YGP-82)"]
+    git["Deploy repo:<br>manifests (YGP-81)"] --> argo["Argo CD<br>(YGP-82)"]
     hub --> argo
     argo --> test["Test environment"]
     argo --> prod["Production"]
@@ -80,8 +80,13 @@ flowchart LR
    Docker Hub. Each image is tagged with its commit SHA, plus `testing` or
    `prod`. The [CI/CD page](ci-cd.md#code-ci-planned) covers the image build
    and its tags.
-2. The Kubernetes manifests in Git (YGP-81) describe what each environment
-   runs, including the autoscaling for the worker pool.
+2. The Kubernetes manifests (YGP-81) describe what each environment runs. They
+   live in their own repository,
+   [ai-dubbing-studio-deploy](https://github.com/jamiemccourt800/ai-dubbing-studio-deploy),
+   with one overlay per environment (`overlays/test`, `overlays/prod`). Its
+   README covers the layout, the Secrets to create on the cluster and how to
+   try it locally. The worker pool and its autoscaling are added there with
+   the translation workers.
 3. Argo CD (YGP-82) watches the manifests and syncs the cluster to them.
 
 | Branch | Image tag | Environment |
@@ -91,6 +96,10 @@ flowchart LR
 
 So a test deployment never runs an image that hasn't been through `testing`,
 and production never runs one that hasn't reached `main`.
+
+The manifests are kept apart from the code, as Argo CD recommends. Changing
+what runs never triggers this repository's CI, and the deploy repository's
+history is a log of what ran when. Neither repository holds any secrets.
 
 ## Deploy or update with Docker Compose (built)
 
@@ -132,7 +141,8 @@ backup taken before the update.
 ### On K3s (planned)
 
 1. Revert the bad change in Git (`git revert`) through a pull request, as for
-   any other change.
+   any other change: in this repository for code, or in the deploy repository
+   for a setting.
 2. Once it merges, a new image is built and Argo CD syncs the cluster back to
    the working version.
 

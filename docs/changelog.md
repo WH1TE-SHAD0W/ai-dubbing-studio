@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Deployment page: the Kubernetes manifests live in their own repository,
+  `ai-dubbing-studio-deploy` (YGP-81).
 - Deployment page rewritten for the current plan: Postgres and the API in
   Docker Compose (built), K3s with Argo CD (planned), rolling back, checking a
   deploy and backing up the database (YGP-83).
