@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Node runs the .ts files directly by stripping the types, so only syntax that
+    // can be erased is allowed (no enums, namespaces or constructor parameter properties).
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "erasableSyntaxOnly": true,
+    "lib": ["ES2024"],
+    "types": ["node"]
+  },
+  "include": ["src", "test"]
+}

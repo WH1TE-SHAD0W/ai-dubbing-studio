@@ -8,6 +8,13 @@ export const PASSWORD_MAX = 128;
 // Shown for every failed login, whether the email exists or not (ADR-0003).
 export const LOGIN_FAILED_MESSAGE = "Email or password is incorrect.";
 
+// Shown on sign-up when the email already has an account. Saying so is accepted:
+// hiding it needs email verification, and the rate limit stops mass checking (ADR-0003).
+export const EMAIL_TAKEN_MESSAGE = "This email is already registered. Log in instead.";
+
+// Shown when a new password is on the server's common-password list (ADR-0003).
+export const COMMON_PASSWORD_MESSAGE = "This password is too common. Pick a less predictable phrase.";
+
 // Trim and lower-case first, so a pasted " Ana@Example.com " still validates.
 export const emailSchema = z
   .string()
