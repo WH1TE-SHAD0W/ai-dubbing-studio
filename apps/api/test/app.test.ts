@@ -16,6 +16,7 @@ import { authOptions, createAuth } from "../src/auth/auth.ts";
 import { createPool } from "../src/db.ts";
 import { loadEnv } from "../src/env.ts";
 import { migrateAuthTables } from "../src/migrate.ts";
+import { createTrackService } from "../src/tracks/service.ts";
 
 // The whole API against a real Postgres (ADR-0002: queries need a real database).
 // Start one with `docker compose up -d postgres`, then run with DATABASE_URL set
@@ -29,7 +30,13 @@ describe.skipIf(!DATABASE_URL)("API against Postgres", () => {
   let webDist: string;
 
   beforeAll(async () => {
-    const env = loadEnv({ DATABASE_URL, BETTER_AUTH_SECRET: "test-secret-".repeat(4), BETTER_AUTH_URL: ORIGIN });
+    const env = loadEnv({
+      DATABASE_URL,
+      BETTER_AUTH_SECRET: "test-secret-".repeat(4),
+      BETTER_AUTH_URL: ORIGIN,
+      REDIS_URL: "redis://localhost:6379",
+      INTERNAL_API_TOKEN: "internal-token-".repeat(3),
+    });
     pool = createPool(env.DATABASE_URL);
     await migrateAuthTables(authOptions({ env, pool }));
     const auth = createAuth({ env, pool });
@@ -40,7 +47,9 @@ describe.skipIf(!DATABASE_URL)("API against Postgres", () => {
     writeFileSync(join(webDist, "assets", "index-abc123.js"), "console.log('app')");
     writeFileSync(join(webDist, "sw.js"), "// service worker");
 
-    app = createApp({ auth, pool, webDist, trustForwarded: false });
+    // The translator routes have their own tests (internal-routes.test.ts).
+    const tracks = createTrackService(pool, { send: async () => "0-0" }, { leaseTtlSec: 15, heartbeatSec: 5, maxAttempts: 3 });
+    app = createApp({ auth, pool, webDist, trustForwarded: false, internal: { token: env.INTERNAL_API_TOKEN, tracks } });
   });
 
   afterAll(async () => {
@@ -226,6 +235,14 @@ describe.skipIf(!DATABASE_URL)("API against Postgres", () => {
       const api = await call("/api/nothing-here");
       expect(api.status).toBe(404);
       expect(await message(api)).toBe("Not found.");
+    });
+
+    it("never answers the translator paths with the app's entry page", async () => {
+      // Without the workers' token: 401. With it, an unknown path is a JSON 404.
+      expect((await call("/internal/tracks")).status).toBe(401);
+      const res = await app.request("/internal/nothing-here", { headers: { Authorization: `Bearer ${"internal-token-".repeat(3)}` } });
+      expect(res.status).toBe(404);
+      expect(await message(res)).toBe("Not found.");
     });
   });
 

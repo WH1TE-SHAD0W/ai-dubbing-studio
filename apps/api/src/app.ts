@@ -6,9 +6,11 @@ import type pg from "pg";
 import type { Auth } from "./auth/auth.ts";
 import { withClientIp } from "./auth/client-ip.ts";
 import { isDatabaseUp } from "./db.ts";
+import { internalRoutes } from "./routes/internal.ts";
 import { joinRoutes } from "./routes/join.ts";
 import { sessionRoutes } from "./routes/sessions.ts";
 import { pwa } from "./static.ts";
+import type { TrackService } from "./tracks/service.ts";
 
 export type AppDeps = {
   auth: Auth;
@@ -17,6 +19,8 @@ export type AppDeps = {
   webDist: string;
   // True when TRUSTED_PROXIES is set: their X-Forwarded-For chain is kept.
   trustForwarded: boolean;
+  // The translator workers' API (/internal) and its shared token.
+  internal: { token: string; tracks: TrackService };
 };
 
 // The API routes under /api, typed for Hono's RPC client (ADR-0016).
@@ -33,7 +37,7 @@ async function friendlierRateLimit(res: Response): Promise<Response> {
   return new Response(JSON.stringify({ message: RATE_LIMITED_MESSAGE }), { status: 429, headers });
 }
 
-export function createApp({ auth, pool, webDist, trustForwarded }: AppDeps) {
+export function createApp({ auth, pool, webDist, trustForwarded, internal }: AppDeps) {
   const app = new Hono();
 
   app.use(secureHeaders());
@@ -51,6 +55,11 @@ export function createApp({ auth, pool, webDist, trustForwarded }: AppDeps) {
 
   app.route("/api", apiRoutes(auth));
   app.all("/api/*", (c) => c.json({ message: "Not found." }, 404));
+
+  // The translator workers (ADR-0018). Not part of the browser's API, and never
+  // the PWA: an unknown path here is a JSON 404, not the entry page.
+  app.route("/internal", internalRoutes(internal));
+  app.all("/internal/*", (c) => c.json({ message: "Not found." }, 404));
 
   // Everything else is the PWA (ADR-0012).
   app.route("/", pwa(webDist));

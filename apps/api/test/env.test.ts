@@ -5,6 +5,8 @@ const minimal = {
   DATABASE_URL: "postgres://dubbing:pw@localhost:5432/dubbing",
   BETTER_AUTH_SECRET: "x".repeat(32),
   BETTER_AUTH_URL: "http://localhost:3000",
+  REDIS_URL: "redis://localhost:6379",
+  INTERNAL_API_TOKEN: "t".repeat(32),
 };
 
 describe("environment", () => {
@@ -14,6 +16,18 @@ describe("environment", () => {
     expect(env.TRUSTED_ORIGINS).toEqual([]);
     expect(env.TRUSTED_PROXIES).toEqual([]);
     expect(env.WEB_DIST).toBe("../web/dist");
+    expect(env.MIGRATIONS_DIR).toBe("migrations");
+    expect(env.JOB_STREAM).toBe("translate:jobs");
+    expect(env.JOB_GROUP).toBe("translators");
+    expect([env.LEASE_TTL_SEC, env.HEARTBEAT_SEC, env.TRACK_MAX_ATTEMPTS]).toEqual([15, 5, 3]);
+  });
+
+  it("checks the translator settings", () => {
+    expect(() => loadEnv({ ...minimal, REDIS_URL: "http://localhost:6379" })).toThrow(/REDIS_URL/);
+    expect(() => loadEnv({ ...minimal, INTERNAL_API_TOKEN: "short" })).toThrow(/INTERNAL_API_TOKEN/);
+    // A worker must be able to miss a heartbeat and keep its track.
+    expect(() => loadEnv({ ...minimal, LEASE_TTL_SEC: "10", HEARTBEAT_SEC: "5" })).toThrow(/HEARTBEAT_SEC/);
+    expect(loadEnv({ ...minimal, LEASE_TTL_SEC: "30", HEARTBEAT_SEC: "10" }).LEASE_TTL_SEC).toBe(30);
   });
 
   it("splits comma lists", () => {

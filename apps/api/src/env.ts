@@ -17,7 +17,8 @@ const commaList = <T extends z.ZodType<unknown, string>>(item: T) =>
     )
     .pipe(z.array(item));
 
-export const envSchema = z.object({
+// Every setting, without the checks across settings (the dev CLI picks a few).
+export const baseEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
 
@@ -38,6 +39,27 @@ export const envSchema = z.object({
 
   // The built PWA (ADR-0012). Relative paths are resolved from the working directory.
   WEB_DIST: z.string().min(1).default("../web/dist"),
+  // Our numbered .sql migrations (ADR-0002), resolved the same way.
+  MIGRATIONS_DIR: z.string().min(1).default("migrations"),
+
+  // Translation jobs go to the workers through a Redis Stream (ADR-0018).
+  // Inside Docker Compose the host is `redis`.
+  REDIS_URL: z.url({ protocol: /^rediss?$/, error: "Set REDIS_URL to a redis:// URL." }),
+  JOB_STREAM: z.string().min(1).default("translate:jobs"),
+  JOB_GROUP: z.string().min(1).default("translators"),
+  // Bearer token the translator workers send on /internal. `openssl rand -hex 32` makes one.
+  INTERNAL_API_TOKEN: z.string().min(32, { error: "Set INTERNAL_API_TOKEN to at least 32 random characters." }),
+  // A worker's claim on a track lasts this long unless a heartbeat renews it.
+  LEASE_TTL_SEC: z.coerce.number().int().min(3).max(300).default(15),
+  // How often workers renew it.
+  HEARTBEAT_SEC: z.coerce.number().int().min(1).max(100).default(5),
+  // Workers that may fail or vanish on one track before it is marked failed.
+  TRACK_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(3),
+});
+
+export const envSchema = baseEnvSchema.refine((env) => env.HEARTBEAT_SEC * 3 <= env.LEASE_TTL_SEC, {
+  error: "HEARTBEAT_SEC must be at most a third of LEASE_TTL_SEC, so a worker can miss a heartbeat and keep its track.",
+  path: ["HEARTBEAT_SEC"],
 });
 
 export type Env = z.infer<typeof envSchema>;
