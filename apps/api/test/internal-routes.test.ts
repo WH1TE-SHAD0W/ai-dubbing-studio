@@ -15,26 +15,31 @@ import { createPool } from "../src/db.ts";
 import { migrateSqlFiles } from "../src/migrate.ts";
 import { internalRoutes } from "../src/routes/internal.ts";
 import { createTrackService, type TrackService } from "../src/tracks/service.ts";
+import { TRACKS_DATABASE_URL, ensureTracksDatabase } from "./db.ts";
 
 // The translator workers' API over HTTP, against a real Postgres, checked
 // against the shared contract (the Go worker's client is tested against the
-// same OpenAPI document). Needs DATABASE_URL (or TEST_DATABASE_URL).
-const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+// same OpenAPI document). Runs in its own database (see db.ts). The
+// tracks made here are deleted at the end, so a running API never sends them
+// to real workers.
 const MIGRATIONS = fileURLToPath(new URL("../migrations", import.meta.url));
 const TOKEN = "internal-token-".repeat(3);
 
-describe.skipIf(!DATABASE_URL)("internal routes for the translator workers", () => {
+describe.skipIf(!TRACKS_DATABASE_URL)("internal routes for the translator workers", () => {
   let pool: pg.Pool;
   let tracks: TrackService;
   let app: Hono;
+  const sessions: string[] = [];
 
   beforeAll(async () => {
-    pool = createPool(DATABASE_URL!);
+    await ensureTracksDatabase();
+    pool = createPool(TRACKS_DATABASE_URL!);
     await migrateSqlFiles(pool, MIGRATIONS);
     tracks = createTrackService(pool, { send: async () => "1-0" }, { leaseTtlSec: 15, heartbeatSec: 5, maxAttempts: 3 });
     app = new Hono().route("/internal", internalRoutes({ token: TOKEN, tracks }));
   });
   afterAll(async () => {
+    await pool?.query("delete from translation_tracks where session_id = any($1::uuid[])", [sessions]);
     await pool?.end();
   });
 
@@ -45,6 +50,7 @@ describe.skipIf(!DATABASE_URL)("internal routes for the translator workers", () 
   }
   async function openTrack(lang = "sk") {
     const sessionId = randomUUID();
+    sessions.push(sessionId);
     const [track] = await tracks.openSession(sessionId, [lang]);
     return { sessionId, trackId: track!.id };
   }
