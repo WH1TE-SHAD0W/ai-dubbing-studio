@@ -18,6 +18,25 @@ services:
       retries: 10
     restart: unless-stopped
 
+  livekit:
+    image: livekit/livekit-server:v1.13.11
+    command: ["--config", "/etc/livekit.yaml", "--node-ip", "${LIVEKIT_NODE_IP:-127.0.0.1}"]
+    environment:
+      # "key: secret", built from .env so the secret never goes in Git.
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    volumes:
+      - ./config/livekit.yaml:/etc/livekit.yaml:ro
+    # Only this machine by default. For a phone on your Wi-Fi, set LIVEKIT_BIND
+    # to 0.0.0.0 and LIVEKIT_NODE_IP to this machine's LAN address in .env.
+    ports:
+      - "${LIVEKIT_BIND:-127.0.0.1}:7880:7880"
+      - "${LIVEKIT_BIND:-127.0.0.1}:7881:7881"
+      - "${LIVEKIT_BIND:-127.0.0.1}:7882:7882/udp"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:7880"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
   # The Hono API: Better Auth logins, the API routes and the built PWA, on one
   # port (ADR-0007, ADR-0012). LiveKit and the dubbing container aren't wired yet.
   api:
