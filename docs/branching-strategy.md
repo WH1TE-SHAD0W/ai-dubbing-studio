@@ -35,7 +35,8 @@ gitGraph
 | Branch | Created from | Merges into | What it's for |
 |---|---|---|---|
 | `main` | — | — | Production. The [docs site](index.md) is published from here. |
-| `adr/NNNN-name` | `main` | `main` | One decision record, or a docs-only fix. |
+| `adr/NNNN-name` | `main` | `main` | One decision record. |
+| `docs/YGP-XX-name` | `main` | `main` | A docs-only page, rewrite or fix, with no code. |
 | `development` | `main` (once) | `testing` | Where finished features are put together. |
 | `feature/YGP-XX-name` | `development` | `development` | One Jira task or subtask, with its code and docs. |
 | `fix/YGP-XX-name` | `development` | `development` | A bug found on `testing`. |
@@ -49,13 +50,15 @@ panel in Jira.
 1. **Release one feature at a time.** When a feature is ready, it goes
    `development` → `testing` → `main`. We don't wait for the end of the sprint.
 2. **Docs travel with the code.** Write a feature's docs on its feature branch.
-   They go live when the feature reaches `main`. ADRs are branched from `main`
-   and merged straight back, as described in [Writing the docs](writing-docs.md).
+   They go live when the feature reaches `main`. ADRs and docs-only changes are
+   branched from `main` and merged straight back, as described in
+   [Writing the docs](writing-docs.md).
 3. **Fix bugs on `development` first.** If something breaks on `testing`, fix it
    on a `fix/` branch from `development`, then send it through `testing` again
    before it reaches `main`.
-4. **Keep `development` up to date.** After an ADR is merged into `main`, merge
-   `main` into `development` so the docs on both branches don't drift apart.
+4. **Keep `development` up to date.** After an ADR or docs-only change is
+   merged into `main`, merge `main` into `development` so the docs on both
+   branches don't drift apart.
 5. **Every merge is a pull request.** A teammate reviews it and the checks must
    pass first.
 

@@ -6,6 +6,10 @@
   `apps/api/migrations/` on every start, records them in `schema_migrations`,
   and runs them and Better Auth's under one Postgres lock so API copies starting
   together don't clash (YGP-62).
+- Code checks on every pull request: typecheck, tests with a Postgres
+  database, and build (YGP-75).
+- CI/CD page: the docs checks, publishing the site, running and fixing the
+  checks, what's enforced today, and the planned code CI (YGP-77).
 - `apps/api`: the Hono API, first part. It serves the built app with cache
   headers, connects to Postgres and handles host sign-up, login and logout with
   Better Auth, configured as ADR-0003 decides (12-hour logins in a `logins`
@@ -38,6 +42,12 @@
   and host-login flows.
 - "Architecture layers" page with diagrams for the App, API, dubbing container
   and media.
+- Proposed ADR-0020: host audio reaches the translation workers through a
+  LiveKit source room, with one output room per language (YGP-43).
+- Proposed ADR-0019: the translation worker written in Go with no web
+  framework; once accepted it supersedes ADR-0017 (YGP-47). It includes measurements
+  from a Node vs Go spike with the real SDKs (`benchmarks/runtime-test/`): Go uses about
+  half of Node's memory when idle and about a third with a live track.
 - Proposed ADR-0018: translation jobs dispatched through a Redis Stream to a
   warm pool of single-use worker pods, one track per pod (YGP-91, YGP-98).
 - Postgres in Docker Compose for local development, with a named volume and a
