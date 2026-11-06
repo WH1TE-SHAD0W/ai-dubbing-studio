@@ -1,0 +1,63 @@
+# Checks the Go translator worker on every pull request that changes it.
+name: Translator
+
+on:
+  pull_request:
+    paths:
+      - "apps/translator/**"
+      - "packages/contracts/openapi/**"
+      - ".github/workflows/translator.yml"
+  push:
+    branches: [main, development]
+    paths:
+      - "apps/translator/**"
+      - "packages/contracts/openapi/**"
+      - ".github/workflows/translator.yml"
+
+defaults:
+  run:
+    working-directory: apps/translator
+
+jobs:
+  go:
+    name: Format, vet, generate, test
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/translator/go.mod
+          cache-dependency-path: apps/translator/go.sum
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then echo "Run gofmt on:"; echo "$unformatted"; exit 1; fi
+      - run: go vet ./...
+      # The control API types are generated from the shared OpenAPI document
+      # and committed; fail if they no longer match it.
+      - name: Generated code is up to date
+        run: |
+          go generate ./...
+          git diff --exit-code -- .
+      - run: go test -race ./...
+      - name: Integration tests (real Redis)
+        run: go test -race -tags integration ./...
+        env:
+          REDIS_URL: redis://localhost:6379
+
+  docker:
+    name: Build image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ai-dubbing-studio-translator .
