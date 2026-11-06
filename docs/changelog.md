@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Code checks on every pull request: typecheck, tests with a Postgres
+  database, and build (YGP-75).
 - CI/CD page: the docs checks, publishing the site, running and fixing the
   checks, what's enforced today, and the planned code CI (YGP-77).
 - Docs checks on every pull request: strict site build, Markdown lint, spell check

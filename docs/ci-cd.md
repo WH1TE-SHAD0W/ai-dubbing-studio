@@ -1,16 +1,19 @@
 # CI/CD
 
-The docs are checked and published by GitHub Actions. Two workflows do the
-work:
+The code and the docs are checked by GitHub Actions, and the docs are
+published by it too. Three workflows do the work:
 
+- **CI** (`.github/workflows/ci.yml`) type-checks, tests and builds the code on
+  every pull request into `development`, `testing` or `main`; see
+  [Code checks](#code-checks).
 - **Docs** (`.github/workflows/docs.yml`) checks the docs on every pull request
   that changes them, and again after each merge into `main`.
 - **Deploy docs** (`.github/workflows/deploy-docs.yml`) builds the site and
   publishes it to [GitHub Pages](https://wh1te-shad0w.github.io/ai-dubbing-studio/)
   whenever the docs change on `main`.
 
-The application code has no pipeline yet; see
-[Code CI (planned)](#code-ci-planned).
+Building and pushing the container images isn't built yet; see
+[Image build (planned)](#image-build-planned).
 
 ## How a docs change goes live
 
@@ -123,6 +126,19 @@ PATH. Run them through Python instead: `python -m mkdocs build --strict` and
 
 The link check runs only in CI, so it isn't installed locally.
 
+To run the code checks, from the repository root:
+
+```bash
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+The database tests only run if `TEST_DATABASE_URL` or `DATABASE_URL` is set, for
+example to the Compose database from the [Setup Guide](setup-guide.md). If
+`pnpm` isn't found, run `corepack enable` once.
+
 ## When a check fails
 
 To find the error:
@@ -160,23 +176,54 @@ agreement, not something GitHub enforces:
   button.
 
 Branch protection is planned in YGP-76: `main` and `testing` will need a pull
-request, one approval and passing checks before a merge. One thing to solve
-first: the Docs checks only run when docs change, so if they become required,
-a pull request that only changes code would wait for them forever.
+request, one approval and passing checks before a merge. The three
+[code checks](#code-checks) run on every pull request, so they can be required.
+The Docs checks only run when docs change, so if they became required, a pull
+request that only changes code would wait for them forever.
 
-## Code CI (planned)
+## Code checks
 
-None of this is built yet. It is planned in Jira. The code monorepo (`apps/`,
-`pnpm-workspace.yaml`) is now on `development`, so only the workflows are
-missing.
+The **CI** workflow (YGP-75) runs on every pull request into `development`,
+`testing` or `main`, and again after each push to those branches. It has no
+path filter, so it runs on every pull request, including docs-only ones.
+
+| Job | What it runs | Fails when |
+|---|---|---|
+| Typecheck | `pnpm typecheck`: `tsc` in every package | A type error anywhere in the monorepo. |
+| Test | `pnpm test`: Vitest in every package, with a Postgres 18 service | A test fails. |
+| Build | `pnpm build`: every package that has a build script | A package doesn't build, for example a broken Vite or esbuild setup. |
+
+Every job installs the same way:
+
+- **pnpm** at the version pinned in `package.json` (`packageManager`), and
+  **Node 24**.
+- **A pnpm cache**, so repeat runs don't download every package again.
+- **`pnpm install --frozen-lockfile`**, which fails if `pnpm-lock.yaml` is out
+  of date instead of quietly installing different versions.
+
+The Test job starts a throwaway `postgres:18-alpine` database, the same image
+as Docker Compose, and sets `TEST_DATABASE_URL` to it. Without a database URL
+the API's database tests are skipped and the run still passes, so the CI sets
+one to make sure they run. The database has no password, because it only
+exists inside the run.
+
+A new push to the same pull request cancels the run still going. The workflow
+can only read the repository.
+
+Not checked yet:
+
+- **Lint.** The repository has no lint script, so type-checking does most of
+  that job for now.
+- **The Go worker.** Its tests need their own job once the worker is in the
+  repository (YGP-98).
+
+## Image build (planned)
+
+Not built yet; planned in Jira.
 
 | Workflow | Jira | Runs on | What it does |
 |---|---|---|---|
-| Code checks | YGP-75 | Every pull request into `development`, `testing` or `main` | Installs with pnpm (cached), then runs lint, typecheck and the Vitest tests across the monorepo. Needs a Postgres service: without `DATABASE_URL`, the API tests that use the database are skipped and the run still passes. Shows pass or fail on the pull request. |
 | Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to GitHub's container registry (GHCR). If a build fails, nothing is pushed. |
-
-If [ADR-0019](adr/index.md) (Go for the translation worker, still proposed) is
-accepted, the code checks will also need a Go job for the worker.
 
 ### Image tags
 
