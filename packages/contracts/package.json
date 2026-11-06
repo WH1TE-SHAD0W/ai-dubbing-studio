@@ -8,7 +8,8 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "gen:openapi": "pnpm dlx openapi-typescript@7.13.0 openapi/translator-control.yaml -o src/generated/translator-control.ts"
   },
   "dependencies": {
     "zod": "^4.6.7"
