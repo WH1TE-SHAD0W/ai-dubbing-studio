@@ -17,6 +17,11 @@ const commaList = <T extends z.ZodType<unknown, string>>(item: T) =>
     )
     .pipe(z.array(item));
 
+// Optional, and an empty value counts as unset: Docker Compose passes an unset
+// variable as "".
+const optional = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((v) => (v === "" ? undefined : v), schema.optional());
+
 // Every setting, without the checks across settings (the dev CLI picks a few).
 export const baseEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
@@ -41,8 +46,18 @@ export const baseEnvSchema = z.object({
 
   // The built PWA (ADR-0012). Relative paths are resolved from the working directory.
   WEB_DIST: z.string().min(1).default("../web/dist"),
-  // Our numbered .sql migrations (ADR-0002), resolved the same way.
+
+  // Our numbered .sql migrations (YGP-62). Relative paths are resolved from the
+  // working directory, like WEB_DIST.
   MIGRATIONS_DIR: z.string().min(1).default("migrations"),
+  // LiveKit (ADR-0001, ADR-0020): the same key and secret as the LiveKit server.
+  // Inside Docker Compose the URL is ws://livekit:7880. Optional until the session
+  // routes use LiveKit; set all three or none.
+  LIVEKIT_URL: optional(z.url({ protocol: /^(wss?|https?)$/ })),
+  LIVEKIT_API_KEY: optional(z.string().min(1)),
+  LIVEKIT_API_SECRET: optional(
+    z.string().min(32, { error: "Set LIVEKIT_API_SECRET to at least 32 random characters." }),
+  ),
 
   // Translation jobs go to the workers through a Redis Stream (ADR-0018).
   // Inside Docker Compose the host is `redis`.
@@ -59,10 +74,16 @@ export const baseEnvSchema = z.object({
   TRACK_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(3),
 });
 
-export const envSchema = baseEnvSchema.refine((env) => env.HEARTBEAT_SEC * 3 <= env.LEASE_TTL_SEC, {
-  error: "HEARTBEAT_SEC must be at most a third of LEASE_TTL_SEC, so a worker can miss a heartbeat and keep its track.",
-  path: ["HEARTBEAT_SEC"],
-});
+export const envSchema = baseEnvSchema
+  .refine(
+    (env) => [env.LIVEKIT_URL, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET].every((v) => v === undefined) ||
+      [env.LIVEKIT_URL, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET].every((v) => v !== undefined),
+    { error: "Set all three of LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET, or none of them." },
+  )
+  .refine((env) => env.HEARTBEAT_SEC * 3 <= env.LEASE_TTL_SEC, {
+    error: "HEARTBEAT_SEC must be at most a third of LEASE_TTL_SEC, so a worker can miss a heartbeat and keep its track.",
+    path: ["HEARTBEAT_SEC"],
+  });
 
 export type Env = z.infer<typeof envSchema>;
 

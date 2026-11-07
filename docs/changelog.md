@@ -31,6 +31,28 @@
 - Redis and the translator workers (profile `translator`) in Docker Compose;
   `REDIS_URL`, `INTERNAL_API_TOKEN` and the Gemini settings in `.env.example`.
 - API, Setup Guide and Testing pages updated for the translator.
+- API image built on every pull request and pushed to Docker Hub after a merge
+  into `testing` or `main`, tagged with the commit SHA plus `testing` or `prod`;
+  a release tag such as `v0.1.0` adds the version tag (YGP-52).
+- Database migrations: the API applies the numbered `.sql` files in
+  `apps/api/migrations/` on every start, records them in `schema_migrations`,
+  and runs them and Better Auth's under one Postgres lock so API copies starting
+  together don't clash (YGP-62).
+- LiveKit tokens in the API: a listener token (listen only, one output room), a
+  host token (microphone only, the source room) and a worker's two tokens
+  (hear the source room hidden, publish to its output room), all expiring after
+  10 minutes (YGP-71).
+- LiveKit rooms in the API: room names from the session and language
+  (ADR-0020), creating a session's source room and one output room per
+  language, and deleting them in two steps; new `LIVEKIT_` settings, passed to
+  the `api` container. Tested against a real LiveKit, also in CI (YGP-69).
+- Code checks on every pull request: typecheck, tests with a Postgres
+  database, and build (YGP-75).
+- Deployment page rewritten for the current plan: Postgres and the API in
+  Docker Compose (built), K3s with Argo CD (planned), rolling back, checking a
+  deploy and backing up the database (YGP-83).
+- CI/CD page: the docs checks, publishing the site, running and fixing the
+  checks, what's enforced today, and the planned code CI (YGP-77).
 - `apps/api`: the Hono API, first part. It serves the built app with cache
   headers, connects to Postgres and handles host sign-up, login and logout with
   Better Auth, configured as ADR-0003 decides (12-hour logins in a `logins`
@@ -50,8 +72,6 @@
   microphone picker, LiveKit listener playback and a minimal service worker. It
   runs against a mock API until the Hono API exists.
 - Setup Guide and Testing pages updated for the new layout.
-- CI/CD page: the docs checks, publishing the site, running and fixing the
-  checks, what's enforced today, and the planned code CI (YGP-77).
 - Docs checks on every pull request: strict site build, Markdown lint, spell check
   and link check (YGP-32).
 - Pull request template and a "Writing the docs" page.

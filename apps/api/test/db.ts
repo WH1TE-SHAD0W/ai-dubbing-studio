@@ -4,7 +4,8 @@ import pg from "pg";
 import { authOptions } from "../src/auth/auth.ts";
 import { createPool } from "../src/db.ts";
 import { type Env, loadEnv } from "../src/env.ts";
-import { migrateAuthTables, migrateSqlFiles } from "../src/migrate.ts";
+import { migrateAuthTables } from "../src/migrate.ts";
+import { runSqlMigrations, withMigrationLock } from "../src/migrations.ts";
 import { newJoinCode } from "../src/sessions/repo.ts";
 
 // The database tests use a database of their own. In the development
@@ -42,8 +43,11 @@ export async function openTestDatabase(): Promise<pg.Pool> {
   await ensureDatabase();
   const env = testEnv();
   const pool = createPool(env.DATABASE_URL);
-  await migrateAuthTables(authOptions({ env, pool }));
-  await migrateSqlFiles(pool, MIGRATIONS);
+  // As the API does at start (server.ts): Better Auth's tables, then ours, under one lock.
+  await withMigrationLock(pool, async (client) => {
+    await migrateAuthTables(authOptions({ env, pool }));
+    await runSqlMigrations(client, MIGRATIONS);
+  });
   return pool;
 }
 

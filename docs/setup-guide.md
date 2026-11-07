@@ -71,7 +71,7 @@ explained on the [Translator](translator.md#settings) page.
 | `TRUSTED_ORIGINS` | Other origins allowed to log in, comma-separated. The Vite dev server (`http://localhost:5173`) needs to be listed. |
 | `TRUSTED_PROXIES` | Reverse proxies in front of the API (IPs or CIDR ranges), so it can tell the real client IP for rate limits. Empty when browsers connect directly. |
 | `API_PORT` | Port Docker Compose publishes the API on. Default 3000. |
-| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | **Required by the `livekit` container.** Its key, and a secret of at least 32 random characters. See [Run LiveKit](#run-livekit). |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | LiveKit's address and the key and secret it shares with the API; see [Run LiveKit](#run-livekit). The API needs all three or none, and doesn't use LiveKit yet. |
 | `REDIS_URL` | How the API reaches Redis when it runs outside Docker: `redis://localhost:6379`. Inside Docker Compose it is `redis://redis:6379`. |
 | `INTERNAL_API_TOKEN` | **Required.** Shared by the API and the translator workers for their `/internal` calls: at least 32 random characters, for example from `openssl rand -hex 32`. |
 | `GEMINI_API_KEY` | For the translator workers. Only the workers read it. |
@@ -87,10 +87,11 @@ Postgres, Redis, LiveKit and the API, with the built app:
 docker compose up --build    # open http://localhost:3000
 ```
 
-The API waits for Postgres and Redis to be healthy, creates its tables on the
-first start, then serves the app. You can register a host, log in, create a
-session and take it live or end it, and look it up by its code. Listening shows
-"isn't available yet", because LiveKit isn't connected.
+The API waits for Postgres and Redis to be healthy, brings its tables up to
+date (see [Database migrations](#database-migrations)), then serves the app.
+You can register a host, log in, create a session and take it live or end it,
+and look it up by its code. Listening shows "isn't available yet", because
+LiveKit isn't connected.
 
 ```bash
 docker compose ps            # all should show (healthy)
@@ -233,11 +234,8 @@ docker compose ps                     # wait until STATUS shows (healthy)
 - Postgres listens on `localhost:5432` only, so other machines on the network
   can't reach it. The API in Docker reaches it as `postgres:5432`; the API on
   your machine connects with `DATABASE_URL` from `.env`.
-- The API creates Better Auth's tables (`user`, `account`, `logins`,
-  `verification`, `rateLimit`) when it starts, and adds any that are missing
-  after an update. Our own tables come from the numbered files in
-  `apps/api/migrations` (`translation_tracks`, `sessions`,
-  `session_languages`), each applied once and recorded in `schema_migrations`.
+- The API creates the tables itself when it starts; see
+  [Database migrations](#database-migrations).
 - The data is kept in the `postgres-data` volume, so it survives
   `docker compose down` and `docker compose up`.
 - `docker compose down -v` also deletes the volume, which wipes the database.
@@ -246,6 +244,42 @@ docker compose ps                     # wait until STATUS shows (healthy)
   `redis-data` volume. It holds only the job stream (`translate:jobs`). Who
   translates each track is kept in Postgres, so if Redis loses its data, the
   API sends the jobs again.
+
+## Database migrations
+
+Every time the API starts, before it serves anything, it brings the database up
+to date in two steps:
+
+1. **Better Auth's tables** (`user`, `account`, `logins`, `verification`,
+   `rateLimit`): Better Auth adds any that are missing.
+2. **Our own tables**, from the numbered `.sql` files in `apps/api/migrations/`
+   ([ADR-0002](adr/0002-session-and-account-storage.md)). Each new file runs
+   once, in name order, and is recorded in the `schema_migrations` table.
+
+The log shows each file it applies, for example
+`database: applied migration 0001_sessions.sql`. If a file fails, none of it is
+kept, the log names the file, and the API stops instead of starting on a
+half-updated database.
+
+Both steps run under one Postgres lock, so two copies of the API starting at
+once can't both create the same tables: the second waits for the first.
+
+To change the database, add a file:
+
+- Name it with four digits, an underscore and a lowercase name, the next number
+  after the last file: for example `0002_add_sessions_title.sql`. A file with
+  any other name stops the API from starting.
+- **Never edit a file that has already run**, on your machine or anywhere
+  else. The runner only records names, so an edited file would never run again.
+  Add a new file instead.
+- Restart the API to apply it. To see what has run:
+
+    ```bash
+    docker compose exec postgres psql -U dubbing -c "select * from schema_migrations"
+    ```
+
+The folder is set by `MIGRATIONS_DIR` (default `migrations`, from the folder the
+API runs in). The Docker image sets it to `/app/migrations`.
 
 ## Run LiveKit
 
@@ -280,3 +314,7 @@ LiveKit, the media server that carries the audio
 - If LiveKit keeps restarting, run `docker compose logs livekit`. A missing key
   or secret in `.env` is the usual cause.
 - Never use LiveKit's `--dev` keys outside your own machine.
+- The API reads the same `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`. In Docker
+  Compose it reaches LiveKit at `ws://livekit:7880` by itself; run on your
+  machine, it uses `LIVEKIT_URL` from `.env`. It creates and deletes each
+  session's rooms (YGP-69), which starts once sessions are stored.

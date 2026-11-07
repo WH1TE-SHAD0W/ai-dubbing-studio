@@ -7,9 +7,9 @@
 #   docker build -f apps/api/Dockerfile -t ads-api .
 #
 # The API is bundled into one file, so the runtime image has no node_modules:
-# just Node, server.mjs, the SQL migrations and the PWA. (Installing the API's
-# production dependencies instead would also pull in better-auth's optional
-# React and Vitest peers, which the workspace resolves for the web app.)
+# just Node, server.mjs and the PWA. (Installing the API's production
+# dependencies instead would also pull in better-auth's optional React and
+# Vitest peers, which the workspace resolves for the web app.)
 
 # Node 24 or later for argon2 in node:crypto (ADR-0003). 24 is the LTS that
 # still ships Corepack; on 25+ install pnpm another way.
@@ -39,12 +39,13 @@ RUN pnpm --filter @ads/web build && pnpm --filter @ads/api build
 FROM node:${NODE_VERSION}-alpine
 ENV NODE_ENV=production \
     PORT=3000 \
-    WEB_DIST=/app/web
+    WEB_DIST=/app/web \
+    MIGRATIONS_DIR=/app/migrations
 WORKDIR /app
 COPY --from=build /repo/apps/api/dist/server.mjs ./server.mjs
-# Our .sql migrations, applied at start (MIGRATIONS_DIR defaults to ./migrations).
-COPY --from=build /repo/apps/api/migrations ./migrations
 COPY --from=build /repo/apps/web/dist ./web
+# The .sql files aren't part of the bundle, so they're copied in as they are.
+COPY --from=build /repo/apps/api/migrations ./migrations
 
 USER node
 EXPOSE 3000

@@ -107,7 +107,8 @@ pnpm --filter @ads/api test      # with DATABASE_URL and REDIS_URL set, e.g. fro
 | `src/app.ts` | The Hono app: health, Better Auth, `/api` routes, `/internal`, the PWA |
 | `src/env.ts` | Settings schema |
 | `src/db.ts` | Postgres pool |
-| `src/migrate.ts` | Creates or updates Better Auth's tables, and applies `migrations/*.sql` |
+| `src/migrate.ts` | Creates or updates Better Auth's tables |
+| `src/migrations.ts` | Applies `migrations/*.sql` under one Postgres lock (YGP-62) |
 | `migrations/` | Numbered SQL migrations (ADR-0002), each applied once |
 | `src/queue/jobs.ts` | The Redis job stream (ioredis) |
 | `src/sessions/` | Sessions: SQL, and the service that opens and ends their translation tracks |

@@ -25,7 +25,10 @@ Or for one package, for example `pnpm --filter @ads/web test`.
 | `apps/web/src/app.test.tsx` | The whole app with its real router: redirects, the Studio login guard, joining by code, the listener's waiting and not-found states, logging in, and creating a session and going live |
 | `apps/api/test/password.test.ts` | Argon2id hashing (the stored settings, salts, older settings still verifying, malformed hashes) and the common-password list |
 | `apps/api/test/env.test.ts` | The settings schema: defaults, comma lists, the translator settings, and an error naming each bad setting |
+| `apps/api/test/livekit-rooms.test.ts` | The room names (ADR-0020), and against LiveKit: creating a session's source and output rooms, deleting them in two steps, deleting rooms that are already gone, and a clear error with nothing left behind when LiveKit refuses |
+| `apps/api/test/livekit-tokens.test.ts` | Each LiveKit token read back: the room, exactly what it allows (listener listens, host sends, worker hears the source hidden and publishes its output), the 10-minute expiry and the signature; and against LiveKit, that it accepts them and refuses a forged one |
 | `apps/api/test/app.test.ts` | The whole API against Postgres: sign-up, login, the 12-hour login row, the failure messages, the login rate limit, logout, sessions (created as drafts, only their host sees them, going live sends one translation job per language, ending ends the tracks, both safe to repeat), joining by code, serving the app, and `/internal` never answering with the app |
+| `apps/api/test/migrations.test.ts` | The migration runner against Postgres: files run once and in name order, a failing file leaves nothing behind and stops the run, badly named files are rejected, and two API copies starting together apply a file only once |
 | `apps/api/test/tracks.test.ts` | Translation tracks against Postgres: a claim race between eight workers, retried claims and reports, every conflict reason, failure retries up to the limit, release on SIGTERM, lease expiry, and when the sweeper re-sends a job |
 | `apps/api/test/internal-routes.test.ts` | The workers' `/internal` routes over HTTP: the token, request checks, and the answers checked against the contract |
 | `apps/api/test/queue.test.ts` | The job stream against Redis, read the way the Go worker reads it: the message fields, the backlog, removing stopped workers' consumers, failing fast while Redis is down |
@@ -65,6 +68,22 @@ pnpm --filter @ads/api test      # with DATABASE_URL and REDIS_URL set, as in .e
 
 The test files run one at a time, as they share the database.
 
+`apps/api/test/migrations.test.ts` uses the same test database. Each of its tests
+works in a new, empty schema that is dropped afterwards, so it never touches
+your real tables.
+
+In CI, the Test job of the CI workflow (YGP-75) sets `TEST_DATABASE_URL` to its
+own Postgres, so these tests always run there.
+
+### Room tests against LiveKit
+
+`apps/api/test/livekit-rooms.test.ts` and the second part of
+`apps/api/test/livekit-tokens.test.ts` talk to a real LiveKit. It needs
+`LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`, for example the LiveKit
+from Docker Compose with the values in `.env`, and skips those tests without
+them. Each test uses a new session ID and deletes its rooms, so it never
+touches real sessions. The room-name tests always run.
+
 ### Translator worker
 
 From `apps/translator`, with Go installed:
@@ -89,8 +108,9 @@ pnpm --filter @ads/contracts gen:openapi    # TypeScript types
 cd apps/translator && go generate ./...     # Go types
 ```
 
-CI regenerates both and fails if anything changed, and `pnpm typecheck` fails
-when a Zod schema no longer matches its generated type.
+Nothing regenerates them for you, so commit the generated files with the
+change. `pnpm typecheck` fails when a Zod schema no longer matches its
+generated type.
 
 ### Against the real Gemini API
 
