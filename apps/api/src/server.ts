@@ -6,9 +6,11 @@ import { authOptions, createAuth } from "./auth/auth.ts";
 import { createPool } from "./db.ts";
 import { loadEnv } from "./env.ts";
 import { migrateAuthTables } from "./migrate.ts";
+import { runSqlMigrations, withMigrationLock } from "./migrations.ts";
 
 // Starts the API: reads the settings, connects to Postgres, brings Better Auth's
-// tables up to date, then serves the API and the PWA on one port.
+// tables and our own tables up to date, then serves the API and the PWA on one
+// port.
 
 let env;
 try {
@@ -21,8 +23,14 @@ try {
 const pool = createPool(env.DATABASE_URL);
 
 try {
-  const changes = await migrateAuthTables(authOptions({ env, pool }));
-  for (const change of changes) console.log(`database: ${change}`);
+  // One lock around both, so two API copies starting together can't both
+  // create the same tables. Better Auth's go first: ours reference its user table.
+  await withMigrationLock(pool, async (client) => {
+    const changes = await migrateAuthTables(authOptions({ env, pool }));
+    for (const change of changes) console.log(`database: ${change}`);
+    const applied = await runSqlMigrations(client, resolve(env.MIGRATIONS_DIR));
+    for (const file of applied) console.log(`database: applied migration ${file}`);
+  });
 } catch (err) {
   console.error(`database: can't prepare the tables: ${err instanceof Error ? err.message : err}`);
   await pool.end();
