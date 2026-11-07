@@ -1,19 +1,19 @@
 # CI/CD
 
-GitHub Actions checks the docs and the translator code, and publishes the docs
-site. Three workflows do the work:
+The code and the docs are checked by GitHub Actions, which also builds the
+container images and publishes the docs. Four workflows do the work:
 
+- **CI** (`.github/workflows/ci.yml`) type-checks, tests and builds the code on
+  every pull request into `development`, `testing` or `main`; see
+  [Code checks](#code-checks).
+- **Images** (`.github/workflows/images.yml`) builds the container images on
+  every pull request, and pushes them to Docker Hub after a merge into
+  `testing` or `main`; see [Image build](#image-build).
 - **Docs** (`.github/workflows/docs.yml`) checks the docs on every pull request
   that changes them, and again after each merge into `main`.
 - **Deploy docs** (`.github/workflows/deploy-docs.yml`) builds the site and
   publishes it to [GitHub Pages](https://wh1te-shad0w.github.io/ai-dubbing-studio/)
   whenever the docs change on `main`.
-- **Translator** (`.github/workflows/translator.yml`) checks the translator
-  worker, its contract with the API, and the API, on every pull request that
-  changes them. See [Translator workflow](#translator-workflow).
-
-The app (`apps/web`) has no pipeline yet; see
-[Code CI (planned)](#code-ci-planned).
 
 ## How a docs change goes live
 
@@ -126,6 +126,20 @@ PATH. Run them through Python instead: `python -m mkdocs build --strict` and
 
 The link check runs only in CI, so it isn't installed locally.
 
+To run the code checks, from the repository root:
+
+```bash
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+The database tests only run if `TEST_DATABASE_URL` or `DATABASE_URL` is set, for
+example to the Compose database from the [Setup Guide](setup-guide.md), and the
+LiveKit tests only if the three `LIVEKIT_` settings are. If
+`pnpm` isn't found, run `corepack enable` once.
+
 ## When a check fails
 
 To find the error:
@@ -149,56 +163,6 @@ request on a `docs/` branch. For example, ADR-0017 was merged with lint errors,
 and [pull request #20](https://github.com/WH1TE-SHAD0W/ai-dubbing-studio/pull/20)
 fixed them.
 
-## Translator workflow
-
-The **Translator** workflow (`.github/workflows/translator.yml`) runs on every
-pull request that changes any of these, and again after a push to `main` or
-`development` that does:
-
-- anything in `apps/translator/`, `apps/api/` or `packages/contracts/`
-- `pnpm-lock.yaml`
-- `.github/workflows/translator.yml`
-
-Its three jobs run at the same time:
-
-| Job | What it runs | Fails when |
-|---|---|---|
-| Format, vet, generate, test | In `apps/translator`, with the Go version from `go.mod` and a Redis 8 service: `gofmt -l .`, `go vet ./...`, `go generate ./...` followed by `git diff --exit-code`, `go test -race ./...`, then `go test -race -tags integration ./...` against the Redis service. | A Go file isn't formatted, `go vet` finds a problem, the generated Go types no longer match the OpenAPI document, or a test fails, including a data race. |
-| Contract types, API tests (Postgres, Redis) | With Node 24, pnpm through Corepack, and Postgres 18 and Redis 8 services: `pnpm install --frozen-lockfile`, `pnpm --filter @ads/contracts gen:openapi` followed by `git diff --exit-code -- packages/contracts/src/generated`, then typecheck and test `@ads/contracts` and `@ads/api`. | The lockfile doesn't match `package.json`, the TypeScript types no longer match the OpenAPI document, a Zod schema no longer matches its generated type, or a test fails. The API's database tests run against the Postgres service, in their own `dubbing_test` database. |
-| Build image | `docker build` in `apps/translator`. | The worker's image doesn't build. |
-
-The OpenAPI document `packages/contracts/openapi/translator-control.yaml` is the
-one source for both sides' types, so the two "generated … up to date" steps
-keep the Go worker and the API from drifting apart.
-
-### Running these checks locally
-
-From the repository root, with Postgres and Redis running
-(`docker compose up -d postgres redis`) and `.env` loaded into the shell:
-
-```bash
-cd apps/translator
-gofmt -l .                                   # must print nothing
-go vet ./...
-go test -race ./...
-go test -race -tags integration ./...        # uses REDIS_URL
-cd ../..
-pnpm --filter @ads/contracts --filter @ads/api typecheck
-pnpm --filter @ads/contracts --filter @ads/api test
-```
-
-[Testing](testing.md) explains each test, and the Redis integration tests.
-
-### When a Translator check fails
-
-| Step | How to fix it |
-|---|---|
-| gofmt | Run `gofmt -w .` in `apps/translator` and commit. |
-| Generated code is up to date | You changed the OpenAPI document without regenerating, or edited a generated file. Run `go generate ./...` in `apps/translator` and commit `internal/control/api/types.gen.go`. |
-| Generated contract types are up to date | Same for the TypeScript side: run `pnpm --filter @ads/contracts gen:openapi` and commit `packages/contracts/src/generated/`. |
-| Typecheck | If it names `test/translator.test.ts`, a Zod schema in `packages/contracts/src/translator.ts` no longer matches the OpenAPI document; change one to match the other. |
-| `pnpm install --frozen-lockfile` | Run `pnpm install` and commit `pnpm-lock.yaml`. |
-
 ## What's enforced today
 
 The [branching strategy](branching-strategy.md) says every merge is a pull
@@ -213,23 +177,81 @@ agreement, not something GitHub enforces:
   button.
 
 Branch protection is planned in YGP-76: `main` and `testing` will need a pull
-request, one approval and passing checks before a merge. One thing to solve
-first: the Docs checks only run when docs change, so if they become required,
-a pull request that only changes code would wait for them forever.
+request, one approval and passing checks before a merge. The three
+[code checks](#code-checks) run on every pull request, so they can be required.
+The Docs checks only run when docs change, so if they became required, a pull
+request that only changes code would wait for them forever.
 
-## Code CI (planned)
+## Code checks
 
-None of this is built yet. It is planned in Jira. The code monorepo (`apps/`,
-`pnpm-workspace.yaml`) is now on `development`, so only the workflows are
-missing.
+The **CI** workflow (YGP-75) runs on every pull request into `development`,
+`testing` or `main`, and again after each push to those branches. It has no
+path filter, so it runs on every pull request, including docs-only ones.
 
-| Workflow | Jira | Runs on | What it does |
-|---|---|---|---|
-| Code checks | YGP-75 | Every pull request into `development`, `testing` or `main` | Installs with pnpm (cached), then runs lint, typecheck and the Vitest tests across the monorepo. Needs a Postgres service: without `DATABASE_URL`, the API tests that use the database are skipped and the run still passes. Shows pass or fail on the pull request. |
-| Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to GitHub's container registry (GHCR). If a build fails, nothing is pushed. |
+| Job | What it runs | Fails when |
+|---|---|---|
+| Typecheck | `pnpm typecheck`: `tsc` in every package | A type error anywhere in the monorepo. |
+| Test | `pnpm test`: Vitest in every package, with a Postgres 18 service | A test fails. |
+| Build | `pnpm build`: every package that has a build script | A package doesn't build, for example a broken Vite or esbuild setup. |
 
-The Go worker's checks already run in the
-[Translator workflow](#translator-workflow).
+Every job installs the same way:
+
+- **pnpm** at the version pinned in `package.json` (`packageManager`), and
+  **Node 24**.
+- **A pnpm cache**, so repeat runs don't download every package again.
+- **`pnpm install --frozen-lockfile`**, which fails if `pnpm-lock.yaml` is out
+  of date instead of quietly installing different versions.
+
+The Test job starts a throwaway `postgres:18-alpine` database, the same image
+as Docker Compose, and sets `TEST_DATABASE_URL` to it. Without a database URL
+the API's database tests are skipped and the run still passes, so the CI sets
+one to make sure they run. The database has no password, because it only
+exists inside the run.
+
+It also starts a throwaway LiveKit (`livekit/livekit-server:v1.13.11`, as in
+Compose) and sets `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`, so
+the room tests run too. Its secret is made from the run's ID, so it is
+different every run and never written in the repository.
+
+A new push to the same pull request cancels the run still going. The workflow
+can only read the repository.
+
+Not checked yet:
+
+- **Lint.** The repository has no lint script, so type-checking does most of
+  that job for now.
+- **The Go worker.** Its tests need their own job once the worker is in the
+  repository (YGP-98).
+
+## Image build
+
+The **Images** workflow (YGP-52) builds the container images that the test and
+production environments run.
+
+| When | What it does |
+|---|---|
+| A pull request into `development`, `testing` or `main` | Builds each image, to prove it still builds. Nothing is pushed. |
+| A merge (push) into `testing` or `main` | Builds each image and pushes it to Docker Hub with its [tags](#image-tags). |
+| A release tag such as `v0.1.0` is pushed | Builds each image and pushes it with the version as a tag as well (`0.1.0`). |
+
+| Job | Image | Built from |
+|---|---|---|
+| API image | `<Docker Hub user>/ai-dubbing-studio-api` | `apps/api/Dockerfile`: the Hono API with the built app |
+
+How it pushes:
+
+- **Only after the whole build passed**, so a failed build pushes nothing.
+- **With a Docker Hub access token**, never the account password. The workflow
+  reads two repository secrets, `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
+  (Settings → Secrets and variables → Actions). Only a repository admin can add
+  them.
+- **If the secrets aren't set**, a merge still builds the image and the run
+  stays green, with a warning that nothing was pushed.
+- **Docker's build cache is kept in GitHub Actions**, so a build that changes
+  little is quick.
+
+Not built yet: the translation worker image. Its Dockerfile arrives with the
+worker (YGP-98), and it becomes a second job in the same workflow.
 
 ### Image tags
 
@@ -240,6 +262,7 @@ Every image gets more than one tag:
 | The commit SHA, for example `a7fa5e4…` | Every image | Finding exactly which code an image was built from, and rolling back to it. |
 | `testing` | Images built from `testing` | The test environment. |
 | `prod` | Images built from `main` | Production. |
+| The version, for example `0.1.0` | Images built from a release tag (`v0.1.0`) | Knowing which images make up a release, such as the MVP. |
 
 The test environment only ever runs the `testing` tag and production only runs
 `prod` (YGP-81), so a test deployment never picks up an image that hasn't been

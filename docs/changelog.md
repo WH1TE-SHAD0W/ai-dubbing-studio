@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Home page, Architecture, Architecture layers, User Guide, README and CI/CD
+- Home page, Architecture, Architecture layers, User Guide and README
   updated to what works today; Deployment explains every `.env` setting.
 - ADR-0018, ADR-0019 and ADR-0020 accepted; ADR-0017 superseded by ADR-0019.
 - Logging in works from an address in `TRUSTED_ORIGINS` written with a
@@ -30,9 +30,6 @@
   `tracks list` command shows which worker has each track.
 - Redis and the translator workers (profile `translator`) in Docker Compose;
   `REDIS_URL`, `INTERNAL_API_TOKEN` and the Gemini settings in `.env.example`.
-- A Translator CI workflow: Go format, vet, race and Redis integration tests,
-  generated-code drift on both sides, the API tests against Postgres and Redis,
-  and the image build.
 - API, Setup Guide, Testing and Deployment pages updated for the translator.
 - `apps/api`: the Hono API, first part. It serves the built app with cache
   headers, connects to Postgres and handles host sign-up, login and logout with
