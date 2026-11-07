@@ -1,6 +1,6 @@
 # @ads/api
 
-The Hono API from the [target architecture](../../docs/architecture.md). It serves the built PWA and host logins on one origin, with accounts in Postgres. This first version covers only what the app needs to log in: sessions, joining and LiveKit tokens are placeholders that answer `501`.
+The Hono API from the [target architecture](../../docs/architecture.md). It serves the built PWA and host logins on one origin, with accounts in Postgres, stores sessions, and hands each live session's languages to the translator workers (`apps/translator`). Only the listener token is still a placeholder that answers `501`.
 
 ## What works
 
@@ -10,6 +10,8 @@ The Hono API from the [target architecture](../../docs/architecture.md). It serv
 | Postgres | One `pg` pool, shared with Better Auth. Better Auth's tables are created or updated on start. | [ADR-0002](../../docs/adr/0002-session-and-account-storage.md) |
 | Host logins | Better Auth at `/api/auth`: sign-up, login, logout, get-session. | [ADR-0003](../../docs/adr/0003-host-authentication.md), [ADR-0015](../../docs/adr/0015-auth-library.md) |
 | Validation | Request bodies and parameters are checked with the shared `@ads/contracts` Zod schemas; errors are `{ message }`. | [ADR-0016](../../docs/adr/0016-schema-validator.md) |
+| Sessions | `sessions` and `session_languages`: draft → live → ended, one host each, join codes unique among sessions that haven't ended. Going live opens one translation track per language; ending ends them. | [ADR-0002](../../docs/adr/0002-session-and-account-storage.md) |
+| Translation tracks | One per session and target language in `translation_tracks`: owner and lease, claimed and renewed by the workers through `/internal` (bearer `INTERNAL_API_TOKEN`). Jobs go to the workers on the Redis Stream `translate:jobs`; a sweeper takes tracks back from crashed workers. | [ADR-0018](../../docs/adr/0018-autoscaling-architecture-of-translation-container.md) |
 
 How ADR-0003 is configured:
 
@@ -25,30 +27,32 @@ How ADR-0003 is configured:
 
 | Route | Answers |
 |---|---|
-| `POST /api/sessions`, `GET /api/sessions/:id`, `POST /api/sessions/:id/start`, `POST /api/sessions/:id/end` | `401` without a login, `400` for a request the contract rejects, otherwise `501` |
-| `GET /api/join/:code` | `400` for a malformed code, otherwise `501` |
-| `POST /api/join/:code/token` | `400` for a malformed code or unknown language, otherwise `501` (LiveKit isn't connected) |
+| `POST /api/join/:code/token` | `400` for a malformed code or unknown language, otherwise `501` (listening isn't available yet) |
 
-Not connected yet: the dubbing container (ADR-0009) and LiveKit (ADR-0001, ADR-0013).
+To see which translator worker has each track of a session, with its lease and attempts:
+
+```bash
+pnpm --filter @ads/api tracks list [<session id>]
+```
 
 ## Run it
 
 You need Node.js 24.7 or later (for Argon2 in `node:crypto`) and Docker. From the repository root:
 
 ```bash
-cp .env.example .env    # set POSTGRES_PASSWORD, DATABASE_URL and BETTER_AUTH_SECRET
+cp .env.example .env    # set POSTGRES_PASSWORD, DATABASE_URL, BETTER_AUTH_SECRET and INTERNAL_API_TOKEN
 ```
 
-**Everything in Docker** (Postgres, then the API with the built app on <http://localhost:3000>):
+**Everything in Docker** (Postgres and Redis, then the API with the built app on <http://localhost:3000>; add `--profile translator` for the workers):
 
 ```bash
 docker compose up --build
 ```
 
-**API on your machine**, against Postgres in Docker:
+**API on your machine**, against Postgres and Redis in Docker:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres redis
 pnpm --filter @ads/web build     # the app the API serves
 pnpm --filter @ads/api dev       # http://localhost:3000, restarts on changes
 ```
@@ -70,6 +74,13 @@ Read at start-up and checked with a Zod schema (`src/env.ts`); a bad value stops
 | `TRUSTED_PROXIES` | none | Reverse proxies in front of the API, comma-separated IPs or CIDR ranges. |
 | `PORT` | `3000` | Port to listen on. |
 | `WEB_DIST` | `../web/dist` | Folder with the built PWA. |
+| `MIGRATIONS_DIR` | `migrations` | Folder with our numbered `.sql` migrations. |
+| `REDIS_URL` | required | `redis://` URL of the job stream. In Docker Compose `redis://redis:6379`. |
+| `INTERNAL_API_TOKEN` | required | At least 32 characters (`openssl rand -hex 32`), shared with the translator workers. |
+| `JOB_STREAM`, `JOB_GROUP` | `translate:jobs`, `translators` | The stream and the workers' consumer group. |
+| `LEASE_TTL_SEC` | `15` | How long a claim lasts without a heartbeat. |
+| `HEARTBEAT_SEC` | `5` | How often workers renew it; at most a third of the lease. |
+| `TRACK_MAX_ATTEMPTS` | `3` | Workers that may fail or vanish on one track before it is marked failed. |
 
 ## Endpoints outside `/api`
 
@@ -77,27 +88,34 @@ Read at start-up and checked with a Zod schema (`src/env.ts`); a bad value stops
 |---|---|
 | `GET /health` | `200` while the process runs |
 | `GET /ready` | `200` when Postgres answers, `503` otherwise. The Compose health check uses it. |
+| `POST /internal/tracks/:id/{claim,heartbeat,status,release}` | The translator workers' calls, with `Authorization: Bearer <INTERNAL_API_TOKEN>` (see `docs/api.md`). Keep them off the internet. |
 
 ## Tests
 
 ```bash
-docker compose up -d postgres
-pnpm --filter @ads/api test      # with DATABASE_URL set, e.g. from .env
+docker compose up -d postgres redis
+pnpm --filter @ads/api test      # with DATABASE_URL and REDIS_URL set, e.g. from .env
 ```
 
-`test/app.test.ts` runs the whole app against Postgres: sign-up, login, the 12-hour login row, the Argon2id hash, the failure messages, the login rate limit, logout, the host-only check, the placeholders and the static files. Without `DATABASE_URL` (or `TEST_DATABASE_URL`) it is skipped, and only the unit tests run.
+`test/app.test.ts` runs the whole app against Postgres: sign-up, login, the 12-hour login row, the Argon2id hash, the failure messages, the login rate limit, logout, the host-only check, sessions from create to end with their translation jobs, joining by code, and the static files. `test/tracks.test.ts` and `test/internal-routes.test.ts` cover translation tracks and the `/internal` routes. All of them use a database of their own (`<database>_test`, created on first use), so a running API never sends their tracks to real workers. `test/queue.test.ts` runs the job stream against Redis. Without `DATABASE_URL` (or `TEST_DATABASE_URL`) and `REDIS_URL`, those are skipped and only the unit tests run.
 
 ## Layout
 
 | File | What |
 |---|---|
-| `src/server.ts` | Start-up: settings, migrations, listen, shut down on `SIGTERM` |
-| `src/app.ts` | The Hono app: health, Better Auth, `/api` routes, the PWA |
+| `src/server.ts` | Start-up: settings, migrations, Redis, the sweeper, listen, shut down on `SIGTERM` |
+| `src/app.ts` | The Hono app: health, Better Auth, `/api` routes, `/internal`, the PWA |
 | `src/env.ts` | Settings schema |
 | `src/db.ts` | Postgres pool |
 | `src/migrate.ts` | Creates or updates Better Auth's tables |
-| `src/auth/` | Better Auth options, Argon2id, common passwords, client IP, host-only middleware |
-| `src/routes/` | `/api/sessions` and `/api/join` (placeholders) |
+| `src/migrations.ts` | Applies `migrations/*.sql` under one Postgres lock (YGP-62) |
+| `migrations/` | Numbered SQL migrations (ADR-0002), each applied once |
+| `src/queue/jobs.ts` | The Redis job stream (ioredis) |
+| `src/sessions/` | Sessions: SQL, and the service that opens and ends their translation tracks |
+| `src/tracks/` | Translation tracks: SQL, the service the routes call, the sweeper |
+| `src/cli/tracks.ts` | The development `tracks list` command |
+| `src/auth/` | Better Auth options, Argon2id, common passwords, client IP, host-only and internal-token middleware |
+| `src/routes/` | `/api/sessions`, `/api/join` (the token is a placeholder), `/internal` for the workers |
 | `src/static.ts` | The PWA and its cache headers |
 | `src/validate.ts` | Zod validation with `{ message }` errors |
 | `Dockerfile` | Builds the PWA and the API bundle, runs as the `node` user |

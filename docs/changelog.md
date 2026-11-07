@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+- Home page, Architecture, Architecture layers, User Guide and README
+  updated to what works today; a Translator page covers the workers, Redis,
+  their settings and the worker image.
+- Logging in works from an address in `TRUSTED_ORIGINS` written with a
+  trailing slash (it was refused with "Invalid origin").
+- The API's database tests run in their own `_test` database, so a running
+  API never sends their tracks to real workers.
+- Sessions are stored (ADR-0002): a host creates a draft with a join code,
+  takes it live and ends it, and only sees their own. Going live opens one
+  translation track per target language, which idle translator workers pick
+  up; ending it stops them. Listeners can look a session up by its code. Each
+  language in a session shows its translation track's status.
+- `apps/translator`: the translator worker in Go (ADR-0018 to ADR-0020). Each
+  process takes one job from the Redis Stream `translate:jobs`, claims the
+  track from the API, streams the host's audio through one Gemini Live
+  Translate session (resumed seamlessly when Gemini asks it to reconnect), then
+  exits so a fresh process takes its place. Audio is read from and written to
+  WAV files until LiveKit is connected. `/health` and `/ready` probes, a probe
+  command for the real Gemini API, and a 41 MB distroless image.
+- `packages/contracts/openapi/translator-control.yaml`: the API the workers
+  call, with Go and TypeScript types generated from it and Zod schemas checked
+  against them.
+- `apps/api`: translation tracks in Postgres (the first numbered SQL
+  migration), the Redis job stream, the workers' `/internal` routes behind a
+  shared token, and a sweeper that recovers tracks from crashed workers. A
+  `tracks list` command shows which worker has each track.
+- Redis and the translator workers (profile `translator`) in Docker Compose;
+  `REDIS_URL`, `INTERNAL_API_TOKEN` and the Gemini settings in `.env.example`.
+- API, Setup Guide and Testing pages updated for the translator.
 - API image built on every pull request and pushed to Docker Hub after a merge
   into `testing` or `main`, tagged with the commit SHA plus `testing` or `prod`;
   a release tag such as `v0.1.0` adds the version tag (YGP-52).

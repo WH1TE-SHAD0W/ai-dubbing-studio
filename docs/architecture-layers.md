@@ -1,7 +1,8 @@
 # Architecture layers
 
-A closer look at each part of the [target architecture](architecture.md). Like that
-page, this is the design for the final prototype, and it isn't built yet.
+A closer look at each part of the [architecture](architecture.md): the app, the
+API, how jobs reach the translator workers, the workers themselves, and their
+audio files.
 
 ## App
 
@@ -20,134 +21,290 @@ flowchart TB
     Host["Host pages<br/>Register, Login, Studio"]
     Listener["Listener pages<br/>Join, Listener"]
     Mic["Microphone<br/>device picker"]
-    LK["LiveKit React components"]
-    Player["Media element and Media Session<br/>playback, lock-screen controls"]
   end
 
-  Dubbing["Dubbing container"]
-  SFU["LiveKit"]
-
   API -- "logins, sessions" --- Host
-  API -- "join, LiveKit token" --- Listener
+  API -- "join by code" --- Listener
   Host --> Mic
-  Listener --> LK
-  LK --> Player
-  Mic -. "mic audio (path to be decided)" .-> Dubbing
-  SFU -- "chosen language (WebRTC)" --> LK
 ```
 
-Playing audio on a locked phone is a target, not a guarantee
-([ADR-0011](adr/0011-audio-handling.md)). How captions reach the Listener page is
-still to be decided.
+- **Built:** all five pages against the real API. A host registers, logs in,
+  creates a session, shares its code, takes it live and ends it. A listener
+  finds a session by its code and picks a language.
+- The Studio's microphone picker only tests the input, and the listener page
+  shows that listening isn't available yet.
 
 ## API
 
-The Hono API handles logins and sessions, and serves the app
-([ADR-0007](adr/0007-backend-framework.md)). It is kept small so it can scale
-quickly when many listeners join at once, separate from the long-lived audio
-streams in the dubbing container ([ADR-0008](adr/0008-separated-container.md)).
+The Hono API handles logins and sessions, serves the app, and hands each live
+session's languages to the translator workers
+([ADR-0007](adr/0007-backend-framework.md),
+[ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)). It
+stays small and quick to scale, apart from the long-lived audio streams in the
+workers ([ADR-0008](adr/0008-separated-container.md)).
 
 ```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 70}}}%%
+%%{init: {"flowchart": {"nodeSpacing": 60, "rankSpacing": 70}}}%%
 flowchart TB
   PWA["React PWA"]
+  Workers["Translator workers"]
 
   subgraph API["Hono API (Node.js)"]
     Static["Static files<br/>the built app"]
     Routes["Routes<br/>checked with Zod schemas"]
     Auth["Better Auth<br/>accounts, logins, rate limits"]
-    Sessions["Sessions<br/>create, end, join code"]
-    Tokens["LiveKit tokens<br/>for listeners"]
+    Sessions["Sessions<br/>create, go live, end, join code"]
+    Tracks["Translation tracks<br/>owner, lease, retries"]
+    Internal["Internal routes<br/>/internal, shared token"]
+    Sweeper["Sweeper<br/>every 5 s"]
+    Queue["Job queue<br/>Redis client"]
   end
 
   DB[("PostgreSQL")]
-  Dubbing["Dubbing container"]
+  Q[("Redis Stream<br/>translate:jobs")]
 
   PWA -- "loads the app" --> Static
   PWA -- "sign up, log in" --> Auth
   PWA -- "other requests" --> Routes
   Routes -- "check host login" --> Auth
   Routes --> Sessions
-  Routes --> Tokens
-  Auth -- "accounts, logins, rate limits" --> DB
-  Sessions -- "sessions, languages" --> DB
-  Sessions -- "start session<br/>id, languages, provider" --> Dubbing
+  Sessions -- "go live, end" --> Tracks
+  Workers -- "claim, heartbeat, status, release" --> Internal
+  Internal --> Tracks
+  Sweeper --> Tracks
+  Tracks -- "send a job" --> Queue
+  Queue --> Q
+  Auth --> DB
+  Sessions --> DB
+  Tracks --> DB
 ```
 
-The request to the dubbing container is defined in
-[ADR-0009](adr/0009-translation-engine-communication.md), and the shared schemas
-in [ADR-0016](adr/0016-schema-validator.md). Still open: how Hono calls the
-dubbing container, and what it does when the container is unavailable.
+- **Sessions** are stored in Postgres ([ADR-0002](adr/0002-session-and-account-storage.md)).
+  Going live opens one translation track per target language; ending the
+  session ends its tracks. A host only ever sees their own sessions.
+- **Translation tracks** record which worker owns each language and until when
+  (its lease). Every change is one SQL `UPDATE`, so when two workers claim the
+  same track at once, exactly one wins, even with several API instances.
+- **Internal routes** are what the workers call: claim, heartbeat, status and
+  release, behind a token shared with the workers. Their contract is the
+  OpenAPI document `packages/contracts/openapi/translator-control.yaml`
+  ([ADR-0019](adr/0019-translation-worker-runtime.md)); the [API page](api.md)
+  lists them.
+- **The sweeper** runs every 5 seconds and keeps tracks moving when something
+  goes wrong (see [Job dispatch](#job-dispatch)).
+- The shared request schemas are in [ADR-0016](adr/0016-schema-validator.md).
 
-## Dubbing container
+## Job dispatch
 
-The dubbing container takes the host's audio, keeps one translation stream per
-target language, and publishes one audio track per language to LiveKit. It also
-runs Hono on Node.js ([ADR-0017](adr/0017-translation-plane.md)). Each provider
-sits behind an adapter, and the request that starts a session names which one to
-use ([ADR-0009](adr/0009-translation-engine-communication.md)). Gemini is the only
-provider for now.
+The API puts one job per language on the Redis Stream `translate:jobs`, and the
+idle workers read it as one consumer group (`translators`), so each job goes to
+exactly one worker ([ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)).
+A job holds only ids: `v`, `jobId`, `sessionId`, `trackId` and `language`; no
+secrets.
+
+Redis only delivers. Postgres, through the API, decides who owns a track:
+
+- A worker acknowledges the job as soon as the API answers its claim, with
+  `200` or `409`. So the stream never holds work in progress.
+- A job sent twice is harmless: the second worker's claim gets `409 owned`, and
+  it drops the job.
+- A job that can't be sent (Redis is down) stays marked unsent in Postgres. The
+  sweeper sends it once Redis is back, and the API sends all of them when it
+  reconnects.
+- A job sent but never claimed (a worker died between reading and claiming) is
+  sent again after 30 seconds, but only when the stream has no undelivered
+  messages. While messages wait for a free worker, it is most likely among them.
+- The sweeper deletes the stream consumers of workers that stopped, every
+  minute.
+
+### A session goes live
 
 ```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 70}}}%%
-flowchart TB
-  API["Hono API"]
-  Host["Host (PWA)"]
-
-  subgraph Container["Dubbing container (Hono on Node.js)"]
-    Control["Control API<br/>start sessions, health checks"]
-    Ingest["Host audio in"]
-    Streams["Translation streams<br/>1 per target language"]
-    Adapter["Provider adapter<br/>Gemini for now"]
-    Publisher["LiveKit publisher<br/>1 audio track per language"]
+sequenceDiagram
+  autonumber
+  actor Host
+  participant UI as Studio (PWA)
+  participant Hono as Hono API
+  participant DB as PostgreSQL
+  participant Q as Redis Stream
+  participant W as Worker
+  participant G as Gemini Live Translate
+  Host->>UI: Go live
+  UI->>Hono: POST /api/sessions/{id}/start
+  Hono->>DB: session live, 1 track per language (pending)
+  loop each language
+    Hono->>Q: XADD translate:jobs {v, jobId, sessionId, trackId, language}
   end
-
-  Gemini["Gemini Live Translate API"]
-  SFU["LiveKit"]
-
-  API -- "start session" --> Control
-  Host -. "mic audio (path to be decided)" .-> Ingest
-  Control --> Streams
-  Ingest --> Streams
-  Streams <--> Adapter
-  Adapter <-- "audio / translation" --> Gemini
-  Streams --> Publisher
-  Publisher -- "translated audio" --> SFU
+  Hono->>DB: mark the jobs sent
+  W->>Q: XREADGROUP GROUP translators {workerId} COUNT 1 BLOCK 1000
+  Q-->>W: a job (ids only, no secrets)
+  W->>Hono: POST /internal/tracks/{trackId}/claim {workerId, jobId}
+  Hono->>DB: pending, or own or expired lease? owner = workerId, lease 15 s
+  Hono-->>W: 200 {sessionId, language, leaseTtlSec, heartbeatSec}
+  W->>Q: XACK
+  W->>G: connect (target language, resumption, compression)
+  W->>Hono: POST /internal/tracks/{trackId}/status live
+  Hono->>DB: track live
+  par heartbeat
+    loop every 5 s
+      W->>Hono: POST /internal/tracks/{trackId}/heartbeat {workerId, state, stats}
+      Hono->>DB: still the owner? extend the lease
+    end
+  and audio
+    W->>G: host audio, 100 ms chunks of 16 kHz PCM
+    G-->>W: translated 24 kHz PCM
+    W->>W: write it to a WAV file
+  end
 ```
 
-Still open: how the container verifies the host, and how captions leave it.
+In Docker Compose each language was claimed 28 ms after **Go live** and live
+within half a second; the first translated speech followed about 3 seconds
+later.
 
-## Media
-
-A self-hosted LiveKit SFU delivers the translated audio
-([ADR-0001](adr/0001-audio-fan-out.md)). It receives each language's track once
-and forwards it over WebRTC only to the listeners who chose that language, so the
-dubbing container's load doesn't grow with the number of listeners. Slovak and
-German are examples here.
+### A session ends
 
 ```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 70}}}%%
-flowchart TB
-  Dubbing["Dubbing container<br/>encodes audio as Opus"]
-
-  subgraph Media["LiveKit (self-hosted SFU)"]
-    Slovak["Slovak track"]
-    German["German track"]
-  end
-
-  ListenersSk["Listeners who chose Slovak"]
-  ListenersDe["Listeners who chose German"]
-  API["Hono API"]
-  TURN["TURN server<br/>for networks that block UDP"]
-
-  Dubbing -- "publishes" --> Slovak
-  Dubbing -- "publishes" --> German
-  Slovak -- "WebRTC" --> ListenersSk
-  German -- "WebRTC" --> ListenersDe
-  API -. "LiveKit token" .-> ListenersSk
-  API -. "LiveKit token" .-> ListenersDe
-  Media -.- TURN
+sequenceDiagram
+  autonumber
+  actor Host
+  participant Hono as Hono API
+  participant DB as PostgreSQL
+  participant W as Worker
+  participant G as Gemini Live Translate
+  Host->>Hono: POST /api/sessions/{id}/end
+  Hono->>DB: session ended, its tracks ended (the owner is kept)
+  W->>Hono: next heartbeat (within 5 s)
+  Hono-->>W: 409 ended
+  W->>G: close the stream
+  W->>W: drain the output (up to 500 ms), close the WAV
+  Note over W: no further calls, delete its stream consumer, exit
+  Note over W: Docker Compose starts a fresh worker
 ```
 
-Each language has its own LiveKit room. TURN needs setting up before the app runs
-on a public server.
+Keeping the owner on an ended track lets that worker's retried final report
+still get `200`, while any other worker gets `409 ended`.
+
+### A worker fails
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant A as Worker A (owner)
+  participant Hono as Hono API
+  participant DB as PostgreSQL
+  participant Q as Redis Stream
+  participant B as Worker B (idle)
+  alt docker stop (SIGTERM)
+    A->>Hono: POST release {reason: sigterm}
+    Hono->>DB: track pending, owner cleared (not counted as an attempt)
+    Hono->>Q: XADD a new job for the same track
+    Note over A: exit
+  else crash
+    Note over A: heartbeats stop
+    Hono->>DB: sweeper (every 5 s) finds the 15 s lease ran out, track pending
+    Hono->>Q: XADD a new job for the same track
+  else Gemini gave up (3 failures in a row)
+    A->>Hono: POST status failed {reason}
+    Hono->>DB: pending again, or failed after 3 attempts
+    Hono->>Q: XADD a new job, unless the track failed
+    Note over A: exit
+  end
+  B->>Q: XREADGROUP
+  B->>Hono: claim
+  Hono->>DB: owner = B
+  B->>Q: XACK
+  opt A was only cut off, not dead
+    A->>Hono: heartbeat
+    Hono-->>A: 409 not_owner
+    Note over A: stops at once, no further calls, exits
+  end
+```
+
+Measured in Docker Compose: after `docker stop` the other worker claimed the
+track 21 ms later and was live 280 ms after that; after `docker kill` another
+worker took over about 14 seconds later, once the lease ran out.
+
+## Translator worker
+
+The worker is written in Go with no web framework
+([ADR-0019](adr/0019-translation-worker-runtime.md)), in `apps/translator`. One
+process takes **one job**: one target language of one session. It then exits,
+and Docker Compose starts a fresh one, so nothing carries over between tracks.
+The idle workers waiting on the stream are the warm pool.
+
+```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 60, "rankSpacing": 70}}}%%
+flowchart TB
+  Q[("Redis Stream")]
+  API["Hono API<br/>/internal"]
+  G["Gemini Live Translate"]
+
+  subgraph Worker["Translator worker (Go, one job per process)"]
+    Loop["Job loop<br/>waits for one job"]
+    Runner["Runner<br/>claim, heartbeat, stop"]
+    Control["Control client<br/>claim, heartbeat, status, release"]
+    Manager["Gemini stream manager<br/>resume, reconnect, backoff"]
+    Source["Audio in<br/>WAV file"]
+    Sink["Audio out<br/>WAV file"]
+    Probes["Probes<br/>/health, /ready"]
+  end
+
+  Q -- "XREADGROUP, XACK" --> Loop
+  Loop --> Runner
+  Runner --> Control
+  Control -- "HTTP, shared token" --> API
+  Runner --> Manager
+  Source --> Manager
+  Manager <-- "host audio / translation" --> G
+  Manager --> Sink
+```
+
+- **Gemini Live Translate** (`gemini-3.5-live-translate-preview`): the worker
+  sets only the target language; Gemini detects the spoken language. It reports
+  `live` as soon as the stream is open, before any audio.
+- **Reconnects:** Gemini asks for a new connection about every 9 minutes. The
+  worker opens the new one first, resumes with Gemini's handle, then closes the
+  old one; this took 360 ms with no gap in the audio. A failed stream is retried
+  after 0.5, 1.5 and 4 seconds; after 3 failures in a row the worker reports
+  `failed`.
+- **Stopping:** `409 ended` (the session ended), `409 not_owner` or a lost lease
+  (another worker has the track: stop without another call), SIGTERM (give the
+  track back), or 240 minutes on one track (a spend guard).
+- **Probes:** `/health` says its connections work (Redis while idle; the lease
+  and Gemini while busy). `/ready` says it is idle and waiting for a job.
+- **Media:** host audio comes in and translated audio goes out through two
+  interfaces, implemented by a WAV adapter (`apps/translator/media/in` and
+  `out`).
+- **Size:** 5.5 MiB of memory idle, 10.7 MiB with a live track, in a 41 MB
+  image.
+
+### Worker lifecycle
+
+```mermaid
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Claiming: a job from the stream
+  Claiming --> Idle: 409 owned, ended or unknown track
+  Claiming --> Connecting: 200, owner with a 15 s lease
+  Connecting --> Live: Gemini stream open, status live
+  Live --> Reconnecting: stream failed
+  Reconnecting --> Live: resumed
+  Reconnecting --> Failing: 3 failures in a row
+  Live --> Ending: 409 ended, or 240 minutes
+  Live --> Fenced: 409 not_owner, or lease lost
+  Live --> Draining: SIGTERM
+  Ending --> [*]: exit
+  Fenced --> [*]: exit without another call
+  Draining --> [*]: release, exit
+  Failing --> [*]: status failed, exit
+  Idle --> [*]: SIGTERM
+```
+
+Ending, Fenced and Draining can follow any busy state, not only Live. A claim
+that gets `409` leaves the worker idle, still waiting.
+
+## Audio files
+
+Each worker reads the host's audio from a WAV file in
+`apps/translator/media/in` and writes its translation to
+`apps/translator/media/out`.

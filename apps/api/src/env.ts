@@ -22,7 +22,8 @@ const commaList = <T extends z.ZodType<unknown, string>>(item: T) =>
 const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((v) => (v === "" ? undefined : v), schema.optional());
 
-export const envSchema = z.object({
+// Every setting, without the checks across settings (the dev CLI picks a few).
+export const baseEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
 
@@ -36,7 +37,9 @@ export const envSchema = z.object({
   BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
   // Other origins allowed to call /api/auth, e.g. the Vite dev server
   // (http://localhost:5173), whose proxy keeps the browser's Origin header.
-  TRUSTED_ORIGINS: commaList(z.url({ protocol: /^https?$/ })),
+  // Kept as bare origins: Better Auth compares the exact string the browser
+  // sends, so "http://127.0.0.1:3000/" (trailing slash) would never match.
+  TRUSTED_ORIGINS: commaList(z.url({ protocol: /^https?$/ })).transform((urls) => urls.map((url) => new URL(url).origin)),
   // Reverse proxies in front of the API (IPs or CIDR ranges). Their
   // X-Forwarded-For is believed; without any, the socket address is the client IP.
   TRUSTED_PROXIES: commaList(z.union([z.cidrv4(), z.cidrv6(), z.ipv4(), z.ipv6()])),
@@ -55,11 +58,32 @@ export const envSchema = z.object({
   LIVEKIT_API_SECRET: optional(
     z.string().min(32, { error: "Set LIVEKIT_API_SECRET to at least 32 random characters." }),
   ),
-}).refine(
-  (env) => [env.LIVEKIT_URL, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET].every((v) => v === undefined) ||
-    [env.LIVEKIT_URL, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET].every((v) => v !== undefined),
-  { error: "Set all three of LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET, or none of them." },
-);
+
+  // Translation jobs go to the workers through a Redis Stream (ADR-0018).
+  // Inside Docker Compose the host is `redis`.
+  REDIS_URL: z.url({ protocol: /^rediss?$/, error: "Set REDIS_URL to a redis:// URL." }),
+  JOB_STREAM: z.string().min(1).default("translate:jobs"),
+  JOB_GROUP: z.string().min(1).default("translators"),
+  // Bearer token the translator workers send on /internal. `openssl rand -hex 32` makes one.
+  INTERNAL_API_TOKEN: z.string().min(32, { error: "Set INTERNAL_API_TOKEN to at least 32 random characters." }),
+  // A worker's claim on a track lasts this long unless a heartbeat renews it.
+  LEASE_TTL_SEC: z.coerce.number().int().min(3).max(300).default(15),
+  // How often workers renew it.
+  HEARTBEAT_SEC: z.coerce.number().int().min(1).max(100).default(5),
+  // Workers that may fail or vanish on one track before it is marked failed.
+  TRACK_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(3),
+});
+
+export const envSchema = baseEnvSchema
+  .refine(
+    (env) => [env.LIVEKIT_URL, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET].every((v) => v === undefined) ||
+      [env.LIVEKIT_URL, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET].every((v) => v !== undefined),
+    { error: "Set all three of LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET, or none of them." },
+  )
+  .refine((env) => env.HEARTBEAT_SEC * 3 <= env.LEASE_TTL_SEC, {
+    error: "HEARTBEAT_SEC must be at most a third of LEASE_TTL_SEC, so a worker can miss a heartbeat and keep its track.",
+    path: ["HEARTBEAT_SEC"],
+  });
 
 export type Env = z.infer<typeof envSchema>;
 

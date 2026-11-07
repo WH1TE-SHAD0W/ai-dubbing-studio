@@ -5,3 +5,4 @@ export * from "./sessions.ts";
 export * from "./join.ts";
 export * from "./dubbing.ts";
 export * from "./errors.ts";
+export * from "./translator.ts";
