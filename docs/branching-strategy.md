@@ -65,6 +65,6 @@ panel in Jira.
 ## Still to be decided
 
 - Whether `testing` is only a branch or also a deployed test environment (for
-  example the Minikube VM in YGP-53).
-- How we deploy. The plan is Kubernetes (Minikube) with Argo CD, with Docker
+  example the K3s VM in YGP-53).
+- How we deploy. The plan is Kubernetes (K3s) with Argo CD, with Docker
   Compose as the backup if there isn't time. An ADR will confirm this.

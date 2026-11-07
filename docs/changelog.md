@@ -4,6 +4,9 @@
 
 - Code checks on every pull request: typecheck, tests with a Postgres
   database, and build (YGP-75).
+- Deployment page rewritten for the current plan: Postgres and the API in
+  Docker Compose (built), K3s with Argo CD (planned), rolling back, checking a
+  deploy and backing up the database (YGP-83).
 - CI/CD page: the docs checks, publishing the site, running and fixing the
   checks, what's enforced today, and the planned code CI (YGP-77).
 - `apps/api`: the Hono API, first part. It serves the built app with cache
