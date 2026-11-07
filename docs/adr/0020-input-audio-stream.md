@@ -1,6 +1,6 @@
 # 0020. Host audio reaches the translation workers through LiveKit rooms
 
-- **Status:** Accepted
+- **Status:** Proposed
 - **Date:** 2026-11-05
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-43
@@ -60,7 +60,7 @@ The host publishes to a **LiveKit source room**, and the translation workers joi
 ### Follow-up work
 
 - Confirm that deleting the rooms is the release signal. Backstop for a worker that misses it: Hono answers its next heartbeat with `409` once the session is ending, and the worker exits (0018).
-- Revisit if hosts do not send audio straight after the green light: workers claimed when the session goes live then hold idle Gemini connections, and Gemini Live connections have lifetime limits (check the current limits). Open: the threshold at which a session counts as live, and where the 60 s host-gone grace runs (a webhook reports the departure at once, so Hono or the janitor has to apply the wait; verify).
+- Revisit if hosts do not send audio straight after the green light: workers claimed at session creation then hold idle Gemini connections, and Gemini Live connections have lifetime limits (check the current limits). Open: the threshold at which a session counts as live, and where the 60 s host-gone grace runs (a webhook reports the departure at once, so Hono or the janitor has to apply the wait; verify).
 - Confirm room naming, token lifetimes and permissions, and whether workers can join as hidden participants.
 - Verify LiveKit behaviour for duplicate participant identity (fencing, see 0018) and for disabling automatic room creation.
 - Janitor: a cron every minute compares LiveKit's rooms with the active sessions, deleting rooms that have no live session and ending sessions whose rooms vanished.

@@ -1,6 +1,6 @@
 # 0017. Dubbing container framework and runtime
 
-* **Status:** Superseded by [ADR-0019](0019-translation-worker-runtime.md)
+* **Status:** Accepted
 * **Date:** 2026-10-29
 * **Deciders:** Marek Culak
 * **Ticket:** YGP-47

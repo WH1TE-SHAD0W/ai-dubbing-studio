@@ -167,7 +167,7 @@ The details are in [ADR-0003](adr/0003-host-authentication.md).
 | Better Auth for host logins | [ADR-0015](adr/0015-auth-library.md) |
 | Schemas and validation | [ADR-0016](adr/0016-schema-validator.md) |
 | Jobs through a Redis Stream to single-use workers, owners in Postgres | [ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md) |
-| The translator worker in Go, with an OpenAPI contract to the API | [ADR-0019](adr/0019-translation-worker-runtime.md) (supersedes [ADR-0017](adr/0017-translation-plane.md)) |
+| The translator worker in Go, with an OpenAPI contract to the API | [ADR-0019](adr/0019-translation-worker-runtime.md) |
 | Host audio through a LiveKit source room, one room per language | [ADR-0020](adr/0020-input-audio-stream.md) |
 
 ## Data model

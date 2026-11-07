@@ -1,6 +1,6 @@
 # 0018. Autoscaling and job dispatch for translation workers with Redis Streams
 
-- **Status:** Accepted
+- **Status:** Proposed
 - **Date:** 2026-11-05
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-91 & YGP-98
@@ -39,14 +39,14 @@ Rejected: 2, 3 and 4. Option 2 is the closest competitor. The chosen design also
 
 We dispatch translation jobs through a **Redis Stream with a consumer group**.
 
-- One job per track, carrying only identifiers and minimal metadata (session, track, target language, room names, provider) and no secrets. Hono enqueues the jobs when the session goes live, together with the rooms (0020). Each worker pod reads from the group, so each job goes to exactly one pod.
+- One job per track, carrying only identifiers and minimal metadata (session, track, target language, room names, provider) and no secrets. Hono enqueues the jobs when the session is created, together with the rooms (0020). Each worker pod reads from the group, so each job goes to exactly one pod.
 - **One track per pod.**
 - **Postgres is the single source of truth** and is accessed only through Hono. Redis only delivers jobs: the consumer group keeps several pods from fetching the same job and sending needless claims to Hono. Workers get authorisation and report track state through Hono's endpoints (see 0020).
 - The pod **acknowledges the job right after Hono accepts its claim**. Hono records the pod as the track's owner in Postgres, with a lease the pod renews by sending Hono a heartbeat every 5 s.
 - **Dead workers:** when a lease expires, Hono's lease sweeper sets the track back to pending and enqueues a new job. Pending-entry recovery in Redis (`XAUTOCLAIM`) is not used in the MVP.
 - **Fencing:** Hono answers any call from a pod that is not the track's recorded owner with `409`, and that pod stops and exits. A pod replaced after a network hiccup therefore stops at its next call to Hono.
 - When Hono reconnects to Redis, it enqueues a job for every track that is pending with no owner, so a Redis restart loses no work. Duplicate jobs are rejected at claim.
-- Pods are **single-use**: after release the pod deletes its own pod through the Kubernetes API and exits, and the ReplicaSet creates a fresh pod, so no state or memory carries over between tracks. Simply exiting would make a Deployment restart the container in the same pod, with restart back-off (`CrashLoopBackOff`) after short jobs. An idle pod never exits: it keeps waiting on the stream until it gets a job or a SIGTERM.
+- Pods **exit after release**. The Kubernetes autoscaler creates replacements, so no state or memory carries over between tracks.
 - Scaling signal: each pod exposes an idle/busy gauge on its metrics endpoint (busy means it holds a track and a Gemini connection). The autoscaler keeps the number of idle pods above a floor.
 
 ## Consequences
@@ -67,16 +67,14 @@ We dispatch translation jobs through a **Redis Stream with a consumer group**.
 - A cold pod takes about 30 s, and spare idle pods cost memory (small with Go, see 0019).
 - Scaling is reactive only: there is no scheduled pre-scaling for known conference times.
 - One more component to run and clean: the stream needs trimming, and each single-use pod removes its own consumer from the group on exit.
-- Workers need permission to delete pods in their namespace to delete themselves; Kubernetes cannot limit that to a pod's own name in advance.
-- Scaling on the idle/busy gauge needs KEDA (Prometheus trigger) or a Prometheus adapter, because the HPA alone sees only CPU and memory. CPU is no fallback: a busy pod looks idle while the host is silent.
 
 ### Follow-up work
 
-- Deployment ADR: the Role that lets workers delete their own pod, kept to the translator namespace, and the KEDA or Prometheus adapter setup for the idle/busy gauge.
+- Decide how a pod is replaced after it exits: the container restarted in place (watch restart back-off after short jobs) or the pod deleting itself so a new one is created.
 - Use one LiveKit participant identity per track in the output room, so a new owner also disconnects the old one; verify how LiveKit handles a duplicate identity.
 - Scale-down must remove idle pods only (for example pod deletion cost); verify with the chosen autoscaler.
 - Size the idle-pod floor, the lease TTL (starting at 15 s) and measure the real pod start time.
 - Recovery of single lost jobs, beyond re-enqueuing when Hono reconnects to Redis (for example re-enqueue tracks pending for too long).
 - Dead-letter handling for jobs that keep failing.
-- Revisit if hosts do not send audio straight after the green light: workers claimed when the session goes live then hold idle Gemini connections (see 0020).
+- Revisit if hosts do not send audio straight after the green light: workers claimed at session creation then hold idle Gemini connections (see 0020).
 - Verify Redis Streams behaviour and version requirements against current documentation.

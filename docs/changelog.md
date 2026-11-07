@@ -4,7 +4,6 @@
 
 - Home page, Architecture, Architecture layers, User Guide and README
   updated to what works today; Deployment explains every `.env` setting.
-- ADR-0018, ADR-0019 and ADR-0020 accepted; ADR-0017 superseded by ADR-0019.
 - Logging in works from an address in `TRUSTED_ORIGINS` written with a
   trailing slash (it was refused with "Invalid origin").
 - The API's database tests run in their own `_test` database, so a running
