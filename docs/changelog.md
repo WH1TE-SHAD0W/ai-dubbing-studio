@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Deployment page: the Kubernetes manifests live in their own repository,
+  `ai-dubbing-studio-deploy` (YGP-81).
 - Branch protection written down as a ruleset file
   (`.github/rulesets/protect-main-and-testing.json`): pull request with one
   approval, no deleting or force-pushing `main` and `testing`; the CI/CD page
