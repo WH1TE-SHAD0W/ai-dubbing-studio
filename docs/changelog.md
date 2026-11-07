@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- API image built on every pull request and pushed to Docker Hub after a merge
+  into `testing` or `main`, tagged with the commit SHA plus `testing` or `prod`;
+  a release tag such as `v0.1.0` adds the version tag (YGP-52).
 - Database migrations: the API applies the numbered `.sql` files in
   `apps/api/migrations/` on every start, records them in `schema_migrations`,
   and runs them and Better Auth's under one Postgres lock so API copies starting

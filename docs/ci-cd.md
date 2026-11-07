@@ -1,19 +1,19 @@
 # CI/CD
 
-The code and the docs are checked by GitHub Actions, and the docs are
-published by it too. Three workflows do the work:
+The code and the docs are checked by GitHub Actions, which also builds the
+container images and publishes the docs. Four workflows do the work:
 
 - **CI** (`.github/workflows/ci.yml`) type-checks, tests and builds the code on
   every pull request into `development`, `testing` or `main`; see
   [Code checks](#code-checks).
+- **Images** (`.github/workflows/images.yml`) builds the container images on
+  every pull request, and pushes them to Docker Hub after a merge into
+  `testing` or `main`; see [Image build](#image-build).
 - **Docs** (`.github/workflows/docs.yml`) checks the docs on every pull request
   that changes them, and again after each merge into `main`.
 - **Deploy docs** (`.github/workflows/deploy-docs.yml`) builds the site and
   publishes it to [GitHub Pages](https://wh1te-shad0w.github.io/ai-dubbing-studio/)
   whenever the docs change on `main`.
-
-Building and pushing the container images isn't built yet; see
-[Image build (planned)](#image-build-planned).
 
 ## How a docs change goes live
 
@@ -223,13 +223,35 @@ Not checked yet:
 - **The Go worker.** Its tests need their own job once the worker is in the
   repository (YGP-98).
 
-## Image build (planned)
+## Image build
 
-Not built yet; planned in Jira.
+The **Images** workflow (YGP-52) builds the container images that the test and
+production environments run.
 
-| Workflow | Jira | Runs on | What it does |
-|---|---|---|---|
-| Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to Docker Hub, logging in with an access token stored as a GitHub Actions secret. If a build fails, nothing is pushed. |
+| When | What it does |
+|---|---|
+| A pull request into `development`, `testing` or `main` | Builds each image, to prove it still builds. Nothing is pushed. |
+| A merge (push) into `testing` or `main` | Builds each image and pushes it to Docker Hub with its [tags](#image-tags). |
+| A release tag such as `v0.1.0` is pushed | Builds each image and pushes it with the version as a tag as well (`0.1.0`). |
+
+| Job | Image | Built from |
+|---|---|---|
+| API image | `<Docker Hub user>/ai-dubbing-studio-api` | `apps/api/Dockerfile`: the Hono API with the built app |
+
+How it pushes:
+
+- **Only after the whole build passed**, so a failed build pushes nothing.
+- **With a Docker Hub access token**, never the account password. The workflow
+  reads two repository secrets, `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
+  (Settings → Secrets and variables → Actions). Only a repository admin can add
+  them.
+- **If the secrets aren't set**, a merge still builds the image and the run
+  stays green, with a warning that nothing was pushed.
+- **Docker's build cache is kept in GitHub Actions**, so a build that changes
+  little is quick.
+
+Not built yet: the translation worker image. Its Dockerfile arrives with the
+worker (YGP-98), and it becomes a second job in the same workflow.
 
 ### Image tags
 
@@ -240,6 +262,7 @@ Every image gets more than one tag:
 | The commit SHA, for example `a7fa5e4…` | Every image | Finding exactly which code an image was built from, and rolling back to it. |
 | `testing` | Images built from `testing` | The test environment. |
 | `prod` | Images built from `main` | Production. |
+| The version, for example `0.1.0` | Images built from a release tag (`v0.1.0`) | Knowing which images make up a release, such as the MVP. |
 
 The test environment only ever runs the `testing` tag and production only runs
 `prod` (YGP-81), so a test deployment never picks up an image that hasn't been
