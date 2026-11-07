@@ -60,6 +60,7 @@ cp .env.example .env
 | `TRUSTED_ORIGINS` | Other origins allowed to log in, comma-separated. The Vite dev server (`http://localhost:5173`) needs to be listed. |
 | `TRUSTED_PROXIES` | Reverse proxies in front of the API (IPs or CIDR ranges), so it can tell the real client IP for rate limits. Empty when browsers connect directly. |
 | `API_PORT` | Port Docker Compose publishes the API on. Default 3000. |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | LiveKit's address and the key and secret it shares with the API; see [Run LiveKit](#run-livekit). The API needs all three or none, and doesn't use LiveKit yet. |
 
 ## Run with Docker
 
@@ -197,3 +198,7 @@ LiveKit, the media server that carries the audio
 - If LiveKit keeps restarting, run `docker compose logs livekit`. A missing key
   or secret in `.env` is the usual cause.
 - Never use LiveKit's `--dev` keys outside your own machine.
+- The API reads the same `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`. In Docker
+  Compose it reaches LiveKit at `ws://livekit:7880` by itself; run on your
+  machine, it uses `LIVEKIT_URL` from `.env`. It creates and deletes each
+  session's rooms (YGP-69), which starts once sessions are stored.

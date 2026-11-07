@@ -40,7 +40,8 @@ services:
     restart: unless-stopped
 
   # The Hono API: Better Auth logins, the API routes and the built PWA, on one
-  # port (ADR-0007, ADR-0012). LiveKit and the dubbing container aren't wired yet.
+  # port (ADR-0007, ADR-0012). It gets the LiveKit settings for the session rooms
+  # (YGP-69); the translation workers aren't wired yet.
   api:
     build:
       context: .
@@ -53,6 +54,10 @@ services:
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      # Inside Compose, LiveKit is reached by its service name (YGP-69).
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
     ports:
       - "127.0.0.1:${API_PORT:-3000}:3000"
     depends_on:
