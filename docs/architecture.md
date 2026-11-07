@@ -261,6 +261,9 @@ erDiagram
   their logins and sessions.
 - Our tables are created by numbered SQL files in `apps/api/migrations`, each
   applied once and recorded in `schema_migrations`.
+- LiveKit room names aren't stored: they're built from the session ID and the
+  language ([ADR-0020](adr/0020-input-audio-stream.md)), so the API and the
+  workers always agree on them.
 - Redis holds only the job messages, never the owner of a track.
 - **Not stored in the database:** audio, captions or transcripts, listener
   identities, and live state such as connections. The workers write the
