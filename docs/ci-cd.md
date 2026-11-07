@@ -149,24 +149,26 @@ fixed them.
 ## What's enforced today
 
 The [branching strategy](branching-strategy.md) says every merge is a pull
-request, reviewed by a teammate, with all checks passing. Today that is a team
-agreement, not something GitHub enforces:
+request, reviewed by a teammate, with all checks passing. Since 7 November,
+GitHub enforces part of that on `main` and `testing`, through the ruleset
+**Protect main and testing** (step 1 below). Not enforced yet:
 
-- The repository has a ruleset called **Main**, but it doesn't target any
-  branches yet, so it has no effect.
-- Even once it targets `main`, its two rules only stop the branch being deleted
-  or force-pushed. It doesn't require a review or passing checks.
-- So a red check or a missing review warns, but doesn't block the merge
-  button.
+- **Passing checks.** A red check warns but doesn't block the merge button
+  until step 2.
+- **Anything on `development`** and the feature branches. Reviews there are a
+  team agreement.
+
+The older ruleset **Main** targets no branches, so it has no effect.
 
 ### Branch protection (YGP-76)
 
 The rules are written down as a GitHub ruleset in
-`.github/rulesets/protect-main-and-testing.json`. Only a repository admin can
-turn them on, by importing the file under **Settings → Rules → Rulesets → New
-ruleset → Import a ruleset**. They come in two steps.
+`.github/rulesets/protect-main-and-testing.json`. A repository admin imports
+the file under **Settings → Rules → Rulesets → New ruleset → Import a
+ruleset**. That was done for step 1 on 7 November. The rules come in two
+steps.
 
-**Step 1 (the file as it is now)**, for `main` and `testing`:
+**Step 1 (live since 7 November)**, for `main` and `testing`:
 
 - Every change goes through a pull request with **one approval** from someone
   other than its author.

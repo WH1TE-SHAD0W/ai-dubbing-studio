@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- CI/CD page: "What's enforced today" now matches the imported ruleset (pull
+  request and one approval on `main` and `testing`; checks and `development`
+  not enforced yet) (YGP-76).
 - Proposed ADR-0021: how we deploy. Argo CD on K3s, syncing from a separate
   deploy repository, with Docker Compose as the fallback if the cluster isn't
   ready by 11 November (YGP-80).
