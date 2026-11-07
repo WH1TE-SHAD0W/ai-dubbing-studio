@@ -29,7 +29,7 @@ cp .env.example .env    # set POSTGRES_PASSWORD, BETTER_AUTH_SECRET, INTERNAL_AP
 docker compose --profile translator up -d --build
 ```
 
-Put a speech recording in `apps/translator/media/in/input.wav` (PCM16, mono, 16 kHz), then open <http://localhost:3000/studio>, register, create a session and select **Go live**. The translation is written to `apps/translator/media/out/`. The translator's settings are explained on the [Translator](https://wh1te-shad0w.github.io/ai-dubbing-studio/translator/) page, and working on the code without Docker in the [Setup Guide](https://wh1te-shad0w.github.io/ai-dubbing-studio/setup-guide/).
+Put a speech recording in `apps/translator/media/in/input.wav` (PCM16, mono, 16 kHz), then open <http://localhost:3000/studio>, register, create a session and select **Go live**. The translation is written to `apps/translator/media/out/`. The translator's settings are explained on the [Translator](docs/translator.md) page, and working on the code without Docker in the [Setup Guide](https://wh1te-shad0w.github.io/ai-dubbing-studio/setup-guide/).
 
 ## More
 
