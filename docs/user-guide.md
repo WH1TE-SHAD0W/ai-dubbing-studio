@@ -8,8 +8,7 @@ AI Dubbing Studio has two kinds of user:
 Listeners don't need an account. The host has one.
 
 This describes the app as it works today. Hosts can do everything below.
-Listeners can find a session and pick a language, but the audio itself arrives
-once LiveKit is connected (see [What isn't built yet](#what-isnt-built-yet)).
+Listeners can find a session and pick a language (see [Audio](#audio)).
 
 ## Host
 
@@ -65,15 +64,11 @@ next one. Its code is free to be reused by a later session.
    language. Pick **Your language** and select **Start listening**.
 4. If the session has ended, the page says so.
 
-## What isn't built yet
+## Audio
 
-- **Audio:** sending the host's microphone and playing the translation to
-  listeners both go through LiveKit, which isn't connected yet. So
-  **Start listening** shows "Listening isn't available yet: LiveKit isn't
-  connected." for now. Meanwhile the
-  translators work from a recording on the server, which lets the team check
-  the translation.
-- **Captions.**
+**Start listening** shows "Listening isn't available yet". The translators work
+from a recording on the server and write their translations to files there,
+which lets the team check the translation.
 
 ## Good to know
 

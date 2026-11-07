@@ -32,14 +32,8 @@ Working today, in Docker Compose:
   translates with Gemini Live Translate. Ending the session stops the workers,
   and a worker that crashes or is stopped is replaced by another.
 
-Not built yet:
-
-- **Using LiveKit**, which carries the audio: the host's microphone in, and
-  each language out to its listeners. Its server already runs in Docker
-  Compose, but the app, the API and the workers don't connect to it yet.
-  Until they do, a worker reads the host's audio from a WAV file and writes
-  the translation to another one.
-- **Captions.**
+- **Audio:** a worker reads the host's audio from a WAV file and writes the
+  translation to another one.
 
 The [decision records](adr/index.md) behind it:
 

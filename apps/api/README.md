@@ -1,6 +1,6 @@
 # @ads/api
 
-The Hono API from the [target architecture](../../docs/architecture.md). It serves the built PWA and host logins on one origin, with accounts in Postgres, stores sessions, and hands each live session's languages to the translator workers (`apps/translator`). Only the LiveKit listener token is still a placeholder that answers `501`.
+The Hono API from the [target architecture](../../docs/architecture.md). It serves the built PWA and host logins on one origin, with accounts in Postgres, stores sessions, and hands each live session's languages to the translator workers (`apps/translator`). Only the listener token is still a placeholder that answers `501`.
 
 ## What works
 
@@ -27,9 +27,9 @@ How ADR-0003 is configured:
 
 | Route | Answers |
 |---|---|
-| `POST /api/join/:code/token` | `400` for a malformed code or unknown language, otherwise `501` (LiveKit isn't connected) |
+| `POST /api/join/:code/token` | `400` for a malformed code or unknown language, otherwise `501` (listening isn't available yet) |
 
-Not connected yet: LiveKit (ADR-0001, ADR-0013). To see which translator worker has each track of a session, with its lease and attempts:
+To see which translator worker has each track of a session, with its lease and attempts:
 
 ```bash
 pnpm --filter @ads/api tracks list [<session id>]

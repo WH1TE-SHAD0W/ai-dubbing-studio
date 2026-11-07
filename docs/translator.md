@@ -84,6 +84,6 @@ docker compose logs -f api translator
   it is lost, the API sends the jobs again from Postgres.
 - **Gemini cost:** each language of a live session is one paid Gemini stream,
   from **Go live** until the session ends, and at most 240 minutes per worker.
-- **Nothing uses LiveKit yet**, so the workers read the host's audio from
+- **Audio files:** the workers read the host's audio from
   `apps/translator/media/in` and write the translations to
   `apps/translator/media/out`.

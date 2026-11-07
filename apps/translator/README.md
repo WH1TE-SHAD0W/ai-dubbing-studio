@@ -5,9 +5,9 @@ ADR-0020; design in [pod-spec.md](pod-spec.md)). It waits on the Redis Stream
 `translate:jobs` for one job and claims the track from the API. It runs one Gemini
 Live Translate stream, then exits; a fresh process takes its place.
 
-LiveKit is not wired in yet. Host audio comes from a WAV file and the translation is
-written to a WAV file ([media/in](media/in/README.md)). The `media.Source` and
-`media.Sink` interfaces are where the LiveKit adapter will plug in.
+Host audio comes from a WAV file and the translation is written to a WAV file
+([media/in](media/in/README.md)), through the `media.Source` and `media.Sink`
+interfaces.
 
 ## Run it
 

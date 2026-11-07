@@ -5,8 +5,7 @@ same origin ([ADR-0012](adr/0012-serving-pwa-bundle.md)), so the browser calls
 every endpoint under `/api` on the address it opened.
 
 Host logins, sessions, joining by code and the translator workers' internal API
-are built. Only the listener token answers `501 Not Implemented`, until LiveKit
-is connected.
+are built. Only the listener token answers `501 Not Implemented`.
 
 **Host only** means the request needs the host's login cookie.
 
@@ -79,7 +78,7 @@ answers the session as `sessionSchema` in `packages/contracts` describes it.
 | Call | Body → answer | Notes |
 |---|---|---|
 | `GET /api/join/:code` | → `{title, hostName, sourceLang, languages[], status}` | For a session that hasn't ended; `404` "No session uses this code." otherwise. The code is not case-sensitive. |
-| `POST /api/join/:code/token` | `{lang}` | `501` (LiveKit isn't connected), `400` for a bad code or language |
+| `POST /api/join/:code/token` | `{lang}` | `501` (listening isn't available yet), `400` for a bad code or language |
 
 ## Translator workers (internal)
 

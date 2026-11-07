@@ -6,7 +6,7 @@ A host speaks once; every listener hears them live in their own language, in the
 
 - Hosts register, log in, create sessions, take them live and end them; listeners find a session by its code.
 - Going live sends one job per language through a Redis Stream; an idle translator worker (Go) claims it and translates with Gemini Live Translate. Ending the session stops the workers, and a crashed or stopped worker is replaced.
-- Not built yet: using LiveKit (the host's audio in, the translation out to listeners; its server already runs in Docker Compose) and captions. Until then, a worker reads the host's audio from a WAV file and writes the translation to another one.
+- A worker reads the host's audio from a WAV file and writes the translation to another one.
 
 ## Layout
 

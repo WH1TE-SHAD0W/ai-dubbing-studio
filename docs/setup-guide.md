@@ -90,8 +90,7 @@ docker compose up --build    # open http://localhost:3000
 The API waits for Postgres and Redis to be healthy, brings its tables up to
 date (see [Database migrations](#database-migrations)), then serves the app.
 You can register a host, log in, create a session and take it live or end it,
-and look it up by its code. Listening shows "isn't available yet", because
-LiveKit isn't connected.
+and look it up by its code. Listening shows "isn't available yet".
 
 ```bash
 docker compose ps            # all should show (healthy)

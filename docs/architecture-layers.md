@@ -1,8 +1,8 @@
 # Architecture layers
 
 A closer look at each part of the [architecture](architecture.md): the app, the
-API, how jobs reach the translator workers, the workers themselves, and the
-media. Each section says what is built.
+API, how jobs reach the translator workers, the workers themselves, and their
+audio files.
 
 ## App
 
@@ -21,31 +21,18 @@ flowchart TB
     Host["Host pages<br/>Register, Login, Studio"]
     Listener["Listener pages<br/>Join, Listener"]
     Mic["Microphone<br/>device picker"]
-    LK["LiveKit React components"]
-    Player["Media element and Media Session<br/>playback, lock-screen controls"]
   end
-
-  SFU["LiveKit (not used yet)"]
 
   API -- "logins, sessions" --- Host
   API -- "join by code" --- Listener
   Host --> Mic
-  Listener --> LK
-  LK --> Player
-  Mic -. "host audio to the source room" .-> SFU
-  SFU -. "chosen language (WebRTC)" .-> LK
 ```
 
 - **Built:** all five pages against the real API. A host registers, logs in,
   creates a session, shares its code, takes it live and ends it. A listener
   finds a session by its code and picks a language.
-- **Not built:** sending the microphone's audio and playing the translation,
-  which both go through LiveKit. Until then the listener page shows a connection
-  error, and the Studio's microphone picker only tests the input. How captions
-  reach the listener page isn't decided.
-
-Playing audio on a locked phone is a target, not a guarantee
-([ADR-0011](adr/0011-audio-handling.md)).
+- The Studio's microphone picker only tests the input, and the listener page
+  shows that listening isn't available yet.
 
 ## API
 
@@ -106,7 +93,6 @@ flowchart TB
 - **The sweeper** runs every 5 seconds and keeps tracks moving when something
   goes wrong (see [Job dispatch](#job-dispatch)).
 - The shared request schemas are in [ADR-0016](adr/0016-schema-validator.md).
-  Listener tokens for LiveKit aren't built yet.
 
 ## Job dispatch
 
@@ -167,7 +153,7 @@ sequenceDiagram
   and audio
     W->>G: host audio, 100 ms chunks of 16 kHz PCM
     G-->>W: translated 24 kHz PCM
-    W->>W: write it out (a WAV file now, LiveKit later)
+    W->>W: write it to a WAV file
   end
 ```
 
@@ -258,8 +244,8 @@ flowchart TB
     Runner["Runner<br/>claim, heartbeat, stop"]
     Control["Control client<br/>claim, heartbeat, status, release"]
     Manager["Gemini stream manager<br/>resume, reconnect, backoff"]
-    Source["Audio in<br/>WAV file now, LiveKit later"]
-    Sink["Audio out<br/>WAV file now, LiveKit later"]
+    Source["Audio in<br/>WAV file"]
+    Sink["Audio out<br/>WAV file"]
     Probes["Probes<br/>/health, /ready"]
   end
 
@@ -287,8 +273,8 @@ flowchart TB
 - **Probes:** `/health` says its connections work (Redis while idle; the lease
   and Gemini while busy). `/ready` says it is idle and waiting for a job.
 - **Media:** host audio comes in and translated audio goes out through two
-  interfaces. A WAV adapter implements them now (`apps/translator/media/in` and
-  `out`); a LiveKit adapter will implement the same two.
+  interfaces, implemented by a WAV adapter (`apps/translator/media/in` and
+  `out`).
 - **Size:** 5.5 MiB of memory idle, 10.7 MiB with a live track, in a 41 MB
   image.
 
@@ -317,44 +303,8 @@ stateDiagram-v2
 Ending, Fenced and Draining can follow any busy state, not only Live. A claim
 that gets `409` leaves the worker idle, still waiting.
 
-## Media
+## Audio files
 
-A self-hosted LiveKit SFU will carry the audio
-([ADR-0001](adr/0001-audio-fan-out.md),
-[ADR-0020](adr/0020-input-audio-stream.md)). **The server runs in Docker
-Compose (`config/livekit.yaml`), but nothing connects to it yet.** The host
-publishes once to a source room for the session; each language's worker
-subscribes to it and publishes its translation to that language's room; each
-listener joins only the room of their language, so the workers' load doesn't
-grow with the number of listeners. Slovak and German are examples here.
-
-```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 70}}}%%
-flowchart TB
-  Host["Host (PWA)"]
-
-  subgraph Media["LiveKit (self-hosted SFU, not used yet)"]
-    Source["Source room<br/>the host's audio"]
-    Slovak["Slovak room"]
-    German["German room"]
-  end
-
-  WSk["Worker (Slovak)"]
-  WDe["Worker (German)"]
-  ListenersSk["Listeners who chose Slovak"]
-  ListenersDe["Listeners who chose German"]
-  TURN["TURN server<br/>for networks that block UDP"]
-
-  Host -- "publishes once" --> Source
-  Source -- "subscribes" --> WSk
-  Source -- "subscribes" --> WDe
-  WSk -- "publishes" --> Slovak
-  WDe -- "publishes" --> German
-  Slovak -- "WebRTC" --> ListenersSk
-  German -- "WebRTC" --> ListenersDe
-  Media -.- TURN
-```
-
-Until then, each worker reads the host's audio from a WAV file in
+Each worker reads the host's audio from a WAV file in
 `apps/translator/media/in` and writes its translation to
 `apps/translator/media/out`.

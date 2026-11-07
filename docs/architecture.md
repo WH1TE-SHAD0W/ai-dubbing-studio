@@ -17,9 +17,6 @@ The host speaks once; every listener hears them in their chosen language.
   work on a **Redis Stream**.
 - **PostgreSQL** records which worker owns each language's translation.
   **Redis** only delivers the jobs.
-- **LiveKit** will carry the audio: the host publishes once to a source room,
-  each worker publishes its language to that language's room, and each
-  listener joins only the room of the language they picked.
 
 Cost grows with the number of languages, not listeners.
 
@@ -27,12 +24,10 @@ Cost grows with the number of languages, not listeners.
 
 | Part | Status |
 |---|---|
-| The app (React PWA): register, log in, Studio, join, listener pages | Built. Listening needs LiveKit. |
+| The app (React PWA): register, log in, Studio, join, listener pages | Built |
 | API: host logins, sessions (create, go live, end), joining by code | Built |
 | API: translation tracks, the Redis job stream, the workers' internal API, the sweeper that recovers tracks | Built |
-| Translator workers (Go) with Gemini Live Translate | Built. Until LiveKit is connected, a worker reads the host's audio from a WAV file and writes the translation to another one. |
-| LiveKit server | Runs in Docker Compose (`config/livekit.yaml`), but nothing uses it yet |
-| LiveKit in the app, the API and the workers: the host's audio in, translated audio out, listener tokens | Not built |
+| Translator workers (Go) with Gemini Live Translate | Built. A worker reads the host's audio from a WAV file and writes the translation to another one. |
 | Captions | Not built |
 
 ```mermaid
@@ -46,7 +41,7 @@ flowchart TB
     DB[("PostgreSQL<br/>accounts, sessions,<br/>who translates each language")]
     Q[("Redis Stream<br/>translate:jobs")]
     W["Translator workers (Go)<br/>1 worker = 1 language of 1 session"]
-    SFU["LiveKit (not used yet)<br/>source room, 1 room per language"]
+    Files[("WAV files<br/>apps/translator/media")]
   end
 
   Gemini["Gemini Live Translate API"]
@@ -58,14 +53,9 @@ flowchart TB
   Q -- "each job to one idle worker" --> W
   W -- "claim, heartbeat, status" --> API
   W <-- "host audio / translated audio" --> Gemini
-  Host -. "mic audio" .-> SFU
-  SFU -. "host audio" .-> W
-  W -. "translated audio" .-> SFU
-  SFU -. "chosen language (WebRTC)" .-> Listener
+  Files -- "host audio" --> W
+  W -- "translated audio" --> Files
 ```
-
-Dotted lines are the LiveKit parts that aren't built yet: the LiveKit server
-runs in Docker Compose, but nothing connects to it so far.
 
 ## Step by step
 
@@ -95,7 +85,7 @@ sequenceDiagram
   end
   W->>G: host audio
   G-->>W: translated audio
-  Note over W: Today the host audio comes from a WAV file and the<br/>translation goes to a WAV file. With LiveKit, from the<br/>source room and to the language's room.
+  Note over W: the host audio comes from a WAV file and the<br/>translation goes to a WAV file
   H->>A: end session
   A->>D: session and its tracks ended
   W->>A: next heartbeat
@@ -108,11 +98,6 @@ Measured in Docker Compose with the real Gemini API: each language was claimed
 about 3 seconds after the first words, and after **End session** every worker
 stopped at its next heartbeat (within 5 seconds).
 
-An **SFU (selective forwarding unit)** such as LiveKit receives each audio track
-once and forwards it to every listener who subscribed to it, without decoding or
-mixing. Listeners connect to it over **WebRTC**, which is built for real-time
-media.
-
 ### A listener joins
 
 ```mermaid
@@ -124,9 +109,8 @@ sequenceDiagram
   A->>D: find the session by its code (not ended)
   D-->>A: title, host, languages
   A-->>L: session details and languages
-  L->>A: choose a language, ask for a LiveKit token
-  A-->>L: not available yet (LiveKit isn't connected)
-  Note over L: With LiveKit, the token lets the listener join<br/>only that language's room
+  L->>A: choose a language, ask to listen
+  A-->>L: 501, listening isn't available yet
 ```
 
 Listeners have no account. They only need the join code.
@@ -268,8 +252,7 @@ erDiagram
   be unique among sessions that haven't ended, so short codes can be reused.
 - **session_languages:** each target language of a session, in the order the
   host picked them, with its peak listener count to show where the Gemini cost
-  goes. LiveKit rooms aren't stored: their names are made from the session and
-  the language ([ADR-0020](adr/0020-input-audio-stream.md)).
+  goes.
 - **translation_tracks:** one per language once the session goes live: its
   status, the worker that owns it and that worker's lease. A worker renews the
   lease every 5 seconds; when a lease runs out, the track goes to another
@@ -280,5 +263,5 @@ erDiagram
   applied once and recorded in `schema_migrations`.
 - Redis holds only the job messages, never the owner of a track.
 - **Not stored in the database:** audio, captions or transcripts, listener
-  identities, and live state such as connections. Until LiveKit is connected,
-  the workers write the translated audio to WAV files, for development.
+  identities, and live state such as connections. The workers write the
+  translated audio to WAV files.
