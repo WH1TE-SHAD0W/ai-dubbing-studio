@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Proposed ADR-0021: how we deploy. Argo CD on K3s, syncing from a separate
+  deploy repository, with Docker Compose as the fallback if the cluster isn't
+  ready by 11 November (YGP-80).
 - Deployment page: the Kubernetes manifests live in their own repository,
   `ai-dubbing-studio-deploy` (YGP-81).
 - Deployment page rewritten for the current plan: Postgres and the API in
