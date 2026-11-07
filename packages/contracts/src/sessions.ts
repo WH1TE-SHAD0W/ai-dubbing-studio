@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { languageCodeSchema } from "./languages.ts";
+import { trackStatusSchema } from "./translator.ts";
 
 // Each target language is a separate paid stream; the PoC capped it at 5 (ADR-0009).
 export const MAX_TARGET_LANGUAGES = 5;
@@ -48,6 +49,9 @@ export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>;
 export const sessionLanguageSchema = z.object({
   lang: languageCodeSchema,
   peakListeners: z.number().int().nonnegative(),
+  // Where this language's translation stands, once the session has started:
+  // pending (waiting for a worker), claimed, live, ended or failed (ADR-0018).
+  trackStatus: trackStatusSchema.optional(),
 });
 
 // A session as the host sees it in the Studio.

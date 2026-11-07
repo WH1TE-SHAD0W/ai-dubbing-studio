@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=../../.env --watch src/server.ts",
     "start": "node src/server.ts",
+    "tracks": "node --env-file-if-exists=../../.env src/cli/tracks.ts",
     "build": "esbuild src/server.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/server.mjs --external:pg-native --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
@@ -19,6 +20,7 @@
     "@hono/zod-validator": "^0.9.1",
     "better-auth": "^1.7.14",
     "hono": "^4.13.14",
+    "ioredis": "^6.0.0",
     "livekit-server-sdk": "^2.19.2",
     "pg": "^8.23.1",
     "zod": "^4.6.7"

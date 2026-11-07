@@ -1,0 +1,317 @@
+openapi: 3.0.3
+info:
+  title: Translator control API
+  version: 1.0.0
+  description: |
+    Internal API between Hono (the control plane) and the translator workers
+    (ADR-0018, ADR-0019, ADR-0020). Hono implements it; the Go worker is the client.
+    Postgres, through Hono, is the source of truth for who owns a track; the Redis
+    Stream only delivers jobs (see the TranslationJob schema).
+
+    Every call carries the worker's id. After a successful claim, any 409 means the
+    worker must stop: `ended` (the session or track is over) or `not_owner` (another
+    worker owns the track now). These endpoints must never be exposed through a
+    public ingress.
+servers:
+  - url: http://localhost:3000
+security:
+  - internalToken: []
+paths:
+  /internal/tracks/{trackId}/claim:
+    post:
+      operationId: claimTrack
+      summary: Take ownership of a track after reading its job from the stream.
+      description: |
+        Succeeds when the track is pending, or its lease expired, or this worker
+        already owns it (a retried claim is idempotent). The worker acknowledges the
+        stream message right after a 200 or a 409.
+      parameters:
+        - $ref: "#/components/parameters/TrackId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimRequest"
+      responses:
+        "200":
+          description: The worker owns the track.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: The track can't be claimed. Drop the job.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimConflict"
+  /internal/tracks/{trackId}/heartbeat:
+    post:
+      operationId: heartbeatTrack
+      summary: Extend the lease while working on the track (every heartbeatSec).
+      parameters:
+        - $ref: "#/components/parameters/TrackId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HeartbeatRequest"
+      responses:
+        "200":
+          description: Lease extended.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HeartbeatResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/OwnerConflict"
+  /internal/tracks/{trackId}/status:
+    post:
+      operationId: reportTrackStatus
+      summary: Report that the track is live, ended or failed.
+      description: |
+        `live`: the Gemini stream is open and audio can flow (live means ready).
+        `ended`: the worker finished on its own (for example the maximum job length).
+        `failed`: the worker gave up; Hono re-enqueues the track until its retry
+        limit, then marks it failed. A retried `ended` or `failed` returns 200.
+      parameters:
+        - $ref: "#/components/parameters/TrackId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusRequest"
+      responses:
+        "200":
+          description: Recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/OwnerConflict"
+  /internal/tracks/{trackId}/release:
+    post:
+      operationId: releaseTrack
+      summary: Give the track back (SIGTERM); Hono re-enqueues it at once.
+      parameters:
+        - $ref: "#/components/parameters/TrackId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReleaseRequest"
+      responses:
+        "200":
+          description: Released.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/OwnerConflict"
+components:
+  securitySchemes:
+    internalToken:
+      type: http
+      scheme: bearer
+      description: INTERNAL_API_TOKEN, shared by Hono and the workers. Not the LiveKit secret.
+  parameters:
+    TrackId:
+      name: trackId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  responses:
+    BadRequest:
+      description: The body is not valid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or wrong bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    OwnerConflict:
+      description: Stop working on the track.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OwnerConflict"
+  schemas:
+    WorkerId:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: Unique per worker process (hostname plus a random suffix).
+      example: translator-1-3f9a2c
+    LanguageCode:
+      type: string
+      pattern: "^[a-z]{2}$"
+      description: Two-letter target language code from packages/contracts/src/languages.ts.
+      example: sk
+    TranslationJob:
+      type: object
+      description: |
+        The fields of one Redis Stream message (stream `translate:jobs`, group
+        `translators`). All values are strings; no secrets.
+      required: [v, jobId, sessionId, trackId, language]
+      properties:
+        v:
+          type: string
+          enum: ["1"]
+        jobId:
+          type: string
+          minLength: 1
+        sessionId:
+          type: string
+          minLength: 1
+        trackId:
+          type: string
+          minLength: 1
+        language:
+          $ref: "#/components/schemas/LanguageCode"
+    ClaimRequest:
+      type: object
+      required: [workerId, jobId]
+      properties:
+        workerId:
+          $ref: "#/components/schemas/WorkerId"
+        jobId:
+          type: string
+          minLength: 1
+    ClaimResponse:
+      type: object
+      required: [trackId, sessionId, language, leaseTtlSec, heartbeatSec]
+      properties:
+        trackId:
+          type: string
+        sessionId:
+          type: string
+        language:
+          $ref: "#/components/schemas/LanguageCode"
+        leaseTtlSec:
+          type: integer
+          minimum: 1
+          example: 15
+        heartbeatSec:
+          type: integer
+          minimum: 1
+          example: 5
+    WorkerState:
+      type: string
+      enum: [connecting, live, reconnecting]
+    HeartbeatStats:
+      type: object
+      properties:
+        inDroppedFrames:
+          type: integer
+          minimum: 0
+        outBufferMs:
+          type: integer
+          minimum: 0
+        geminiReconnects:
+          type: integer
+          minimum: 0
+    HeartbeatRequest:
+      type: object
+      required: [workerId, state]
+      properties:
+        workerId:
+          $ref: "#/components/schemas/WorkerId"
+        state:
+          $ref: "#/components/schemas/WorkerState"
+        stats:
+          $ref: "#/components/schemas/HeartbeatStats"
+    HeartbeatResponse:
+      type: object
+      required: [leaseTtlSec]
+      properties:
+        leaseTtlSec:
+          type: integer
+          minimum: 1
+    TrackStatus:
+      type: string
+      enum: [live, ended, failed]
+    StatusRequest:
+      type: object
+      required: [workerId, status]
+      properties:
+        workerId:
+          $ref: "#/components/schemas/WorkerId"
+        status:
+          $ref: "#/components/schemas/TrackStatus"
+        reason:
+          type: string
+          maxLength: 500
+    ReleaseReason:
+      type: string
+      enum: [sigterm]
+    ReleaseRequest:
+      type: object
+      required: [workerId, reason]
+      properties:
+        workerId:
+          $ref: "#/components/schemas/WorkerId"
+        reason:
+          $ref: "#/components/schemas/ReleaseReason"
+    ClaimConflictReason:
+      type: string
+      enum: [owned, ended, unknown_track]
+    ClaimConflict:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          $ref: "#/components/schemas/ClaimConflictReason"
+        message:
+          type: string
+    OwnerConflictReason:
+      type: string
+      enum: [not_owner, ended]
+    OwnerConflict:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          $ref: "#/components/schemas/OwnerConflictReason"
+        message:
+          type: string
+    Ok:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
