@@ -176,11 +176,28 @@ agreement, not something GitHub enforces:
 - So a red check or a missing review warns, but doesn't block the merge
   button.
 
-Branch protection is planned in YGP-76: `main` and `testing` will need a pull
-request, one approval and passing checks before a merge. The three
-[code checks](#code-checks) run on every pull request, so they can be required.
-The Docs checks only run when docs change, so if they became required, a pull
-request that only changes code would wait for them forever.
+### Branch protection (YGP-76)
+
+The rules are written down as a GitHub ruleset in
+`.github/rulesets/protect-main-and-testing.json`. Only a repository admin can
+turn them on, by importing the file under **Settings → Rules → Rulesets → New
+ruleset → Import a ruleset**. They come in two steps.
+
+**Step 1 (the file as it is now)**, for `main` and `testing`:
+
+- Every change goes through a pull request with **one approval** from someone
+  other than its author.
+- A new push to the pull request clears an earlier approval, so the reviewer
+  always approves the final version.
+- Pull requests are merged with a merge commit, as all of them have been so far.
+- The branches can't be deleted or force-pushed.
+- Nobody can skip the rules, admins included.
+
+**Step 2, once the code checks are on `main`:** the CI workflow's Typecheck,
+Test and Build become required checks. They can't be required before that:
+pull requests into `main` run the workflows that are on `main`, so the checks
+would never start and every pull request would wait for them forever. The Docs
+checks stay optional, for the same reason: they only run when docs change.
 
 ## Code checks
 
