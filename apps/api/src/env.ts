@@ -44,6 +44,9 @@ export const envSchema = z.object({
   // The built PWA (ADR-0012). Relative paths are resolved from the working directory.
   WEB_DIST: z.string().min(1).default("../web/dist"),
 
+  // Our numbered .sql migrations (YGP-62). Relative paths are resolved from the
+  // working directory, like WEB_DIST.
+  MIGRATIONS_DIR: z.string().min(1).default("migrations"),
   // LiveKit (ADR-0001, ADR-0020): the same key and secret as the LiveKit server.
   // Inside Docker Compose the URL is ws://livekit:7880. Optional until the session
   // routes use LiveKit; set all three or none.

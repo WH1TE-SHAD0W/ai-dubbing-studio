@@ -182,10 +182,13 @@ Use the `POSTGRES_USER` and `POSTGRES_DB` from `.env` if they differ.
   reverse proxy on it) can reach them.
 - **Secrets stay in `.env`**, which is git-ignored: the Postgres password and
   `BETTER_AUTH_SECRET`. Changing the secret logs every host out.
-- **More than one API container works**, because logins and rate limits are
-  kept in Postgres, not in memory. Start the first one alone on an empty
-  database, though: each one creates the tables on start, and two doing it at
-  once can clash.
+- **Back up the `postgres-data` volume**: it holds every host account.
+  `docker compose down -v` deletes it.
+- **More than one API container works**: logins and rate limits are kept in
+  Postgres, not in memory. Copies that start together don't clash over the
+  tables either: the table updates run under one Postgres lock, so the second
+  copy waits for the first (see
+  [Database migrations](setup-guide.md#database-migrations)).
 
 ## Still to be decided
 

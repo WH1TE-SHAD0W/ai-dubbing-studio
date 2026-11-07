@@ -70,8 +70,8 @@ Postgres and the API, with the built app, in two containers:
 docker compose up --build    # open http://localhost:3000
 ```
 
-The API waits for Postgres to be healthy, creates its tables on the first start,
-then serves the app. You can register a host, log in and log out. Creating a
+The API waits for Postgres to be healthy, brings its tables up to date (see
+[Database migrations](#database-migrations)), then serves the app. You can register a host, log in and log out. Creating a
 session or joining one shows "isn't available yet", because sessions and LiveKit
 aren't built.
 
@@ -157,13 +157,48 @@ docker compose ps               # wait until STATUS shows (healthy)
 - Postgres listens on `localhost:5432` only, so other machines on the network
   can't reach it. The API in Docker reaches it as `postgres:5432`; the API on
   your machine connects with `DATABASE_URL` from `.env`.
-- The API creates Better Auth's tables (`user`, `account`, `logins`,
-  `verification`, `rateLimit`) when it starts, and adds any that are missing
-  after an update.
+- The API creates the tables itself when it starts; see
+  [Database migrations](#database-migrations).
 - The data is kept in the `postgres-data` volume, so it survives
   `docker compose down` and `docker compose up`.
 - `docker compose down -v` also deletes the volume, which wipes the database.
   Use it to start again from empty.
+
+## Database migrations
+
+Every time the API starts, before it serves anything, it brings the database up
+to date in two steps:
+
+1. **Better Auth's tables** (`user`, `account`, `logins`, `verification`,
+   `rateLimit`): Better Auth adds any that are missing.
+2. **Our own tables**, from the numbered `.sql` files in `apps/api/migrations/`
+   ([ADR-0002](adr/0002-session-and-account-storage.md)). Each new file runs
+   once, in name order, and is recorded in the `schema_migrations` table.
+
+The log shows each file it applies, for example
+`database: applied migration 0001_sessions.sql`. If a file fails, none of it is
+kept, the log names the file, and the API stops instead of starting on a
+half-updated database.
+
+Both steps run under one Postgres lock, so two copies of the API starting at
+once can't both create the same tables: the second waits for the first.
+
+To change the database, add a file:
+
+- Name it with four digits, an underscore and a lowercase name, the next number
+  after the last file: for example `0002_add_sessions_title.sql`. A file with
+  any other name stops the API from starting.
+- **Never edit a file that has already run**, on your machine or anywhere
+  else. The runner only records names, so an edited file would never run again.
+  Add a new file instead.
+- Restart the API to apply it. To see what has run:
+
+    ```bash
+    docker compose exec postgres psql -U dubbing -c "select * from schema_migrations"
+    ```
+
+The folder is set by `MIGRATIONS_DIR` (default `migrations`, from the folder the
+API runs in). The Docker image sets it to `/app/migrations`.
 
 ## Run LiveKit
 

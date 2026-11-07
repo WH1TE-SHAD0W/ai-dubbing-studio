@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Database migrations: the API applies the numbered `.sql` files in
+  `apps/api/migrations/` on every start, records them in `schema_migrations`,
+  and runs them and Better Auth's under one Postgres lock so API copies starting
+  together don't clash (YGP-62).
 - LiveKit tokens in the API: a listener token (listen only, one output room), a
   host token (microphone only, the source room) and a worker's two tokens
   (hear the source room hidden, publish to its output room), all expiring after
