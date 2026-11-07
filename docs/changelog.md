@@ -4,6 +4,10 @@
 
 - Deployment page: the Kubernetes manifests live in their own repository,
   `ai-dubbing-studio-deploy` (YGP-81).
+- Branch protection written down as a ruleset file
+  (`.github/rulesets/protect-main-and-testing.json`): pull request with one
+  approval, no deleting or force-pushing `main` and `testing`; the CI/CD page
+  explains its two steps (YGP-76).
 - Deployment page rewritten for the current plan: Postgres and the API in
   Docker Compose (built), K3s with Argo CD (planned), rolling back, checking a
   deploy and backing up the database (YGP-83).
