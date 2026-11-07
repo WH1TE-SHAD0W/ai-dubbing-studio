@@ -51,9 +51,26 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # A throwaway LiveKit for the room tests (YGP-69). Same version as Compose.
+      livekit:
+        image: livekit/livekit-server:v1.13.11
+        env:
+          LIVEKIT_KEYS: "ci-key: ci-${{ github.run_id }}-${{ github.run_attempt }}-throwaway-livekit-secret"
+        ports:
+          - 7880:7880
+        options: >-
+          --health-cmd "wget -q -O - http://127.0.0.1:7880"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      # Without this the database tests are skipped, and the run still passes.
+      # Without these the database and LiveKit tests are skipped, and the run
+      # still passes.
       TEST_DATABASE_URL: postgres://dubbing@localhost:5432/dubbing
+      LIVEKIT_URL: ws://localhost:7880
+      LIVEKIT_API_KEY: ci-key
+      # Made from this run's ID, so it differs every run and only lives inside it.
+      LIVEKIT_API_SECRET: ci-${{ github.run_id }}-${{ github.run_attempt }}-throwaway-livekit-secret
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

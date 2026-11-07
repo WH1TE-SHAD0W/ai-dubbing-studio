@@ -136,7 +136,8 @@ pnpm build
 ```
 
 The database tests only run if `TEST_DATABASE_URL` or `DATABASE_URL` is set, for
-example to the Compose database from the [Setup Guide](setup-guide.md). If
+example to the Compose database from the [Setup Guide](setup-guide.md), and the
+LiveKit tests only if the three `LIVEKIT_` settings are. If
 `pnpm` isn't found, run `corepack enable` once.
 
 ## When a check fails
@@ -207,6 +208,11 @@ the API's database tests are skipped and the run still passes, so the CI sets
 one to make sure they run. The database has no password, because it only
 exists inside the run.
 
+It also starts a throwaway LiveKit (`livekit/livekit-server:v1.13.11`, as in
+Compose) and sets `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`, so
+the room tests run too. Its secret is made from the run's ID, so it is
+different every run and never written in the repository.
+
 A new push to the same pull request cancels the run still going. The workflow
 can only read the repository.
 
@@ -223,7 +229,7 @@ Not built yet; planned in Jira.
 
 | Workflow | Jira | Runs on | What it does |
 |---|---|---|---|
-| Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to GitHub's container registry (GHCR). If a build fails, nothing is pushed. |
+| Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to Docker Hub, logging in with an access token stored as a GitHub Actions secret. If a build fails, nothing is pushed. |
 
 ### Image tags
 
