@@ -59,8 +59,8 @@ repository root, which Git ignores. Start from the example:
 cp .env.example .env
 ```
 
-The table below is the short version; every setting, with its default and who
-reads it, is explained in [Deployment](deployment.md#settings-in-env).
+The translator's settings, with their defaults and who reads them, are
+explained on the [Translator](translator.md#settings) page.
 
 | Variable | Purpose |
 |---|---|

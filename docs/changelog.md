@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Home page, Architecture, Architecture layers, User Guide and README
-  updated to what works today; Deployment explains every `.env` setting.
+  updated to what works today; a Translator page covers the workers, Redis,
+  their settings and the worker image.
 - Logging in works from an address in `TRUSTED_ORIGINS` written with a
   trailing slash (it was refused with "Invalid origin").
 - The API's database tests run in their own `_test` database, so a running
@@ -29,7 +30,7 @@
   `tracks list` command shows which worker has each track.
 - Redis and the translator workers (profile `translator`) in Docker Compose;
   `REDIS_URL`, `INTERNAL_API_TOKEN` and the Gemini settings in `.env.example`.
-- API, Setup Guide, Testing and Deployment pages updated for the translator.
+- API, Setup Guide and Testing pages updated for the translator.
 - `apps/api`: the Hono API, first part. It serves the built app with cache
   headers, connects to Postgres and handles host sign-up, login and logout with
   Better Auth, configured as ADR-0003 decides (12-hour logins in a `logins`

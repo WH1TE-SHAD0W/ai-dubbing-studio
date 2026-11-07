@@ -13,7 +13,8 @@ listeners, so cost grows with languages, not listeners.
 | [Setup Guide](setup-guide.md) | Running the app on your own machine |
 | [Architecture](architecture.md) | How the parts fit together |
 | [API](api.md) | The API's HTTP endpoints, for the app and the translator workers |
-| [Deployment](deployment.md) | Running the app on a server, and every setting in `.env` |
+| [Deployment](deployment.md) | Running the app on a server |
+| [Translator](translator.md) | The translator workers and Redis: settings, image, running them |
 | [CI/CD](ci-cd.md) | The automatic checks and how the docs site is published |
 | [Testing](testing.md) | Automated tests, checking against the real Gemini API, and debugging |
 | [Decisions (ADRs)](adr/index.md) | Why we chose what we chose |
