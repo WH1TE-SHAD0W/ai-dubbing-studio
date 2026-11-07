@@ -23,5 +23,6 @@ Accepted ADRs are not edited; a new ADR supersedes an old one.
 | [0020](0020-input-audio-stream.md)               | Host audio to workers through LiveKit rooms      | Proposed |
 | [0019](0019-translation-worker-runtime.md)       | Go for the translation worker                    | Proposed |
 | [0018](0018-autoscaling-architecture-of-translation-container.md) | Redis Streams dispatch for translation workers   | Proposed |
+| [0021](0021-how-we-deploy.md)                    | Argo CD on K3s, from a separate deploy repository | Proposed |
 
 Numbers 0004–0006 were not used.

@@ -48,6 +48,15 @@
   the `api` container. Tested against a real LiveKit, also in CI (YGP-69).
 - Code checks on every pull request: typecheck, tests with a Postgres
   database, and build (YGP-75).
+- Proposed ADR-0021: how we deploy. Argo CD on K3s, syncing from a separate
+  deploy repository, with Docker Compose as the fallback if the cluster isn't
+  ready by 11 November (YGP-80).
+- Deployment page: the Kubernetes manifests live in their own repository,
+  `ai-dubbing-studio-deploy` (YGP-81).
+- Branch protection written down as a ruleset file
+  (`.github/rulesets/protect-main-and-testing.json`): pull request with one
+  approval, no deleting or force-pushing `main` and `testing`; the CI/CD page
+  explains its two steps (YGP-76).
 - Deployment page rewritten for the current plan: Postgres and the API in
   Docker Compose (built), K3s with Argo CD (planned), rolling back, checking a
   deploy and backing up the database (YGP-83).
