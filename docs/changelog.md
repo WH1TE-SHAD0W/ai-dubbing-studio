@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- LiveKit docs: the Architecture page lists LiveKit as built but not yet
+  connected, and the Setup Guide says the session routes don't create rooms
+  yet (YGP-73).
 - Home page, Architecture, Architecture layers, User Guide and README
   updated to what works today; a Translator page covers the workers, Redis,
   their settings and the worker image.

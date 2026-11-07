@@ -315,5 +315,10 @@ LiveKit, the media server that carries the audio
 - Never use LiveKit's `--dev` keys outside your own machine.
 - The API reads the same `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`. In Docker
   Compose it reaches LiveKit at `ws://livekit:7880` by itself; run on your
-  machine, it uses `LIVEKIT_URL` from `.env`. It creates and deletes each
-  session's rooms (YGP-69), which starts once sessions are stored.
+  machine, it uses `LIVEKIT_URL` from `.env`. The code that creates and
+  deletes each session's rooms (YGP-69) and makes the tokens (YGP-71) is in
+  `apps/api/src/livekit/`, but the session routes don't call it yet, so
+  creating a session doesn't make any rooms so far.
+- To check the API can reach LiveKit, run the API tests with the `LIVEKIT_`
+  settings set (see [Room tests against LiveKit](testing.md#room-tests-against-livekit)): the room tests create and delete
+  real rooms.
