@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Setup Guide: database migration examples use the real file names, and a
+  command checks a fresh database has every table. Data model: room names
+  aren't stored (YGP-66).
 - Home page, Architecture, Architecture layers, User Guide and README
   updated to what works today; a Translator page covers the workers, Redis,
   their settings and the worker image.
