@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- LiveKit docs: the Architecture page lists LiveKit as built but not yet
+  connected, and the Setup Guide says the session routes don't create rooms
+  yet (YGP-73).
 - Setup Guide: database migration examples use the real file names, and a
   command checks a fresh database has every table. Data model: room names
   aren't stored (YGP-66).
