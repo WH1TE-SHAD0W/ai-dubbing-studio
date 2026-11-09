@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A worker's claim returns its two LiveKit tokens and the LiveKit URL when the
+  API has LiveKit configured (YGP-71).
 - Home page, Architecture, Architecture layers, User Guide and README
   updated to what works today; a Translator page covers the workers, Redis,
   their settings and the worker image.

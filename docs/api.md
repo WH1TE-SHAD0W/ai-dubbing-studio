@@ -100,7 +100,7 @@ these routes are both checked against it.
 
 | Call | Body → answer | Notes |
 |---|---|---|
-| `POST /internal/tracks/:trackId/claim` | `{workerId, jobId}` → `{trackId, sessionId, language, leaseTtlSec, heartbeatSec}` | Succeeds for a pending track, an expired lease, or a retried claim by the owner. The lease is 15 seconds. |
+| `POST /internal/tracks/:trackId/claim` | `{workerId, jobId}` → `{trackId, sessionId, language, leaseTtlSec, heartbeatSec, livekit?}` | Succeeds for a pending track, an expired lease, or a retried claim by the owner. The lease is 15 seconds. When the API has LiveKit configured, `livekit` is `{url, sourceToken, outputToken}`: one token hears the source room (hidden), the other publishes to the track's output room. |
 | `POST /internal/tracks/:trackId/heartbeat` | `{workerId, state, stats?}` → `{leaseTtlSec}` | Every 5 seconds; renews the lease. `state` is `connecting`, `live` or `reconnecting`. |
 | `POST /internal/tracks/:trackId/status` | `{workerId, status, reason?}` → `{ok: true}` | `live` once the Gemini stream is open; `ended` when the worker stops on its own (240-minute limit); `failed` when it gave up. A retried `ended` or `failed` gets `200`. |
 | `POST /internal/tracks/:trackId/release` | `{workerId, reason: "sigterm"}` → `{ok: true}` | The worker is shutting down; the track goes straight to another worker. |

@@ -5,6 +5,7 @@ import { createApp } from "./app.ts";
 import { authOptions, createAuth } from "./auth/auth.ts";
 import { createPool } from "./db.ts";
 import { loadEnv } from "./env.ts";
+import { createTokenService } from "./livekit/tokens.ts";
 import { migrateAuthTables } from "./migrate.ts";
 import { runSqlMigrations, withMigrationLock } from "./migrations.ts";
 import { createJobQueue } from "./queue/jobs.ts";
@@ -59,6 +60,15 @@ tracks = createTrackService(pool, queue, {
 });
 const sweeper = startSweeper({ tracks, queue });
 
+// LiveKit (ADR-0020) is optional: env.ts makes sure all three settings are set,
+// or none. Without it, claims return no worker tokens.
+const livekit = env.LIVEKIT_URL
+  ? {
+      url: env.LIVEKIT_URL,
+      tokens: createTokenService({ url: env.LIVEKIT_URL, apiKey: env.LIVEKIT_API_KEY!, apiSecret: env.LIVEKIT_API_SECRET! }),
+    }
+  : undefined;
+
 const webDist = resolve(env.WEB_DIST);
 if (!existsSync(join(webDist, "index.html"))) {
   console.warn(`web: no built app in ${webDist}; run \`pnpm --filter @ads/web build\`. Only the API is served.`);
@@ -69,7 +79,7 @@ const app = createApp({
   pool,
   webDist,
   trustForwarded: env.TRUSTED_PROXIES.length > 0,
-  internal: { token: env.INTERNAL_API_TOKEN, tracks },
+  internal: { token: env.INTERNAL_API_TOKEN, tracks, livekit },
 });
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   console.log(`api: listening on port ${info.port}, public URL ${env.BETTER_AUTH_URL}`);
