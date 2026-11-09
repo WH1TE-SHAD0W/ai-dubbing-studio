@@ -7,7 +7,7 @@ import {
 } from "@ads/contracts";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { TokenService } from "../livekit/tokens.ts";
+import type { BrowserLiveKit } from "../livekit/tokens.ts";
 import type { SessionService } from "../sessions/service.ts";
 import { validate } from "../validate.ts";
 
@@ -18,10 +18,7 @@ import { validate } from "../validate.ts";
 
 const codeParam = z.object({ code: joinCodeSchema });
 
-// LiveKit for listeners: the address their browser connects to, and the tokens.
-export type ListenerLiveKit = { publicUrl: string; tokens: Pick<TokenService, "listenerToken"> };
-
-export function joinRoutes(sessions: Pick<SessionService, "join" | "listenerSession">, livekit?: ListenerLiveKit) {
+export function joinRoutes(sessions: Pick<SessionService, "join" | "listenerSession">, livekit?: BrowserLiveKit) {
   return new Hono()
     .get("/:code", validate("param", codeParam), async (c) => {
       const found = await sessions.join(c.req.valid("param").code);

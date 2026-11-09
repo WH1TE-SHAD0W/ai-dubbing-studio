@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The host gets a mic token for a live session: publish only, in the source
+  room (YGP-71).
 - Listeners get a LiveKit token: a join code and a language of a live session
   return a listen-only token for that language's room, and the address in the
   new `LIVEKIT_PUBLIC_URL` setting (YGP-71).
