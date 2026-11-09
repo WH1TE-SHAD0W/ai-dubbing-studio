@@ -121,6 +121,19 @@ export interface components {
             leaseTtlSec: number;
             /** @example 5 */
             heartbeatSec: number;
+            livekit?: components["schemas"]["WorkerLiveKit"];
+        };
+        /** @description The worker's LiveKit access (ADR-0020). Only sent when the API has LiveKit configured; the worker never holds the LiveKit API secret. */
+        WorkerLiveKit: {
+            /**
+             * @description LiveKit server URL the worker connects to.
+             * @example ws://livekit:7880
+             */
+            url: string;
+            /** @description Joins the session's source room hidden, listen only. */
+            sourceToken: string;
+            /** @description Joins this track's output room, publish only. */
+            outputToken: string;
         };
         /** @enum {string} */
         WorkerState: "connecting" | "live" | "reconnecting";

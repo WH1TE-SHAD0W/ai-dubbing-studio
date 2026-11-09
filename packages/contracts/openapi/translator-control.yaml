@@ -223,6 +223,25 @@ components:
           type: integer
           minimum: 1
           example: 5
+        livekit:
+          $ref: "#/components/schemas/WorkerLiveKit"
+    WorkerLiveKit:
+      type: object
+      description: >-
+        The worker's LiveKit access (ADR-0020). Only sent when the API has LiveKit
+        configured; the worker never holds the LiveKit API secret.
+      required: [url, sourceToken, outputToken]
+      properties:
+        url:
+          type: string
+          description: LiveKit server URL the worker connects to.
+          example: ws://livekit:7880
+        sourceToken:
+          type: string
+          description: Joins the session's source room hidden, listen only.
+        outputToken:
+          type: string
+          description: Joins this track's output room, publish only.
     WorkerState:
       type: string
       enum: [connecting, live, reconnecting]

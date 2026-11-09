@@ -2,6 +2,7 @@ import {
   claimConflictSchema,
   claimRequestSchema,
   heartbeatRequestSchema,
+  languageCodeSchema,
   ownerConflictSchema,
   releaseRequestSchema,
   statusRequestSchema,
@@ -11,6 +12,7 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireInternalToken } from "../auth/require-internal-token.ts";
+import type { TokenService } from "../livekit/tokens.ts";
 import type { TrackService } from "../tracks/service.ts";
 import { validate } from "../validate.ts";
 
@@ -37,14 +39,33 @@ const claimConflict = (reason: ClaimConflictReason) =>
 const ownerConflict = (reason: OwnerConflictReason) =>
   ownerConflictSchema.parse({ reason, message: OWNER_CONFLICT[reason] });
 
-export function internalRoutes({ token, tracks }: { token: string; tracks: TrackService }) {
+// LiveKit for the workers (ADR-0020). Left out when the API has no LiveKit
+// settings; the claim then works as before, without tokens.
+export type WorkerLiveKit = { url: string; tokens: TokenService };
+
+export function internalRoutes({
+  token,
+  tracks,
+  livekit,
+}: {
+  token: string;
+  tracks: TrackService;
+  livekit?: WorkerLiveKit;
+}) {
   return new Hono()
     .use(requireInternalToken(token))
     .post("/tracks/:trackId/claim", validate("param", trackParam), validate("json", claimRequestSchema), async (c) => {
       const { trackId } = c.req.valid("param");
       const { workerId, jobId } = c.req.valid("json");
       const result = await tracks.claim(trackId, workerId, jobId);
-      return result.ok ? c.json(result.claim, 200) : c.json(claimConflict(result.reason), 409);
+      if (!result.ok) return c.json(claimConflict(result.reason), 409);
+      if (!livekit) return c.json(result.claim, 200);
+      const { sessionId } = result.claim;
+      // Tracks only store two letters; their room needs a supported language.
+      // A bad code here would be bad data, so a 500 (onError) is right.
+      const language = languageCodeSchema.parse(result.claim.language);
+      const { source, output } = await livekit.tokens.workerTokens(sessionId, language, workerId);
+      return c.json({ ...result.claim, livekit: { url: livekit.url, sourceToken: source, outputToken: output } }, 200);
     })
     .post("/tracks/:trackId/heartbeat", validate("param", trackParam), validate("json", heartbeatRequestSchema), async (c) => {
       const { trackId } = c.req.valid("param");

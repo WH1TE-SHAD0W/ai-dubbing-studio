@@ -4,6 +4,14 @@
 
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
+- A worker's claim returns its two LiveKit tokens and the LiveKit URL when the
+  API has LiveKit configured (YGP-71).
+- LiveKit docs: the Architecture page lists LiveKit as built but not yet
+  connected, and the Setup Guide says the session routes don't create rooms
+  yet (YGP-73).
+- Setup Guide: database migration examples use the real file names, and a
+  command checks a fresh database has every table. Data model: room names
+  aren't stored (YGP-66).
 - Home page, Architecture, Architecture layers, User Guide and README
   updated to what works today; a Translator page covers the workers, Redis,
   their settings and the worker image.

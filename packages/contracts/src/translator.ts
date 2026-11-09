@@ -42,6 +42,14 @@ export const claimResponseSchema = z.object({
   language: trackLanguageSchema,
   leaseTtlSec: z.number().int().min(1),
   heartbeatSec: z.number().int().min(1),
+  // Only sent when the API has LiveKit configured (ADR-0020).
+  livekit: z
+    .object({
+      url: z.string(),
+      sourceToken: z.string(),
+      outputToken: z.string(),
+    })
+    .optional(),
 });
 export type ClaimResponse = z.infer<typeof claimResponseSchema>;
 
