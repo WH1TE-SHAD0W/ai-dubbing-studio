@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- With LiveKit configured, going live creates the session's rooms before its
+  translation tracks open, and ending deletes them (YGP-69).
 - A worker's claim returns its two LiveKit tokens and the LiveKit URL when the
   API has LiveKit configured (YGP-71).
 - LiveKit docs: the Architecture page lists LiveKit as built but not yet
