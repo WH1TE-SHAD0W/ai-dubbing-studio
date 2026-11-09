@@ -1,5 +1,12 @@
 import { randomInt } from "node:crypto";
-import { JOIN_CODE_LENGTH, type CreateSessionRequest, type JoinSessionResponse, type Session } from "@ads/contracts";
+import {
+  JOIN_CODE_LENGTH,
+  type CreateSessionRequest,
+  type JoinSessionResponse,
+  type LanguageCode,
+  type Session,
+  type SessionStatus,
+} from "@ads/contracts";
 import type pg from "pg";
 
 // The SQL for sessions and their target languages (ADR-0002; tables in
@@ -123,6 +130,21 @@ export async function findByJoinCode(db: Db, code: string): Promise<JoinSessionR
      join session_languages l on l.session_id = s.id
      where s.join_code = $1 and s.status <> 'ended'
      group by s.id, u.name`,
+    [code],
+  );
+  return rows[0] ?? null;
+}
+
+// What the listener token needs: the session's id (its rooms are named after
+// it), status and target languages. Only sessions that haven't ended.
+export type ListenerSession = { id: string; status: SessionStatus; languages: LanguageCode[] };
+export async function findListenerSession(db: Db, code: string): Promise<ListenerSession | null> {
+  const { rows } = await db.query<ListenerSession>(
+    `select s.id, s.status, array_agg(l.lang order by l.position) as languages
+     from sessions s
+     join session_languages l on l.session_id = s.id
+     where s.join_code = $1 and s.status <> 'ended'
+     group by s.id`,
     [code],
   );
   return rows[0] ?? null;

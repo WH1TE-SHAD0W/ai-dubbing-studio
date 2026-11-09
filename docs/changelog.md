@@ -4,6 +4,11 @@
 
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
+- The host gets a mic token for a live session: publish only, in the source
+  room (YGP-71).
+- Listeners get a LiveKit token: a join code and a language of a live session
+  return a listen-only token for that language's room, and the address in the
+  new `LIVEKIT_PUBLIC_URL` setting (YGP-71).
 - With LiveKit configured, going live creates the session's rooms before its
   translation tracks open, and ending deletes them (YGP-69).
 - A worker's claim returns its two LiveKit tokens and the LiveKit URL when the

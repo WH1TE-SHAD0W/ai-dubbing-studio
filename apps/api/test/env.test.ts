@@ -74,5 +74,15 @@ describe("environment", () => {
       expect(() => loadEnv({ ...minimal, ...livekit, LIVEKIT_API_SECRET: "short" })).toThrow(/LIVEKIT_API_SECRET/);
       expect(() => loadEnv({ ...minimal, ...livekit, LIVEKIT_URL: "ftp://livekit" })).toThrow(/LIVEKIT_URL/);
     });
+
+    it("take an optional public URL for browsers, ws or wss only", () => {
+      expect(loadEnv({ ...minimal, ...livekit }).LIVEKIT_PUBLIC_URL).toBeUndefined();
+      expect(loadEnv({ ...minimal, ...livekit, LIVEKIT_PUBLIC_URL: "" }).LIVEKIT_PUBLIC_URL).toBeUndefined();
+      const url = "wss://live.example.com";
+      expect(loadEnv({ ...minimal, ...livekit, LIVEKIT_PUBLIC_URL: url }).LIVEKIT_PUBLIC_URL).toBe(url);
+      expect(() => loadEnv({ ...minimal, ...livekit, LIVEKIT_PUBLIC_URL: "https://live.example.com" })).toThrow(
+        /LIVEKIT_PUBLIC_URL/,
+      );
+    });
   });
 });

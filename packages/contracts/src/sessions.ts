@@ -68,3 +68,11 @@ export const sessionSchema = z.object({
   endedAt: z.iso.datetime().nullable(),
 });
 export type Session = z.infer<typeof sessionSchema>;
+
+// The host's LiveKit token for a live session (ADR-0020): it can only publish,
+// in the session's source room, where the workers hear the host's mic.
+export const hostTokenResponseSchema = z.object({
+  serverUrl: z.url({ protocol: /^wss?$/ }),
+  token: z.string().min(1),
+});
+export type HostTokenResponse = z.infer<typeof hostTokenResponseSchema>;

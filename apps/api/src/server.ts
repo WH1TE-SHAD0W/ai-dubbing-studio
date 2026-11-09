@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
-import { createApp } from "./app.ts";
+import { type AppDeps, createApp } from "./app.ts";
 import { authOptions, createAuth } from "./auth/auth.ts";
 import { createPool } from "./db.ts";
 import { loadEnv } from "./env.ts";
@@ -62,12 +62,19 @@ tracks = createTrackService(pool, queue, {
 const sweeper = startSweeper({ tracks, queue });
 
 // LiveKit (ADR-0020) is optional: env.ts makes sure all three settings are set,
-// or none. Without it, sessions have no rooms and claims return no worker tokens.
-const livekitConfig = env.LIVEKIT_URL
-  ? { url: env.LIVEKIT_URL, apiKey: env.LIVEKIT_API_KEY!, apiSecret: env.LIVEKIT_API_SECRET! }
-  : undefined;
-const livekit = livekitConfig && { url: livekitConfig.url, tokens: createTokenService(livekitConfig) };
-const rooms = livekitConfig && createRoomService(livekitConfig);
+// or none. Without it, sessions have no rooms, claims return no worker tokens
+// and listeners and the host get no token (501).
+let livekit: AppDeps["internal"]["livekit"];
+let rooms: AppDeps["rooms"];
+let browser: AppDeps["browser"];
+if (env.LIVEKIT_URL) {
+  const config = { url: env.LIVEKIT_URL, apiKey: env.LIVEKIT_API_KEY!, apiSecret: env.LIVEKIT_API_SECRET! };
+  const tokens = createTokenService(config);
+  livekit = { url: config.url, tokens };
+  rooms = createRoomService(config);
+  // Browsers need ws:// or wss://; LIVEKIT_URL may be written as http(s)://.
+  browser = { publicUrl: env.LIVEKIT_PUBLIC_URL ?? config.url.replace(/^http/, "ws"), tokens };
+}
 
 const webDist = resolve(env.WEB_DIST);
 if (!existsSync(join(webDist, "index.html"))) {
@@ -81,6 +88,7 @@ const app = createApp({
   trustForwarded: env.TRUSTED_PROXIES.length > 0,
   internal: { token: env.INTERNAL_API_TOKEN, tracks, livekit },
   rooms,
+  browser,
 });
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   console.log(`api: listening on port ${info.port}, public URL ${env.BETTER_AUTH_URL}`);

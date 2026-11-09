@@ -76,6 +76,8 @@ services:
       LIVEKIT_URL: ws://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+      # Browsers can't use the service name: they reach LiveKit on this machine.
+      LIVEKIT_PUBLIC_URL: ${LIVEKIT_PUBLIC_URL:-ws://localhost:7880}
     ports:
       - "127.0.0.1:${API_PORT:-3000}:3000"
     depends_on:

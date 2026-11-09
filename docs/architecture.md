@@ -28,7 +28,7 @@ Cost grows with the number of languages, not listeners.
 | API: host logins, sessions (create, go live, end), joining by code | Built |
 | API: translation tracks, the Redis job stream, the workers' internal API, the sweeper that recovers tracks | Built |
 | Translator workers (Go) with Gemini Live Translate | Built. A worker reads the host's audio from a WAV file and writes the translation to another one. |
-| LiveKit server, and the API's code for rooms and tokens | Built, but not connected yet: the session routes don't create rooms or hand out tokens, and the workers don't join LiveKit. |
+| LiveKit server, and the API's code for rooms and tokens | Partly connected: going live creates the session's rooms and the API hands out LiveKit tokens, but the workers and the app don't join LiveKit yet (YGP-70, YGP-105, YGP-106). |
 | Captions | Not built |
 
 ```mermaid
@@ -111,7 +111,8 @@ sequenceDiagram
   D-->>A: title, host, languages
   A-->>L: session details and languages
   L->>A: choose a language, ask to listen
-  A-->>L: 501, listening isn't available yet
+  A->>D: is the session live, with that language?
+  A-->>L: LiveKit address and a listen-only token for that language's room
 ```
 
 Listeners have no account. They only need the join code.
