@@ -257,7 +257,7 @@ to date in two steps:
    once, in name order, and is recorded in the `schema_migrations` table.
 
 The log shows each file it applies, for example
-`database: applied migration 0001_sessions.sql`. If a file fails, none of it is
+`database: applied migration 0001_translation_tracks.sql`. If a file fails, none of it is
 kept, the log names the file, and the API stops instead of starting on a
 half-updated database.
 
@@ -267,8 +267,9 @@ once can't both create the same tables: the second waits for the first.
 To change the database, add a file:
 
 - Name it with four digits, an underscore and a lowercase name, the next number
-  after the last file: for example `0002_add_sessions_title.sql`. A file with
-  any other name stops the API from starting.
+  after the last file. The last one today is `0002_sessions.sql`, so the next
+  is for example `0003_add_session_ending.sql`. A file with any other name
+  stops the API from starting.
 - **Never edit a file that has already run**, on your machine or anywhere
   else. The runner only records names, so an edited file would never run again.
   Add a new file instead.
@@ -277,6 +278,17 @@ To change the database, add a file:
     ```bash
     docker compose exec postgres psql -U dubbing -c "select * from schema_migrations"
     ```
+
+To check a fresh setup worked, start the API once, then list the tables:
+
+```bash
+docker compose exec postgres psql -U dubbing -c "\dt"
+```
+
+You should see Better Auth's five tables, `schema_migrations`, and ours:
+`sessions`, `session_languages` and `translation_tracks` (see the
+[Data model](architecture.md#data-model)). `-U dubbing` is `POSTGRES_USER` from
+`.env`.
 
 The folder is set by `MIGRATIONS_DIR` (default `migrations`, from the folder the
 API runs in). The Docker image sets it to `/app/migrations`.
@@ -319,3 +331,6 @@ LiveKit, the media server that carries the audio
   machine, it uses `LIVEKIT_URL` from `.env`. It creates each session's
   rooms when it goes live and deletes them when it ends (YGP-69), and gives
   listeners `LIVEKIT_PUBLIC_URL`, since browsers can't reach `ws://livekit:7880`.
+- To check the API can reach LiveKit, run the API tests with the `LIVEKIT_`
+  settings set (see [Room tests against LiveKit](testing.md#room-tests-against-livekit)): the room tests create and delete
+  real rooms.
