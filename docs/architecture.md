@@ -110,7 +110,8 @@ sequenceDiagram
   D-->>A: title, host, languages
   A-->>L: session details and languages
   L->>A: choose a language, ask to listen
-  A-->>L: 501, listening isn't available yet
+  A->>D: is the session live, with that language?
+  A-->>L: LiveKit address and a listen-only token for that language's room
 ```
 
 Listeners have no account. They only need the join code.

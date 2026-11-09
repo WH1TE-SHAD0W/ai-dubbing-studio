@@ -75,5 +75,8 @@ export function createSessionService(
     },
 
     join: (code: string): Promise<JoinSessionResponse | null> => repo.findByJoinCode(pool, code),
+
+    // For the listener token: the session's id, status and languages.
+    listenerSession: (code: string): Promise<repo.ListenerSession | null> => repo.findListenerSession(pool, code),
   };
 }
