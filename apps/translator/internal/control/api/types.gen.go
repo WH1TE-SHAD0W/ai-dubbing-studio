@@ -159,9 +159,12 @@ type ClaimResponse struct {
 	Language LanguageCode `json:"language"`
 
 	// LeaseTtlSec Example: 15
-	LeaseTtlSec int    `json:"leaseTtlSec"`
-	SessionId   string `json:"sessionId"`
-	TrackId     string `json:"trackId"`
+	LeaseTtlSec int `json:"leaseTtlSec"`
+
+	// Livekit The worker's LiveKit access (ADR-0020). Only sent when the API has LiveKit configured; the worker never holds the LiveKit API secret.
+	Livekit   *WorkerLiveKit `json:"livekit,omitempty"`
+	SessionId string         `json:"sessionId"`
+	TrackId   string         `json:"trackId"`
 }
 
 // Error defines model for Error.
@@ -262,6 +265,20 @@ type TranslationJobV string
 //
 // Example: translator-1-3f9a2c
 type WorkerId = string
+
+// WorkerLiveKit The worker's LiveKit access (ADR-0020). Only sent when the API has LiveKit configured; the worker never holds the LiveKit API secret.
+type WorkerLiveKit struct {
+	// OutputToken Joins this track's output room, publish only.
+	OutputToken string `json:"outputToken"`
+
+	// SourceToken Joins the session's source room hidden, listen only.
+	SourceToken string `json:"sourceToken"`
+
+	// Url LiveKit server URL the worker connects to.
+	//
+	// Example: ws://livekit:7880
+	Url string `json:"url"`
+}
 
 // WorkerState defines model for WorkerState.
 type WorkerState string
