@@ -5,7 +5,8 @@ same origin ([ADR-0012](adr/0012-serving-pwa-bundle.md)), so the browser calls
 every endpoint under `/api` on the address it opened.
 
 Host logins, sessions, joining by code and the translator workers' internal API
-are built. Only the listener token answers `501 Not Implemented`.
+are built. Without LiveKit configured, the listener token answers `501 Not
+Implemented`.
 
 **Host only** means the request needs the host's login cookie.
 
@@ -28,7 +29,7 @@ there for errors from Better Auth.
 | `404` | Unknown path under `/api`, or a session that doesn't exist or belongs to another host |
 | `422` | Sign-up with an email that is already registered |
 | `429` | Too many attempts from one IP |
-| `501` | Not built yet: the listener token (see below) |
+| `501` | The listener token, when the API has no LiveKit settings (see below) |
 
 ## Host logins
 
@@ -82,7 +83,7 @@ answers the session as `sessionSchema` in `packages/contracts` describes it.
 | Call | Body → answer | Notes |
 |---|---|---|
 | `GET /api/join/:code` | → `{title, hostName, sourceLang, languages[], status}` | For a session that hasn't ended; `404` "No session uses this code." otherwise. The code is not case-sensitive. |
-| `POST /api/join/:code/token` | `{lang}` | `501` (listening isn't available yet), `400` for a bad code or language |
+| `POST /api/join/:code/token` | `{lang}` → `{serverUrl, token}` | For a live session: a token that can only listen, in that language's output room, valid for 10 minutes to connect. `serverUrl` is `LIVEKIT_PUBLIC_URL` (or `LIVEKIT_URL`). `404` "This session isn't live." for an unknown code or a draft or ended session; `400` for a language the session isn't translated into; `501` without LiveKit. |
 
 ## Translator workers (internal)
 

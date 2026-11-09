@@ -71,7 +71,8 @@ explained on the [Translator](translator.md#settings) page.
 | `TRUSTED_ORIGINS` | Other origins allowed to log in, comma-separated. The Vite dev server (`http://localhost:5173`) needs to be listed. |
 | `TRUSTED_PROXIES` | Reverse proxies in front of the API (IPs or CIDR ranges), so it can tell the real client IP for rate limits. Empty when browsers connect directly. |
 | `API_PORT` | Port Docker Compose publishes the API on. Default 3000. |
-| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | LiveKit's address and the key and secret it shares with the API; see [Run LiveKit](#run-livekit). The API needs all three or none, and doesn't use LiveKit yet. |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | LiveKit's address and the key and secret it shares with the API; see [Run LiveKit](#run-livekit). The API needs all three or none; without them, sessions have no rooms and listeners get `501`. |
+| `LIVEKIT_PUBLIC_URL` | Where listeners' browsers reach LiveKit, if not at `LIVEKIT_URL` (`ws://` or `wss://`). Docker Compose sets `ws://localhost:7880`; for a phone, use this machine's LAN address. |
 | `REDIS_URL` | How the API reaches Redis when it runs outside Docker: `redis://localhost:6379`. Inside Docker Compose it is `redis://redis:6379`. |
 | `INTERNAL_API_TOKEN` | **Required.** Shared by the API and the translator workers for their `/internal` calls: at least 32 random characters, for example from `openssl rand -hex 32`. |
 | `GEMINI_API_KEY` | For the translator workers. Only the workers read it. |
@@ -327,10 +328,9 @@ LiveKit, the media server that carries the audio
 - Never use LiveKit's `--dev` keys outside your own machine.
 - The API reads the same `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`. In Docker
   Compose it reaches LiveKit at `ws://livekit:7880` by itself; run on your
-  machine, it uses `LIVEKIT_URL` from `.env`. The code that creates and
-  deletes each session's rooms (YGP-69) and makes the tokens (YGP-71) is in
-  `apps/api/src/livekit/`, but the session routes don't call it yet, so
-  creating a session doesn't make any rooms so far.
+  machine, it uses `LIVEKIT_URL` from `.env`. It creates each session's
+  rooms when it goes live and deletes them when it ends (YGP-69), and gives
+  listeners `LIVEKIT_PUBLIC_URL`, since browsers can't reach `ws://livekit:7880`.
 - To check the API can reach LiveKit, run the API tests with the `LIVEKIT_`
   settings set (see [Room tests against LiveKit](testing.md#room-tests-against-livekit)): the room tests create and delete
   real rooms.

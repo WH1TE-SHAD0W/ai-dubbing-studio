@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Listeners get a LiveKit token: a join code and a language of a live session
+  return a listen-only token for that language's room, and the address in the
+  new `LIVEKIT_PUBLIC_URL` setting (YGP-71).
 - With LiveKit configured, going live creates the session's rooms before its
   translation tracks open, and ending deletes them (YGP-69).
 - A worker's claim returns its two LiveKit tokens and the LiveKit URL when the

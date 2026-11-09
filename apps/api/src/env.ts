@@ -58,6 +58,10 @@ export const baseEnvSchema = z.object({
   LIVEKIT_API_SECRET: optional(
     z.string().min(32, { error: "Set LIVEKIT_API_SECRET to at least 32 random characters." }),
   ),
+  // The LiveKit address listeners' browsers connect to (YGP-71), when it isn't
+  // LIVEKIT_URL: inside Compose, browsers can't reach ws://livekit:7880. On a
+  // server it's the public wss:// address. Defaults to LIVEKIT_URL.
+  LIVEKIT_PUBLIC_URL: optional(z.url({ protocol: /^wss?$/, error: "Set LIVEKIT_PUBLIC_URL to a ws:// or wss:// URL." })),
 
   // Translation jobs go to the workers through a Redis Stream (ADR-0018).
   // Inside Docker Compose the host is `redis`.
