@@ -1,6 +1,7 @@
-# Builds the container images (YGP-52). On a pull request it only builds them,
-# to prove they still build. After a merge into testing or main it also pushes
-# them to Docker Hub, tagged with the commit SHA plus "testing" or "prod". A
+# Builds the container images (YGP-52): the API (with the built PWA) and the
+# translation worker. On a pull request it only builds them, to prove they
+# still build. After a merge into testing or main it also pushes them to
+# Docker Hub, tagged with the commit SHA plus "testing" or "prod". A
 # release tag such as v0.1.0 pushes them with that version as well.
 name: Images
 
@@ -20,9 +21,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  api:
-    name: API image
+  image:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      # One failing image doesn't stop the other from building.
+      fail-fast: false
+      matrix:
+        include:
+          # The API builds from the repo root: it needs the shared packages.
+          - name: API image
+            image: ai-dubbing-studio-api
+            context: .
+            file: apps/api/Dockerfile
+            cache: api
+          # The Go worker builds from its own folder, as in Docker Compose.
+          - name: Worker image
+            image: ai-dubbing-studio-translator
+            context: apps/translator
+            file: apps/translator/Dockerfile
+            cache: translator
     env:
       # Set by an admin under Settings → Secrets and variables → Actions.
       # DOCKERHUB_TOKEN is an access token, never the account password.
@@ -50,7 +68,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKERHUB_USERNAME || 'local' }}/ai-dubbing-studio-api
+          images: ${{ env.DOCKERHUB_USERNAME || 'local' }}/${{ matrix.image }}
           tags: |
             type=sha,format=long,prefix=
             type=raw,value=testing,enable=${{ github.ref == 'refs/heads/testing' }}
@@ -70,10 +88,10 @@ jobs:
       - name: Build (and push after a merge)
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: apps/api/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: ${{ steps.mode.outputs.push == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
+          cache-from: type=gha,scope=${{ matrix.cache }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache }}

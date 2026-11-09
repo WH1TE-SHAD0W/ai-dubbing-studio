@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The translation worker's image is built on every pull request and pushed to
+  Docker Hub after a merge, next to the API's (YGP-52).
 - Home page, Architecture, Architecture layers, User Guide and README
   updated to what works today; a Translator page covers the workers, Redis,
   their settings and the worker image.
