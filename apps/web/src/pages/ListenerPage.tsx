@@ -50,6 +50,11 @@ function LiveListener({ code, session }: { code: string; session: JoinSessionRes
   const [connection, setConnection] = useState<ListenerTokenResponse | null>(null);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The host ended the session while this listener was connected.
+  const [ended, setEnded] = useState(false);
+  // Kept here, so they stay the same when the listener switches language.
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
 
   // Each language has its own LiveKit room, so switching fetches a new token.
   const connect = useCallback(
@@ -81,6 +86,14 @@ function LiveListener({ code, session }: { code: string; session: JoinSessionRes
     if (listening) void connect(to);
   }
 
+  const end = useCallback(() => {
+    setEnded(true);
+    setListening(false);
+    setConnection(null);
+  }, []);
+
+  if (ended) return <Notice title={session.title} text="This session has ended. Thanks for listening." />;
+
   return (
     <div className="stack">
       <section className="card stack">
@@ -105,8 +118,28 @@ function LiveListener({ code, session }: { code: string; session: JoinSessionRes
         {listening ? (
           <>
             <Suspense fallback={<p className="hint">Joining…</p>}>
-              {connection ? <ListenerAudio key={connection.token} connection={connection} /> : <p className="hint">Joining…</p>}
+              {connection ? (
+                <ListenerAudio key={connection.token} connection={connection} volume={volume} muted={muted} onEnded={end} />
+              ) : (
+                <p className="hint">Joining…</p>
+              )}
             </Suspense>
+            <div className="row wrap">
+              <button type="button" className="secondary" aria-pressed={muted} onClick={() => setMuted((m) => !m)}>
+                {muted ? "Unmute" : "Mute"}
+              </button>
+              <label className="row">
+                Volume
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={volume}
+                  onChange={(e) => setVolume(Number(e.target.value))}
+                />
+              </label>
+            </div>
             <MediaSession title={session.title} lang={lang} onStop={stop} />
             <button type="button" className="secondary" onClick={stop}>
               Stop listening

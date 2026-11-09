@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Listener page: Mute and Volume, "Connecting…" instead of "Disconnected" while
+  joining, and "This session has ended" when the host ends it (YGP-106).
 - The host gets a mic token for a live session: publish only, in the source
   room (YGP-71).
 - Listeners get a LiveKit token: a join code and a language of a live session
