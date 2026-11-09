@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Studio: once the session is live, the host's microphone is sent to the
+  translators through LiveKit, and the Microphone card says whether it's
+  sending (YGP-105).
 - Listener page: Mute and Volume, "Connecting…" instead of "Disconnected" while
   joining, and "This session has ended" when the host ends it (YGP-106).
 - The host gets a mic token for a live session: publish only, in the source

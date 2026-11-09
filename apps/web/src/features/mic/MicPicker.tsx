@@ -1,13 +1,22 @@
+import type { SessionStatus } from "@ads/contracts";
+import { useHostPublish } from "./useHostPublish.ts";
 import { useMicrophone } from "./useMicrophone.ts";
 
-export function MicPicker() {
+// The host's microphone: pick the input, see its level, and, while the session
+// is live, send it to the translators through LiveKit (YGP-105). The host turns
+// the microphone on themselves, so there's never a surprise permission prompt.
+// Without a session (on the create form) it only tests the microphone.
+export function MicPicker({ sessionId = "", status = "draft" }: { sessionId?: string; status?: SessionStatus }) {
   const mic = useMicrophone();
   const on = mic.state.status === "on";
+  const live = status === "live";
+  const publish = useHostPublish(sessionId, live, mic.state.status === "on" ? mic.state.stream : null);
 
   return (
     <section className="card" aria-labelledby="mic-heading">
       <h2 id="mic-heading">Microphone</h2>
       {mic.state.status === "error" && <p className="error" role="alert">{mic.state.message}</p>}
+      {publish.status === "error" && <p className="error" role="alert">{publish.message}</p>}
 
       {mic.devices.length > 0 && (
         <label className="field">
@@ -32,10 +41,21 @@ export function MicPicker() {
         </button>
       ) : (
         <button type="button" className="secondary" onClick={() => void mic.start()} disabled={mic.state.status === "requesting"}>
-          {mic.state.status === "requesting" ? "Waiting for permission…" : "Test microphone"}
+          {mic.state.status === "requesting" ? "Waiting for permission…" : live ? "Turn microphone on" : "Test microphone"}
         </button>
       )}
-      <p className="hint">How the microphone audio reaches the dubbing container is still to be decided, so nothing is sent yet.</p>
+      <p className="hint" role="status">
+        {sendingText(live, on, publish.status)}
+      </p>
     </section>
   );
+}
+
+// What happens to the microphone audio right now.
+export function sendingText(live: boolean, micOn: boolean, publish: ReturnType<typeof useHostPublish>["status"]): string {
+  if (!live) return micOn ? "Testing only: nothing is sent until you go live." : "Nothing is sent until you go live.";
+  if (!micOn) return "Turn the microphone on to start sending.";
+  if (publish === "sending") return "● Sending to the translators";
+  if (publish === "error") return "Not sending.";
+  return "Connecting to the audio server…";
 }
