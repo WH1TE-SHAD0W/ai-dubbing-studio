@@ -9,8 +9,9 @@ import { validate } from "../validate.ts";
 // Host-only session routes, as the PWA calls them (apps/web/src/lib/api.ts).
 // A host only ever sees their own sessions: anyone else's is "not found".
 // Going live sends one translation job per target language to the translator
-// workers (ADR-0018); LiveKit isn't connected yet, so the audio comes from the
-// workers' WAV adapter for now.
+// workers (ADR-0018) and, with LiveKit configured, creates the session's rooms
+// first (ADR-0020). The workers still use their WAV adapter until they connect
+// to LiveKit (YGP-70).
 
 const NOT_FOUND = { message: "Session not found." } as const;
 const idParam = z.object({ id: z.string().min(1) });

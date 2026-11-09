@@ -60,14 +60,18 @@ answers the session as `sessionSchema` in `packages/contracts` describes it.
 |---|---|---|
 | `POST /api/sessions` | `{title, sourceLang, targetLangs[], provider, consent: {speaker: true, aiNotice: true}}` → `201` session | A draft, with a new 6-character join code (no 0/O or 1/I). |
 | `GET /api/sessions/:id` | → session | |
-| `POST /api/sessions/:id/start` | → session | Draft → live. Opens one translation track per target language, and an idle translator worker takes each one within a second. |
-| `POST /api/sessions/:id/end` | → session | Draft or live → ended. Ends its tracks: each worker stops at its next heartbeat, within 5 seconds. |
+| `POST /api/sessions/:id/start` | → session | Draft → live. With LiveKit configured, creates the session's source room and one output room per target language first. Then opens one translation track per target language, and an idle translator worker takes each one within a second. |
+| `POST /api/sessions/:id/end` | → session | Draft or live → ended. Ends its tracks: each worker stops at its next heartbeat, within 5 seconds. With LiveKit configured, then deletes the session's rooms, which disconnects the listeners. |
 
 - Without a login they answer `401`. A session of another host is `404`, the
   same as one that doesn't exist.
-- Start and end can be called again: a repeated start changes nothing (or opens
-  a track that is missing), a repeated end changes nothing, and an ended session
-  never goes live again.
+- Start and end can be called again: a repeated start changes nothing (or
+  creates a missing room or opens a missing track), a repeated end changes
+  nothing, and an ended session never goes live again.
+- If LiveKit fails during a start, the answer is `500` and no track opens; the
+  session is already live, and starting again finishes it. If LiveKit fails
+  during an end, the session still ends; the error is only logged, and LiveKit
+  closes the empty rooms itself after a few minutes.
 - Each language in the answer has `trackStatus` once the session has started:
   `pending` (waiting for a worker), `claimed`, `live`, `ended` or `failed`.
 - Join codes are unique among sessions that haven't ended, so they are reused
