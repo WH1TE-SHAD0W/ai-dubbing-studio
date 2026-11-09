@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The translation worker's image is built on every pull request and pushed to
+  Docker Hub after a merge, next to the API's (YGP-52).
 - Studio: once the session is live, the host's microphone is sent to the
   translators through LiveKit, and the Microphone card says whether it's
   sending (YGP-105).

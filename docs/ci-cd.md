@@ -253,7 +253,11 @@ production environments run.
 
 | Job | Image | Built from |
 |---|---|---|
-| API image | `<Docker Hub user>/ai-dubbing-studio-api` | `apps/api/Dockerfile`: the Hono API with the built app |
+| API image | `<Docker Hub user>/ai-dubbing-studio-api` | `apps/api/Dockerfile`, from the repository root: the Hono API with the built app |
+| Worker image | `<Docker Hub user>/ai-dubbing-studio-translator` | `apps/translator/Dockerfile`, from `apps/translator`: the Go translation worker |
+
+Both are one job with two entries (a matrix), so they build side by side, and
+one failing doesn't stop the other.
 
 How it pushes:
 
@@ -266,9 +270,6 @@ How it pushes:
   stays green, with a warning that nothing was pushed.
 - **Docker's build cache is kept in GitHub Actions**, so a build that changes
   little is quick.
-
-Not built yet: the translation worker image. Its Dockerfile arrives with the
-worker (YGP-98), and it becomes a second job in the same workflow.
 
 ### Image tags
 
