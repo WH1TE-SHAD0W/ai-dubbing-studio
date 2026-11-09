@@ -9,7 +9,7 @@ import { isDatabaseUp } from "./db.ts";
 import { type WorkerLiveKit, internalRoutes } from "./routes/internal.ts";
 import { joinRoutes } from "./routes/join.ts";
 import { sessionRoutes } from "./routes/sessions.ts";
-import { type SessionService, createSessionService } from "./sessions/service.ts";
+import { type SessionRoomService, type SessionService, createSessionService } from "./sessions/service.ts";
 import { pwa } from "./static.ts";
 import type { TrackService } from "./tracks/service.ts";
 
@@ -23,6 +23,8 @@ export type AppDeps = {
   // The translator workers' API (/internal), its shared token, and their LiveKit
   // tokens when LiveKit is configured.
   internal: { token: string; tracks: TrackService; livekit?: WorkerLiveKit };
+  // The sessions' LiveKit rooms (ADR-0020), when LiveKit is configured.
+  rooms?: SessionRoomService;
 };
 
 // The API routes under /api, typed for Hono's RPC client (ADR-0016).
@@ -39,10 +41,11 @@ async function friendlierRateLimit(res: Response): Promise<Response> {
   return new Response(JSON.stringify({ message: RATE_LIMITED_MESSAGE }), { status: 429, headers });
 }
 
-export function createApp({ auth, pool, webDist, trustForwarded, internal }: AppDeps) {
+export function createApp({ auth, pool, webDist, trustForwarded, internal, rooms }: AppDeps) {
   const app = new Hono();
-  // Starting and ending a session opens and ends its translation tracks.
-  const sessions = createSessionService(pool, internal.tracks);
+  // Starting and ending a session opens and ends its translation tracks, and
+  // its LiveKit rooms when LiveKit is configured.
+  const sessions = createSessionService(pool, internal.tracks, rooms);
 
   app.use(secureHeaders());
   // Method, path, status and time only: no bodies, cookies or query strings.
