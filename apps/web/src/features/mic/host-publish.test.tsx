@@ -60,7 +60,8 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("sending the host's microphone", () => {
   it("connects nowhere before the session is live", async () => {
-    const { result } = renderHook(() => useHostPublish("s1", false, micStream("mic-a")));
+    const stream = micStream("mic-a");
+    const { result } = renderHook(() => useHostPublish("s1", false, stream));
     expect(result.current.status).toBe("idle");
     expect(api.getHostToken).not.toHaveBeenCalled();
     expect(calls).toEqual([]);
@@ -98,7 +99,8 @@ describe("sending the host's microphone", () => {
   });
 
   it("disconnects when the session ends", async () => {
-    const { result, rerender } = renderHook(({ live }) => useHostPublish("s1", live, micStream("mic-a")), {
+    const stream = micStream("mic-a");
+    const { result, rerender } = renderHook(({ live }) => useHostPublish("s1", live, stream), {
       initialProps: { live: true },
     });
     await waitFor(() => expect(result.current.status).toBe("sending"));
@@ -108,7 +110,9 @@ describe("sending the host's microphone", () => {
   });
 
   it("says so when another device takes the microphone over", async () => {
-    const { result } = renderHook(() => useHostPublish("s1", true, micStream("mic-a")));
+    // Made once: a new stream on every render would look like a new microphone.
+    const stream = micStream("mic-a");
+    const { result } = renderHook(() => useHostPublish("s1", true, stream));
     await waitFor(() => expect(result.current.status).toBe("sending"));
     disconnectListener?.(2);
     await waitFor(() => expect(result.current).toEqual({ status: "error", message: "Your microphone is now being sent from another device." }));

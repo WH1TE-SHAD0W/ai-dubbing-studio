@@ -21,6 +21,9 @@ export type PublishState =
 export function useHostPublish(sessionId: string, live: boolean, stream: MediaStream | null): PublishState {
   const [room, setRoom] = useState<Room | null>(null);
   const [state, setState] = useState<PublishState>({ status: "idle" });
+  // The connection that's open right now, so a publish that finishes after it
+  // closed doesn't claim to be sending.
+  const openRoom = useRef<Room | null>(null);
 
   // The connection: open while the session is live.
   useEffect(() => {
@@ -31,6 +34,7 @@ export function useHostPublish(sessionId: string, live: boolean, stream: MediaSt
     let cancelled = false;
     const r = new Room();
     r.on(RoomEvent.Disconnected, (reason) => {
+      if (openRoom.current === r) openRoom.current = null;
       if (cancelled) return;
       setRoom(null);
       // The host's identity is fixed, so opening the Studio on a second device
@@ -51,6 +55,7 @@ export function useHostPublish(sessionId: string, live: boolean, stream: MediaSt
           await r.disconnect();
           return;
         }
+        openRoom.current = r;
         setRoom(r);
         setState({ status: "connected" });
       } catch {
@@ -59,6 +64,7 @@ export function useHostPublish(sessionId: string, live: boolean, stream: MediaSt
     })();
     return () => {
       cancelled = true;
+      if (openRoom.current === r) openRoom.current = null;
       setRoom(null);
       void r.disconnect();
     };
@@ -90,7 +96,7 @@ export function useHostPublish(sessionId: string, live: boolean, stream: MediaSt
     }
     pending
       .then(() => {
-        if (wanted.current === track) setState({ status: "sending" });
+        if (wanted.current === track && openRoom.current === room) setState({ status: "sending" });
       })
       .catch(() => {
         inFlight.delete(track);
