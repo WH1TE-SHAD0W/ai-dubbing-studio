@@ -107,7 +107,7 @@ export function ControlRoom({
         <p className="hint">Live track state and listener counts come once the dubbing container reports them.</p>
       </section>
 
-      {session.status !== "ended" && <MicPicker />}
+      {session.status !== "ended" && <MicPicker sessionId={session.id} status={session.status} />}
 
       <section className="card" aria-labelledby="captions-heading">
         <h2 id="captions-heading">Captions preview</h2>

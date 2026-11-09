@@ -1,4 +1,5 @@
 import {
+  type HostTokenResponse,
   type JoinSessionResponse,
   type ListenerTokenResponse,
   type Session,
@@ -193,6 +194,13 @@ export const handlers = [
     if (!currentUser(state)) return error(401, "Log in first.");
     const session = state.sessions.find((s) => s.id === params.id);
     if (!session) return error(404, "Session not found.");
+    if (params.action === "token") {
+      // Like the real API: only for a live session. There is no LiveKit server
+      // behind the mocks, so connecting with this fails.
+      if (session.status !== "live") return error(409, "This session isn't live.");
+      const body: HostTokenResponse = { serverUrl: "ws://localhost:7880", token: `mock-host-${session.id}` };
+      return HttpResponse.json(body);
+    }
     const now = new Date().toISOString();
     let next: Session;
     if (params.action === "start") {

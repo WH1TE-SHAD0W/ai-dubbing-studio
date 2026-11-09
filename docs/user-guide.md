@@ -45,8 +45,12 @@ Select **Go live**. Each target language gets its own translator, which starts
 within a second or so. The address bar shows the session (`/studio?session=…`),
 so you can reload the page or come back to it.
 
-The **Microphone** card lets you pick and test your input, but the app doesn't
-send your voice yet (see below).
+The **Microphone** card lets you pick and test your input. Once the session is
+live, select **Turn microphone on**: the card says **● Sending to the
+translators** while your voice goes to them. Before you go live it only tests
+the microphone; nothing is sent. If you open the Studio for the same session on
+a second device, that device takes the microphone over and the first one says
+so. Ending the session stops sending.
 
 ### 4. End the session
 

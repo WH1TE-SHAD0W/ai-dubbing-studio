@@ -1,9 +1,11 @@
 import {
   type CreateSessionRequest,
+  type HostTokenResponse,
   type JoinSessionResponse,
   type LanguageCode,
   type ListenerTokenResponse,
   type Session,
+  hostTokenResponseSchema,
   joinSessionResponseSchema,
   listenerTokenResponseSchema,
   sessionSchema,
@@ -63,6 +65,9 @@ export const api = {
   getSession: (id: string): Promise<Session> => request(sessionSchema, `/sessions/${encodeURIComponent(id)}`),
   startSession: (id: string): Promise<Session> => request(sessionSchema, `/sessions/${encodeURIComponent(id)}/start`, post()),
   endSession: (id: string): Promise<Session> => request(sessionSchema, `/sessions/${encodeURIComponent(id)}/end`, post()),
+  // The host's mic token for a live session: publish only, in the source room (YGP-71).
+  getHostToken: (id: string): Promise<HostTokenResponse> =>
+    request(hostTokenResponseSchema, `/sessions/${encodeURIComponent(id)}/token`, post()),
 
   // Listener (public)
   getJoin: (code: string): Promise<JoinSessionResponse> =>
