@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A worker's claim returns its two LiveKit tokens and the LiveKit URL when the
+  API has LiveKit configured (YGP-71).
 - LiveKit docs: the Architecture page lists LiveKit as built but not yet
   connected, and the Setup Guide says the session routes don't create rooms
   yet (YGP-73).

@@ -6,7 +6,7 @@ import type pg from "pg";
 import type { Auth } from "./auth/auth.ts";
 import { withClientIp } from "./auth/client-ip.ts";
 import { isDatabaseUp } from "./db.ts";
-import { internalRoutes } from "./routes/internal.ts";
+import { type WorkerLiveKit, internalRoutes } from "./routes/internal.ts";
 import { joinRoutes } from "./routes/join.ts";
 import { sessionRoutes } from "./routes/sessions.ts";
 import { type SessionService, createSessionService } from "./sessions/service.ts";
@@ -20,8 +20,9 @@ export type AppDeps = {
   webDist: string;
   // True when TRUSTED_PROXIES is set: their X-Forwarded-For chain is kept.
   trustForwarded: boolean;
-  // The translator workers' API (/internal) and its shared token.
-  internal: { token: string; tracks: TrackService };
+  // The translator workers' API (/internal), its shared token, and their LiveKit
+  // tokens when LiveKit is configured.
+  internal: { token: string; tracks: TrackService; livekit?: WorkerLiveKit };
 };
 
 // The API routes under /api, typed for Hono's RPC client (ADR-0016).

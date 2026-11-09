@@ -8,8 +8,10 @@ import {
   ownerConflictSchema,
 } from "@ads/contracts";
 import { Hono } from "hono";
+import { TokenVerifier } from "livekit-server-sdk";
 import type pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createTokenService } from "../src/livekit/tokens.ts";
 import { internalRoutes } from "../src/routes/internal.ts";
 import { createTrackService, type TrackService } from "../src/tracks/service.ts";
 import { TEST_DATABASE_URL, TEST_INTERNAL_TOKEN, deleteSessions, insertSession, openTestDatabase } from "./db.ts";
@@ -20,16 +22,24 @@ import { TEST_DATABASE_URL, TEST_INTERNAL_TOKEN, deleteSessions, insertSession, 
 // sessions made here are deleted at the end, and their tracks with them.
 const TOKEN = TEST_INTERNAL_TOKEN;
 
+// Signing is local, so the LiveKit tests need no LiveKit server.
+const LIVEKIT = { url: "ws://livekit:7880", apiKey: "test-key", apiSecret: "test-secret-".repeat(4) };
+const readToken = (token: string) => new TokenVerifier(LIVEKIT.apiKey, LIVEKIT.apiSecret).verify(token);
+
 describe.skipIf(!TEST_DATABASE_URL)("internal routes for the translator workers", () => {
   let pool: pg.Pool;
   let tracks: TrackService;
   let app: Hono;
+  // The same routes on an API that has LiveKit configured.
+  let appWithLiveKit: Hono;
   const sessions: string[] = [];
 
   beforeAll(async () => {
     pool = await openTestDatabase();
     tracks = createTrackService(pool, { send: async () => "1-0" }, { leaseTtlSec: 15, heartbeatSec: 5, maxAttempts: 3 });
     app = new Hono().route("/internal", internalRoutes({ token: TOKEN, tracks }));
+    const livekit = { url: LIVEKIT.url, tokens: createTokenService(LIVEKIT) };
+    appWithLiveKit = new Hono().route("/internal", internalRoutes({ token: TOKEN, tracks, livekit }));
   });
   afterAll(async () => {
     if (!pool) return;
@@ -37,10 +47,10 @@ describe.skipIf(!TEST_DATABASE_URL)("internal routes for the translator workers"
     await pool.end();
   });
 
-  function post(path: string, body: unknown, token: string | null = TOKEN) {
+  function post(path: string, body: unknown, token: string | null = TOKEN, target: Hono = app) {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token !== null) headers.Authorization = `Bearer ${token}`;
-    return app.request(path, { method: "POST", headers, body: JSON.stringify(body) });
+    return target.request(path, { method: "POST", headers, body: JSON.stringify(body) });
   }
   async function openTrack(lang = "sk") {
     const sessionId = await insertSession(pool, [lang]);
@@ -119,5 +129,47 @@ describe.skipIf(!TEST_DATABASE_URL)("internal routes for the translator workers"
     expect(res.status).toBe(200);
     const { rows } = await pool.query("select status, worker_id from translation_tracks where id = $1", [trackId]);
     expect(rows[0]).toEqual({ status: "pending", worker_id: null });
+  });
+
+  it("give the worker its LiveKit tokens with the claim, when LiveKit is configured", async () => {
+    const { sessionId, trackId } = await openTrack("fr");
+    const res = await post(`/internal/tracks/${trackId}/claim`, { workerId: "w1", jobId: "j" }, TOKEN, appWithLiveKit);
+    expect(res.status).toBe(200);
+    const { livekit } = claimResponseSchema.parse(await res.json());
+    expect(livekit?.url).toBe(LIVEKIT.url);
+
+    // Source room: hear the host, hidden, nothing else.
+    const source = await readToken(livekit!.sourceToken);
+    expect(source.sub).toBe("worker-w1");
+    expect(source.video).toMatchObject({
+      room: `ses-${sessionId}-src`,
+      roomJoin: true,
+      canSubscribe: true,
+      canPublish: false,
+      canPublishData: false,
+      hidden: true,
+    });
+
+    // Output room for this track's language: publish the dub, nothing else.
+    const output = await readToken(livekit!.outputToken);
+    expect(output.sub).toBe("worker-w1");
+    expect(output.video).toMatchObject({
+      room: `ses-${sessionId}-fr-0`,
+      roomJoin: true,
+      canPublish: true,
+      canSubscribe: false,
+      canPublishData: false,
+    });
+  });
+
+  it("send no LiveKit field without LiveKit, and no tokens on a refused claim", async () => {
+    const { trackId } = await openTrack();
+    const claimed = await post(`/internal/tracks/${trackId}/claim`, { workerId: "w1", jobId: "j" });
+    expect(claimed.status).toBe(200);
+    expect(await claimed.json()).not.toHaveProperty("livekit");
+
+    const taken = await post(`/internal/tracks/${trackId}/claim`, { workerId: "w2", jobId: "j" }, TOKEN, appWithLiveKit);
+    expect(taken.status).toBe(409);
+    expect(await taken.json()).not.toHaveProperty("livekit");
   });
 });
