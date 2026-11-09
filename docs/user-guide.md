@@ -61,14 +61,19 @@ next one. Its code is free to be reused by a later session.
 2. If the host hasn't gone live yet, the page says so and checks again every
    few seconds.
 3. Once the session is live, you see its title, the host and the spoken
-   language. Pick **Your language** and select **Start listening**.
-4. If the session has ended, the page says so.
+   language. Pick **Your language** and select **Start listening**. The page
+   says **Connecting…**, then **Listening**.
+4. **Mute** and **Volume** are under the status. They stay as you set them when
+   you pick another language, which switches the audio without reloading.
+5. When the host ends the session, the page says "This session has ended.
+   Thanks for listening."
 
 ## Audio
 
-**Start listening** shows "Listening isn't available yet". The translators work
-from a recording on the server and write their translations to files there,
-which lets the team check the translation.
+**Start listening** connects you to your language's audio, but there's nothing
+to hear yet: the translators still work from a recording on the server and
+write their translations to files there, until they send their audio to
+LiveKit (YGP-70).
 
 ## Good to know
 
