@@ -60,3 +60,7 @@ export function createTokenService(config: LiveKitConfig) {
 }
 
 export type TokenService = ReturnType<typeof createTokenService>;
+
+// LiveKit for browsers (listeners and the host): the address their browser
+// connects to (LIVEKIT_PUBLIC_URL), and their tokens.
+export type BrowserLiveKit = { publicUrl: string; tokens: Pick<TokenService, "listenerToken" | "hostToken"> };

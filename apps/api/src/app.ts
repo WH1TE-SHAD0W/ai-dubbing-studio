@@ -6,8 +6,9 @@ import type pg from "pg";
 import type { Auth } from "./auth/auth.ts";
 import { withClientIp } from "./auth/client-ip.ts";
 import { isDatabaseUp } from "./db.ts";
+import type { BrowserLiveKit } from "./livekit/tokens.ts";
 import { type WorkerLiveKit, internalRoutes } from "./routes/internal.ts";
-import { type ListenerLiveKit, joinRoutes } from "./routes/join.ts";
+import { joinRoutes } from "./routes/join.ts";
 import { sessionRoutes } from "./routes/sessions.ts";
 import { type SessionRoomService, type SessionService, createSessionService } from "./sessions/service.ts";
 import { pwa } from "./static.ts";
@@ -25,13 +26,16 @@ export type AppDeps = {
   internal: { token: string; tracks: TrackService; livekit?: WorkerLiveKit };
   // The sessions' LiveKit rooms (ADR-0020), when LiveKit is configured.
   rooms?: SessionRoomService;
-  // The listeners' LiveKit address and tokens, when LiveKit is configured.
-  listener?: ListenerLiveKit;
+  // The LiveKit address and tokens for browsers (listeners and the host), when
+  // LiveKit is configured.
+  browser?: BrowserLiveKit;
 };
 
 // The API routes under /api, typed for Hono's RPC client (ADR-0016).
-export function apiRoutes(auth: Auth, sessions: SessionService, listener?: ListenerLiveKit) {
-  return new Hono().route("/sessions", sessionRoutes(auth, sessions)).route("/join", joinRoutes(sessions, listener));
+export function apiRoutes(auth: Auth, sessions: SessionService, browser?: BrowserLiveKit) {
+  return new Hono()
+    .route("/sessions", sessionRoutes(auth, sessions, browser))
+    .route("/join", joinRoutes(sessions, browser));
 }
 export type ApiRoutes = ReturnType<typeof apiRoutes>;
 
@@ -43,7 +47,7 @@ async function friendlierRateLimit(res: Response): Promise<Response> {
   return new Response(JSON.stringify({ message: RATE_LIMITED_MESSAGE }), { status: 429, headers });
 }
 
-export function createApp({ auth, pool, webDist, trustForwarded, internal, rooms, listener }: AppDeps) {
+export function createApp({ auth, pool, webDist, trustForwarded, internal, rooms, browser }: AppDeps) {
   const app = new Hono();
   // Starting and ending a session opens and ends its translation tracks, and
   // its LiveKit rooms when LiveKit is configured.
@@ -62,7 +66,7 @@ export function createApp({ auth, pool, webDist, trustForwarded, internal, rooms
   // Better Auth: sign-up, login, logout, get-session (ADR-0015).
   app.on(["GET", "POST"], "/api/auth/*", async (c) => friendlierRateLimit(await auth.handler(withClientIp(c, trustForwarded))));
 
-  app.route("/api", apiRoutes(auth, sessions, listener));
+  app.route("/api", apiRoutes(auth, sessions, browser));
   app.all("/api/*", (c) => c.json({ message: "Not found." }, 404));
 
   // The translator workers (ADR-0018). Not part of the browser's API, and never

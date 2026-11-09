@@ -5,7 +5,7 @@ same origin ([ADR-0012](adr/0012-serving-pwa-bundle.md)), so the browser calls
 every endpoint under `/api` on the address it opened.
 
 Host logins, sessions, joining by code and the translator workers' internal API
-are built. Without LiveKit configured, the listener token answers `501 Not
+are built. Without LiveKit configured, the listener and host tokens answer `501 Not
 Implemented`.
 
 **Host only** means the request needs the host's login cookie.
@@ -27,9 +27,10 @@ there for errors from Better Auth.
 | `400` | The request doesn't match the shared schema. `message` is the first problem, for example "A target language can't be the spoken language." |
 | `401` | Not logged in, or the email or password is wrong |
 | `404` | Unknown path under `/api`, or a session that doesn't exist or belongs to another host |
+| `409` | The host's mic token for a session that isn't live |
 | `422` | Sign-up with an email that is already registered |
 | `429` | Too many attempts from one IP |
-| `501` | The listener token, when the API has no LiveKit settings (see below) |
+| `501` | The listener and host tokens, when the API has no LiveKit settings (see below) |
 
 ## Host logins
 
@@ -63,6 +64,7 @@ answers the session as `sessionSchema` in `packages/contracts` describes it.
 | `GET /api/sessions/:id` | → session | |
 | `POST /api/sessions/:id/start` | → session | Draft → live. With LiveKit configured, creates the session's source room and one output room per target language first. Then opens one translation track per target language, and an idle translator worker takes each one within a second. |
 | `POST /api/sessions/:id/end` | → session | Draft or live → ended. Ends its tracks: each worker stops at its next heartbeat, within 5 seconds. With LiveKit configured, then deletes the session's rooms, which disconnects the listeners. |
+| `POST /api/sessions/:id/token` | → `{serverUrl, token}` | The host's mic token for a live session: it can only publish, in the session's source room, valid for 10 minutes to connect. The identity is the host's own, so a second device takes over from the first. `409` "This session isn't live." for a draft or ended session; `501` without LiveKit. |
 
 - Without a login they answer `401`. A session of another host is `404`, the
   same as one that doesn't exist.
