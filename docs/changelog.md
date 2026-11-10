@@ -8,6 +8,9 @@
 - Deployment page renamed "Deployment and runbook"; its Components and
   containers tables now list Redis, LiveKit and the translation workers as
   built (YGP-83).
+- Architecture: the host's microphone and the listener page use LiveKit now;
+  only the workers don't yet (YGP-70). The token section says which routes
+  hand the tokens out.
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
 - Studio: once the session is live, the host's microphone is sent to the
