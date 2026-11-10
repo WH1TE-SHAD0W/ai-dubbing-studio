@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Branch protection: a second ruleset makes Typecheck, Test, Build and both
+  image builds required on `testing`; the CI/CD page lists both rulesets and
+  why `main` waits (YGP-76).
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
 - Studio: once the session is live, the host's microphone is sent to the
