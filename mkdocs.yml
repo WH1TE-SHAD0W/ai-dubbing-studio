@@ -13,7 +13,7 @@ nav:
   - API: api.md
   - Branching Strategy: branching-strategy.md
   - Setup Guide: setup-guide.md
-  - Deployment: deployment.md
+  - Deployment and runbook: deployment.md
   - Translator: translator.md
   - CI/CD: ci-cd.md
   - Testing: testing.md

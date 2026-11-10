@@ -5,6 +5,9 @@
 - Deployment page: a release step by step with where to see each step, three
   ways to roll back on K3s, checks for a K3s deploy, and a rollback drill to
   fill in once Argo CD runs (YGP-83).
+- Deployment page renamed "Deployment and runbook"; its Components and
+  containers tables now list Redis, LiveKit and the translation workers as
+  built (YGP-83).
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
 - Studio: once the session is live, the host's microphone is sent to the

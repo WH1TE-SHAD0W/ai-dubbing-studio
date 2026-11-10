@@ -1,6 +1,8 @@
-# Deployment
+# Deployment and runbook
 
-How the app is deployed, updated and rolled back. Some of it is built and some
+How the app is deployed, updated and rolled back. The operational runbook is
+[Roll back](#roll-back), [Check a deploy](#check-a-deploy) and the
+[Rollback drill](#rollback-drill). Some of it is built and some
 is still planned, so each part says which:
 
 - **Built** means the code is on `development`. It reaches `main`, and this
@@ -22,26 +24,29 @@ Settings are in `.env`; see the [Setup Guide](setup-guide.md#settings-env).
 
 | Component | Status | What it does | Decision |
 |---|---|---|---|
-| `postgres` | Built | Host accounts and logins, on the `postgres-data` volume | [ADR-0002](adr/0002-session-and-account-storage.md) |
-| `api` | Built | The Hono API: serves the built app and handles host logins with Better Auth | [ADR-0012](adr/0012-serving-pwa-bundle.md), [ADR-0015](adr/0015-auth-library.md) |
-| LiveKit | Planned | Carries the host's audio into a source room, and each language's translation out to listeners | [ADR-0001](adr/0001-audio-fan-out.md), [ADR-0013](adr/0013-sfu-client.md), ADR-0020 (proposed) |
-| Redis | Planned | Hands translation jobs to worker pods through a Redis Stream | [ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md) (proposed) |
-| Translation workers | Planned | A pool of pods, each serving one track (one language of one session) through Gemini | ADR-0018, ADR-0019 (proposed) |
+| `postgres` | Built | Host accounts, logins, sessions and translation tracks, on the `postgres-data` volume | [ADR-0002](adr/0002-session-and-account-storage.md) |
+| `api` | Built | The Hono API: serves the built app, host logins (Better Auth), sessions, translation tracks, and LiveKit rooms and tokens | [ADR-0012](adr/0012-serving-pwa-bundle.md), [ADR-0015](adr/0015-auth-library.md) |
+| `redis` | Built | Hands translation jobs to the workers through a Redis Stream | [ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md) |
+| `livekit` | Built, partly connected | Carries the host's audio into a source room, and each language's translation out to listeners. The host's mic and the listener page use it; the workers don't join it yet (YGP-70) | [ADR-0001](adr/0001-audio-fan-out.md), [ADR-0013](adr/0013-sfu-client.md), [ADR-0020](adr/0020-input-audio-stream.md) |
+| `translator` | Built in Compose; on K3s planned | Go workers, each serving one track (one language of one session) through Gemini. Started only with the `translator` Compose profile | [ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md), [ADR-0019](adr/0019-translation-worker-runtime.md) |
 
 The proposed decision records are listed in the [ADR index](adr/index.md).
 
-### The built containers
+### The containers in Compose
 
 | Container | Built from | Port |
 |---|---|---|
 | `postgres` | `postgres:18-alpine` | 5432, published on `127.0.0.1` only |
 | `api` | `apps/api/Dockerfile` (Node 24 Alpine) | 3000 inside, `API_PORT` (default 3000) on `127.0.0.1` |
+| `redis` | `redis:8-alpine` | 6379, on `127.0.0.1` only |
+| `livekit` | `livekit/livekit-server` | 7880 (HTTP and WebSocket), 7881 (TCP) and 7882/udp (media), on `LIVEKIT_BIND` (default `127.0.0.1`) |
+| `translator` | `apps/translator/Dockerfile` (Go) | None: it only connects out, to Redis, the API and Gemini |
 
 - The API starts once Postgres is healthy, and creates or updates its tables
   before it accepts requests.
-- Both have a health check. The API's uses `GET /ready`, which also checks that
+- Every container has a health check. The API's uses `GET /ready`, which also checks that
   Postgres answers; `GET /health` only checks that the process runs.
-- Both restart automatically unless stopped by hand.
+- All of them restart automatically unless stopped by hand.
 - The API runs as the non-root `node` user, and stops cleanly on `SIGTERM`: it
   finishes open requests and closes the database connections, within 8 seconds.
 
@@ -199,7 +204,7 @@ After every deploy or rollback.
 
 ### Compose check (built)
 
-1. `docker compose ps` shows both containers as `healthy`.
+1. `docker compose ps` shows every container as `healthy`.
 2. The health endpoints answer:
 
     ```bash
