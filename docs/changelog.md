@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- CI runs the Go worker's checks on every pull request: `gofmt`, `go vet`,
+  generated code up to date, `go test -race` and the integration tests with a
+  real Redis (YGP-75).
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
 - Studio: once the session is live, the host's microphone is sent to the
