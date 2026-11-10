@@ -4,8 +4,9 @@ How to run AI Dubbing Studio on your own machine while it is being rebuilt. So
 far there are the shared schemas, the app (the React PWA), the first part of
 the Hono API (it serves the app and handles host logins, with accounts in
 Postgres), sessions, and the translator workers, which translate each target
-language of a live session with Gemini. LiveKit is not connected yet, so the
-workers read and write WAV files instead of live audio. The plan is in the
+language of a live session with Gemini. LiveKit is partly connected: the
+host's microphone and the listener page use it, but the workers don't join it
+yet (YGP-70), so they read and write WAV files instead of live audio. The plan is in the
 [Architecture](architecture.md) page and the [decision records](adr/index.md).
 
 ## What you need
@@ -59,6 +60,12 @@ repository root, which Git ignores. Start from the example:
 cp .env.example .env
 ```
 
+Then, before the first start, replace the example values of
+`POSTGRES_PASSWORD` (and the same password in `DATABASE_URL`),
+`BETTER_AUTH_SECRET`, `INTERNAL_API_TOKEN` and `LIVEKIT_API_SECRET` with your
+own, for example from `openssl rand -hex 24`. The table below says what each
+setting is for.
+
 The translator's settings, with their defaults and who reads them, are
 explained on the [Translator](translator.md#settings) page.
 
@@ -91,7 +98,9 @@ docker compose up --build    # open http://localhost:3000
 The API waits for Postgres and Redis to be healthy, brings its tables up to
 date (see [Database migrations](#database-migrations)), then serves the app.
 You can register a host, log in, create a session and take it live or end it,
-and look it up by its code. Listening shows "isn't available yet".
+and look it up by its code. A listener can join with the code and press
+**Start listening**: the page connects to that language's LiveKit room, but
+stays silent until the workers join LiveKit (YGP-70).
 
 ```bash
 docker compose ps            # all should show (healthy)

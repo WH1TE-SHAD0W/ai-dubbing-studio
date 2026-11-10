@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Setup Guide, checked from a fresh clone: says which `.env` values to replace
+  before the first start, and that listening connects to LiveKit but stays
+  silent until the workers join it (YGP-73).
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
 - Studio: once the session is live, the host's microphone is sent to the
