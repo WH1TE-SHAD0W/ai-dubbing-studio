@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A Security check scans the API and worker images with Trivy on every pull
+  request, and fails on a CRITICAL vulnerability that has a fix (YGP-78).
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
 - Studio: once the session is live, the host's microphone is sent to the
