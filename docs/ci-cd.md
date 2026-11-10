@@ -177,6 +177,9 @@ Rulesets → New ruleset → Import a ruleset**.
 | **Require checks on testing** (`require-checks-testing.json`) | `testing` | Typecheck, Test, Build, API image and Worker image must pass | To import |
 | Required checks on `main` | `main` | The same checks | Later: once the workflows are on `main` (see below) |
 
+Nothing protects `development` or the feature branches: reviews there are a
+team agreement.
+
 There's also an old ruleset called **Main** that targets no branches, so it
 has no effect. An admin can delete it.
 
