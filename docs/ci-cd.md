@@ -177,38 +177,39 @@ fixed them.
 ## What's enforced today
 
 The [branching strategy](branching-strategy.md) says every merge is a pull
-request, reviewed by a teammate, with all checks passing. Today that is a team
-agreement, not something GitHub enforces:
+request, reviewed by a teammate, with all checks passing. GitHub enforces it
+with rulesets (YGP-76), kept in `.github/rulesets/`. Only a repository admin
+can turn one on or change it, by importing its file under **Settings → Rules →
+Rulesets → New ruleset → Import a ruleset**.
 
-- The repository has a ruleset called **Main**, but it doesn't target any
-  branches yet, so it has no effect.
-- Even once it targets `main`, its two rules only stop the branch being deleted
-  or force-pushed. It doesn't require a review or passing checks.
-- So a red check or a missing review warns, but doesn't block the merge
-  button.
+| Ruleset | Branches | Rules | Status |
+|---|---|---|---|
+| **Protect main and testing** (`protect-main-and-testing.json`) | `main`, `testing` | A pull request with **one approval** from someone other than its author; a new push clears an earlier approval; merge commits only; no deleting or force-pushing; nobody can skip the rules, admins included | Active |
+| **Require checks on testing** (`require-checks-testing.json`) | `testing` | Typecheck, Test, Build, API image and Worker image must pass | To import |
+| Required checks on `main` | `main` | The same checks | Later: once the workflows are on `main` (see below) |
 
-### Branch protection (YGP-76)
+Nothing protects `development` or the feature branches: reviews there are a
+team agreement.
 
-The rules are written down as a GitHub ruleset in
-`.github/rulesets/protect-main-and-testing.json`. Only a repository admin can
-turn them on, by importing the file under **Settings → Rules → Rulesets → New
-ruleset → Import a ruleset**. They come in two steps.
+There's also an old ruleset called **Main** that targets no branches, so it
+has no effect. An admin can delete it.
 
-**Step 1 (the file as it is now)**, for `main` and `testing`:
+### Why `main` waits
 
-- Every change goes through a pull request with **one approval** from someone
-  other than its author.
-- A new push to the pull request clears an earlier approval, so the reviewer
-  always approves the final version.
-- Pull requests are merged with a merge commit, as all of them have been so far.
-- The branches can't be deleted or force-pushed.
-- Nobody can skip the rules, admins included.
+A pull request runs the workflows from **its own branch**, not from the branch
+it targets. Pull requests into `testing` come from `development`, which has the
+CI and Images workflows, so the checks always run: #60 ran them although
+`testing` didn't have the workflows yet.
 
-**Step 2, once the code checks are on `main`:** the CI workflow's Typecheck,
-Test and Build become required checks. They can't be required before that:
-pull requests into `main` run the workflows that are on `main`, so the checks
-would never start and every pull request would wait for them forever. The Docs
-checks stay optional, for the same reason: they only run when docs change.
+Docs-only branches start from `main` instead
+([branching strategy](branching-strategy.md)), and `main` doesn't have the
+workflows until the first release reaches it. Required checks would never
+start on those pull requests, so they could never be merged. Once a release
+brings the workflows to `main`, the same checks are added for `main`.
+
+The Docs checks, the Security scan and the Go worker job aren't required:
+the Docs checks only run when docs change, and the other two are new (and the
+Security scan fails on purpose while the worker has a CRITICAL issue).
 
 ## Code checks
 

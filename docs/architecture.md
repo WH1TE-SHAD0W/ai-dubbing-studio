@@ -28,7 +28,7 @@ Cost grows with the number of languages, not listeners.
 | API: host logins, sessions (create, go live, end), joining by code | Built |
 | API: translation tracks, the Redis job stream, the workers' internal API, the sweeper that recovers tracks | Built |
 | Translator workers (Go) with Gemini Live Translate | Built. A worker reads the host's audio from a WAV file and writes the translation to another one. |
-| LiveKit server, and the API's code for rooms and tokens | Partly connected: going live creates the session's rooms and the API hands out LiveKit tokens, but the workers and the app don't join LiveKit yet (YGP-70, YGP-105, YGP-106). |
+| LiveKit server, and the API's code for rooms and tokens | Partly connected: going live creates the session's rooms, the host's microphone is sent to the source room (YGP-105) and the listener page plays its language's room (YGP-106). The workers don't join LiveKit yet (YGP-70), so nothing is translated live and listeners hear nothing yet. |
 | Captions | Not built |
 
 ```mermaid
@@ -132,8 +132,9 @@ room, allowed to do exactly one thing there
 
 Every token expires after 10 minutes. It only has to be valid when its holder
 connects; LiveKit keeps the connection after that. The tokens are made in
-`apps/api/src/livekit/tokens.ts` (YGP-71). No route hands them out yet:
-connecting them to the session routes and the workers' claim is the next step.
+`apps/api/src/livekit/tokens.ts` (YGP-71) and handed out by the API: the
+host's and the listener's from their own routes (see the [API](api.md)), the
+worker's two in the response to its claim.
 
 ### A host logs in
 

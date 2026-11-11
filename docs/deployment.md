@@ -1,6 +1,8 @@
-# Deployment
+# Deployment and runbook
 
-How the app is deployed, updated and rolled back. Some of it is built and some
+How the app is deployed, updated and rolled back. The operational runbook is
+[Roll back](#roll-back), [Check a deploy](#check-a-deploy) and the
+[Rollback drill](#rollback-drill). Some of it is built and some
 is still planned, so each part says which:
 
 - **Built** means the code is on `development`. It reaches `main`, and this
@@ -22,26 +24,29 @@ Settings are in `.env`; see the [Setup Guide](setup-guide.md#settings-env).
 
 | Component | Status | What it does | Decision |
 |---|---|---|---|
-| `postgres` | Built | Host accounts and logins, on the `postgres-data` volume | [ADR-0002](adr/0002-session-and-account-storage.md) |
-| `api` | Built | The Hono API: serves the built app and handles host logins with Better Auth | [ADR-0012](adr/0012-serving-pwa-bundle.md), [ADR-0015](adr/0015-auth-library.md) |
-| LiveKit | Planned | Carries the host's audio into a source room, and each language's translation out to listeners | [ADR-0001](adr/0001-audio-fan-out.md), [ADR-0013](adr/0013-sfu-client.md), ADR-0020 (proposed) |
-| Redis | Planned | Hands translation jobs to worker pods through a Redis Stream | [ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md) (proposed) |
-| Translation workers | Planned | A pool of pods, each serving one track (one language of one session) through Gemini | ADR-0018, ADR-0019 (proposed) |
+| `postgres` | Built | Host accounts, logins, sessions and translation tracks, on the `postgres-data` volume | [ADR-0002](adr/0002-session-and-account-storage.md) |
+| `api` | Built | The Hono API: serves the built app, host logins (Better Auth), sessions, translation tracks, and LiveKit rooms and tokens | [ADR-0012](adr/0012-serving-pwa-bundle.md), [ADR-0015](adr/0015-auth-library.md) |
+| `redis` | Built | Hands translation jobs to the workers through a Redis Stream | [ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md) |
+| `livekit` | Built, partly connected | Carries the host's audio into a source room, and each language's translation out to listeners. The host's mic and the listener page use it; the workers don't join it yet (YGP-70) | [ADR-0001](adr/0001-audio-fan-out.md), [ADR-0013](adr/0013-sfu-client.md), [ADR-0020](adr/0020-input-audio-stream.md) |
+| `translator` | Built in Compose; on K3s planned | Go workers, each serving one track (one language of one session) through Gemini. Started only with the `translator` Compose profile | [ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md), [ADR-0019](adr/0019-translation-worker-runtime.md) |
 
 The proposed decision records are listed in the [ADR index](adr/index.md).
 
-### The built containers
+### The containers in Compose
 
 | Container | Built from | Port |
 |---|---|---|
 | `postgres` | `postgres:18-alpine` | 5432, published on `127.0.0.1` only |
 | `api` | `apps/api/Dockerfile` (Node 24 Alpine) | 3000 inside, `API_PORT` (default 3000) on `127.0.0.1` |
+| `redis` | `redis:8-alpine` | 6379, on `127.0.0.1` only |
+| `livekit` | `livekit/livekit-server` | 7880 (HTTP and WebSocket), 7881 (TCP) and 7882/udp (media), on `LIVEKIT_BIND` (default `127.0.0.1`) |
+| `translator` | `apps/translator/Dockerfile` (Go) | None: it only connects out, to Redis, the API and Gemini |
 
 - The API starts once Postgres is healthy, and creates or updates its tables
   before it accepts requests.
-- Both have a health check. The API's uses `GET /ready`, which also checks that
+- Every container has a health check. The API's uses `GET /ready`, which also checks that
   Postgres answers; `GET /health` only checks that the process runs.
-- Both restart automatically unless stopped by hand.
+- All of them restart automatically unless stopped by hand.
 - The API runs as the non-root `node` user, and stops cleanly on `SIGTERM`: it
   finishes open requests and closes the database connections, within 8 seconds.
 
@@ -61,62 +66,62 @@ It builds in two stages:
 2. **Runtime**: Node 24 Alpine with just that file and the built app. No
    `node_modules`, pnpm or build tools, about 250 MB in all, most of it Node.
 
-## How a release reaches the cluster (planned)
+## How a release reaches the cluster
 
 Git says what should run, and Argo CD makes the cluster match it. Nobody
-deploys to the cluster by hand.
+deploys to the cluster by hand. The image half is built; the cluster half
+waits on Argo CD (YGP-82).
 
 ```mermaid
 flowchart LR
-    merge["Merge into<br>testing or main"] --> build["Image build<br>(YGP-52)"]
-    build --> hub["Docker Hub"]
-    git["Deploy repo:<br>manifests (YGP-81)"] --> argo["Argo CD<br>(YGP-82)"]
+    pr["PR: development → testing<br>(checks + approval)"] --> merge["Merge into testing"]
+    merge --> build["Images workflow<br>(YGP-52)"]
+    build --> hub["Docker Hub:<br>testing + commit SHA"]
+    git["Deploy repo:<br>overlays/test (YGP-81)"] --> argo["Argo CD<br>(YGP-82, planned)"]
     hub --> argo
-    argo --> test["Test environment"]
-    argo --> prod["Production"]
+    argo --> test["Test environment<br>(namespace ads-test)"]
 ```
 
-1. A merge into `testing` or `main` builds the images and pushes them to
-   Docker Hub. Each image is tagged with its commit SHA, plus `testing` or
-   `prod`. The [CI/CD page](ci-cd.md#image-tags) covers the image build
-   and its tags.
-2. The Kubernetes manifests (YGP-81) describe what each environment runs. They
-   live in their own repository,
-   [ai-dubbing-studio-deploy](https://github.com/jamiemccourt800/ai-dubbing-studio-deploy),
-   with one overlay per environment (`overlays/test`, `overlays/prod`). Its
-   README covers the layout, the Secrets to create on the cluster and how to
-   try it locally. The worker pool and its autoscaling are added there with
-   the translation workers.
-3. Argo CD (YGP-82) watches the manifests and syncs the cluster to them.
+### Step by step
 
-| Branch | Image tag | Environment |
+| Step | Status | Where to see it |
 |---|---|---|
-| `testing` | `testing` | Test |
-| `main` | `prod` | Production |
+| 1. Open a pull request from `development` into `testing`, listing what's being promoted. | Built | The pull request |
+| 2. The checks run: [code checks](ci-cd.md#code-checks), [image build](ci-cd.md#image-build), the docs checks and the security scan (YGP-78). Another team member approves. | Built | The **Checks** tab of the pull request |
+| 3. Merge. The Images workflow builds the API and worker images and pushes each to Docker Hub as `testing` and as the full commit SHA. | Built | **Actions → Images** for the merge commit, then the image's **Tags** page on Docker Hub |
+| 4. Argo CD notices the new image and updates the `ads-test` namespace to it. | Planned | The test application shows **Synced** and **Healthy** in Argo CD |
+| 5. [Check the deploy](#check-a-deploy). | Planned | See below |
+
+Production works the same way, from `testing` into `main`, with the `prod`
+tag and the `ads-prod` namespace.
+
+| Branch | Image tag | Namespace |
+|---|---|---|
+| `testing` | `testing` | `ads-test` |
+| `main` | `prod` | `ads-prod` |
 
 So a test deployment never runs an image that hasn't been through `testing`,
 and production never runs one that hasn't reached `main`.
+
+### Where the manifests live
+
+The Kubernetes manifests (YGP-81) describe what each environment runs. They
+live in their own repository,
+[ai-dubbing-studio-deploy](https://github.com/jamiemccourt800/ai-dubbing-studio-deploy):
+a Kustomize `base` plus one overlay per environment (`overlays/test`,
+`overlays/prod`), which sets the namespace, the image tag and the host name.
+Its README covers the Secrets to create on the cluster and how to try it
+locally.
 
 The manifests are kept apart from the code, as Argo CD recommends. Changing
 what runs never triggers this repository's CI, and the deploy repository's
 history is a log of what ran when. Neither repository holds any secrets.
 
-## Deploy or update with Docker Compose (built)
-
-On the server, from the repository folder:
-
-```bash
-git pull
-docker compose up --build -d
-```
-
-`-d` runs the containers in the background. To see the API's logs:
-
-```bash
-docker compose logs -f api
-```
-
-Before an update on a server, [back up the database](#back-up-the-database).
+**Still open:** how Argo CD picks up a new image. With the moving `testing` tag
+the manifests never change, so Argo CD needs Argo CD Image Updater or a restart
+to notice it. The other way is for CI to write each commit SHA into the
+overlay. [ADR-0021](adr/0021-how-we-deploy.md) records the choice once YGP-82
+makes it. Rolling back works either way (below).
 
 ## Roll back
 
@@ -140,21 +145,66 @@ backup taken before the update.
 
 ### On K3s (planned)
 
-1. Revert the bad change in Git (`git revert`) through a pull request, as for
-   any other change: in this repository for code, or in the deploy repository
-   for a setting.
-2. Once it merges, a new image is built and Argo CD syncs the cluster back to
-   the working version.
+Three ways back, from the normal one to the emergency one. Whichever you use,
+[check the deploy](#check-a-deploy) afterwards and tell the team what was
+rolled back and why.
 
-In an emergency, Argo CD can also roll an application back to an earlier sync
-straight away. Git then has to be reverted as well, or Argo CD will sync the
-bad version again. The rollback is tested as part of YGP-83.
+**1. Revert in Git (the normal way).** Use it when there's time for a build
+(a few minutes).
+
+1. Find the merge that brought the bad change into `testing`:
+   `git log --oneline --merges origin/testing`.
+2. Revert it on a branch and open a pull request into `testing`:
+
+    ```bash
+    git switch -c revert/YGP-XX-what origin/testing
+    git revert -m 1 <merge commit>
+    git push -u origin revert/YGP-XX-what
+    ```
+
+3. Once it merges, new images are built from the reverted code and Argo CD
+   syncs them, as for any release.
+
+The fix then goes through `development` as usual.
+
+**2. Pin a known-good image (exact and quick).** Use it to go back to one
+earlier commit's images straight away, without a build.
+
+1. Find the last good commit SHA: on Docker Hub (the image's **Tags** page),
+   or with `git log --oneline origin/testing`. Every pushed image is tagged
+   with its full SHA.
+2. In the deploy repository, change the tag in
+   `overlays/test/kustomization.yaml` from `testing` to that SHA, and open a
+   pull request:
+
+    ```yaml
+    images:
+      - name: ai-dubbing-studio-api
+        newName: glossia/ai-dubbing-studio-api
+        newTag: <full commit SHA>
+    ```
+
+3. Once it merges, Argo CD syncs the namespace to that exact image.
+4. When the fix is released, set the tag back to `testing` the same way.
+
+**3. Roll back in Argo CD (emergency only).** Use it when the app is down and
+a pull request would take too long.
+
+1. Turn off automatic sync for the application. Argo CD won't roll back while
+   it's on, and would sync the bad version again anyway.
+2. In the Argo CD UI, open the application, then **History and rollback**, and
+   roll back to the last sync that worked. The CLI does the same:
+   `argocd app rollback <application> <history ID>`.
+3. Then do way 1 or 2 so Git matches the cluster, and turn automatic sync back
+   on.
 
 ## Check a deploy
 
-After every deploy or rollback:
+After every deploy or rollback.
 
-1. `docker compose ps` shows both containers as `healthy`.
+### Compose check (built)
+
+1. `docker compose ps` shows every container as `healthy`.
 2. The health endpoints answer:
 
     ```bash
@@ -167,6 +217,49 @@ After every deploy or rollback:
 
 3. The app opens in a browser and a host can log in.
 4. `docker compose logs api` shows no errors since the start.
+
+### K3s check (planned)
+
+```bash
+kubectl -n ads-test rollout status deploy/api    # waits until the new pods are ready
+kubectl -n ads-test get pods                     # every pod Running, READY 1/1
+kubectl -n ads-test get deploy api -o jsonpath='{.spec.template.spec.containers[0].image}'
+kubectl -n argocd get applications               # SYNC STATUS Synced, HEALTH Healthy
+kubectl -n ads-test logs deploy/api --since=10m  # no errors since the update
+```
+
+1. The image shown is the one you meant: `testing` or the pinned SHA.
+2. `/health` and `/ready` answer `{"status":"ok"}` at the test environment's
+   address (the Ingress host in `overlays/test`).
+3. The app opens in a browser and a host can log in.
+
+A new pod only gets traffic once its readiness check (`/ready`) passes, so the
+old pods keep serving until then.
+
+## Rollback drill
+
+YGP-83 asks for a rollback to be tried once on the test environment, so the
+steps are known to work before they're needed.
+
+**Status: not tried yet.** On 10 November the K3s cluster had six nodes ready,
+but Argo CD (YGP-82) and the `ads-test` namespace weren't set up yet, so there
+was nothing to roll back. This section is filled in once they are.
+
+The drill:
+
+1. Note the image the test environment runs now (the last good one).
+2. Release a harmless visible change to `testing`, such as a version label.
+3. Roll it back with way 2, pinning the last good SHA, and time it.
+4. [Check the deploy](#check-a-deploy), and that the change is gone.
+5. Set the tag back to `testing`.
+
+| | Result |
+|---|---|
+| Date | Not tried yet |
+| Change rolled back | |
+| Way used | |
+| Time from merge to healthy | |
+| What we learned | |
 
 ## Back up the database
 
