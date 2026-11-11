@@ -385,7 +385,11 @@ packages/contracts/openapi/translator-control.yaml
     - Memory: 5.5 MiB idle, 10.7 MiB with a live track; the API 34 MiB.
 - [x] Sessions stored; `/start` and `/end` open and end the tracks. From the Studio (2026-11-06): Go live → both tracks claimed 28 ms later, live within 0.5 s, translated audio 3 s later; End session → both workers stopped at their next heartbeat (4.5 s).
 
-- [x] LiveKit adapter (YGP-70), tested against `livekit-server --dev` (2026-11-11): the host's tone arrives as 16 kHz frames, a listener hears the `sk` track, deleting the source room ends the source with `room_closed`, and a second participant with the worker's identity stops the sink. Not yet run end to end with Hono and Gemini (YGP-72).
+- [x] LiveKit adapter (YGP-70), tested against `livekit-server --dev` (2026-11-11): the host's tone arrives as 16 kHz frames, a listener hears the `sk` track, deleting the source room ends the source with `room_closed`, and a second participant with the worker's identity stops the sink.
+- [x] End to end through Compose with LiveKit and real Gemini (2026-11-11): a session going live from English into Slovak and German; a host client played 9 s of English speech twice into the source room.
+    - Both workers joined both rooms inside Compose. Each track was live 1 to 2 s after the claim, and translated audio came 3 s after that.
+    - A listener in the Slovak room got the `sk` track from the worker and heard 21 s of Slovak speech, two blocks matching the two times the host spoke.
+    - Ending the session deleted the rooms, and both workers stopped 0.3 s later with `room_closed`. Fresh workers were ready about 1 s after that.
 
 ## 12. Acceptance criteria (this phase)
 

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Translator workers with LiveKit, run end to end through Compose with real
+  Gemini: host speech in the source room came out as Slovak speech in the
+  `sk` room, and ending the session stopped the workers 0.3 s later (YGP-70).
 - Translator workers join LiveKit (YGP-70): each one listens to the host's
   microphone in the session's source room (hidden, listen-only) and publishes
   its translation as one track named after the language in the output room,
