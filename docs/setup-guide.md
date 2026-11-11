@@ -114,41 +114,40 @@ docker compose logs -f api   # requests and start-up messages
 The workers translate one target language of one session each
 ([ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)).
 They are opt-in, because they need a Gemini key, and start with the
-`translator` profile. When the API has LiveKit configured, as in Compose, a
-worker gets LiveKit tokens with its track: it listens to the host's microphone
-in the source room and publishes the translation into its language's room.
-Without LiveKit it reads the host's audio from a WAV file and writes the
-translation to another one, which the steps below use.
+`translator` profile. In Compose the API has LiveKit configured, so a worker
+gets LiveKit tokens with its track: it listens to the host's microphone in the
+source room and publishes the translation into its language's room.
 
-1. Put a speech recording in `apps/translator/media/in/input.wav` (PCM16, mono,
-   16 kHz; a file named after the language, such as `sk.wav`, is used for that
-   language instead). On Windows, text-to-speech makes one:
-
-    ```powershell
-    powershell -File apps/translator/scripts/make-test-wav.ps1 -Out apps/translator/media/in/input.wav
-    ```
-
-2. Start everything, with two idle workers:
+1. Start everything, with two idle workers:
 
     ```bash
     docker compose --profile translator up -d --build
     ```
 
-3. Watch the API and the workers in a second terminal:
+2. Watch the API and the workers in a second terminal:
 
     ```bash
     docker compose logs -f api translator
     ```
 
-4. Open the Studio (<http://localhost:3000/studio>), register a host, and
+3. Open the Studio (<http://localhost:3000/studio>), register a host, and
    create a session with one or two target languages. Then press **Go live**.
    The API opens one translation track per language, and the log shows each
-   one `claimed` by an idle worker, then `live` once its Gemini stream is open,
-   within a second. Translated speech starts about 3 seconds later, written to
-   `apps/translator/media/out/` as `<session>-<language>-<worker>.wav`.
+   one `claimed` by an idle worker, then `live` once the worker has joined the
+   LiveKit rooms and its Gemini stream is open, within 2 seconds.
 
-5. Press **End session**. Each worker stops at its next heartbeat (within 5
-   seconds) and exits, and a fresh one takes its place.
+4. In the Studio's **Microphone** card, select **Turn microphone on** and wait
+   for **● Sending to the translators**. Open the join link in another tab,
+   pick a language and select **Start listening**. The translation starts
+   about 3 seconds after you speak.
+
+    To play a recording instead of speaking, route it into a virtual audio
+    device (for example VoiceMeeter) and pick that device as the Studio's
+    input. Play it from a different browser than the Studio: a browser's echo
+    cancellation removes sound that the same browser is playing.
+
+5. Press **End session**. The API deletes the session's LiveKit rooms, each
+   worker stops at once and exits, and a fresh one takes its place.
 
 To see which worker has which track, with its lease and attempts:
 
@@ -159,7 +158,7 @@ pnpm --filter @ads/api tracks list    # or: tracks list <session id>
 The session id is in the Studio's address (`/studio?session=<id>`).
 
 A worker uses Gemini only while it has a track. A live session's tracks keep
-streaming (silence once the WAV ends) until the session ends, or for at most 240
+streaming (silence while nobody speaks) until the session ends, or for at most 240
 minutes (`MAX_JOB_MINUTES`), so end test sessions when you are done.
 
 ```bash

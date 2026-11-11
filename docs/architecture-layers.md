@@ -140,8 +140,9 @@ sequenceDiagram
   Q-->>W: a job (ids only, no secrets)
   W->>Hono: POST /internal/tracks/{trackId}/claim {workerId, jobId}
   Hono->>DB: pending, or own or expired lease? owner = workerId, lease 15 s
-  Hono-->>W: 200 {sessionId, language, leaseTtlSec, heartbeatSec}
+  Hono-->>W: 200 {sessionId, language, leaseTtlSec, heartbeatSec, livekit}
   W->>Q: XACK
+  W->>W: join the LiveKit source room (hidden) and output room
   W->>G: connect (target language, resumption, compression)
   W->>Hono: POST /internal/tracks/{trackId}/status live
   Hono->>DB: track live
@@ -153,13 +154,13 @@ sequenceDiagram
   and audio
     W->>G: host audio, 100 ms chunks of 16 kHz PCM
     G-->>W: translated 24 kHz PCM
-    W->>W: write it to a WAV file
+    W->>W: publish it to the output room
   end
 ```
 
 In Docker Compose each language was claimed 28 ms after **Go live** and live
-within half a second; the first translated speech followed about 3 seconds
-later.
+1 to 2 seconds after the claim, once its worker had joined both LiveKit rooms;
+the first translated speech followed about 3 seconds later.
 
 ### A session ends
 
@@ -170,16 +171,21 @@ sequenceDiagram
   participant Hono as Hono API
   participant DB as PostgreSQL
   participant W as Worker
+  participant LK as LiveKit
   participant G as Gemini Live Translate
   Host->>Hono: POST /api/sessions/{id}/end
   Hono->>DB: session ended, its tracks ended (the owner is kept)
-  W->>Hono: next heartbeat (within 5 s)
-  Hono-->>W: 409 ended
+  Hono->>LK: delete the source and output rooms
+  LK-->>W: disconnected (room deleted)
+  W->>Hono: POST /internal/tracks/{trackId}/status ended (room_closed)
   W->>G: close the stream
-  W->>W: drain the output (up to 500 ms), close the WAV
   Note over W: no further calls, delete its stream consumer, exit
   Note over W: Docker Compose starts a fresh worker
 ```
+
+The workers stopped 0.3 seconds after **End session**. Without LiveKit, or if
+a worker misses the room deletion, its next heartbeat gets `409 ended` (within
+5 seconds) and it stops the same way.
 
 Keeping the owner on an ended track lets that worker's retried final report
 still get `200`, while any other worker gets `409 ended`.
@@ -244,8 +250,8 @@ flowchart TB
     Runner["Runner<br/>claim, heartbeat, stop"]
     Control["Control client<br/>claim, heartbeat, status, release"]
     Manager["Gemini stream manager<br/>resume, reconnect, backoff"]
-    Source["Audio in<br/>WAV file"]
-    Sink["Audio out<br/>WAV file"]
+    Source["Audio in<br/>LiveKit source room"]
+    Sink["Audio out<br/>LiveKit output room"]
     Probes["Probes<br/>/health, /ready"]
   end
 
@@ -308,8 +314,10 @@ stateDiagram-v2
 Ending, Fenced and Draining can follow any busy state, not only Live. A claim
 that gets `409` leaves the worker idle, still waiting.
 
-## Audio files
+## Audio
 
-Each worker reads the host's audio from a WAV file in
-`apps/translator/media/in` and writes its translation to
+Each worker hears the host in the session's LiveKit source room and publishes
+its translation into its language's output room. Only when the API has no
+LiveKit settings does it read the host's audio from a WAV file in
+`apps/translator/media/in` and write its translation to
 `apps/translator/media/out`.

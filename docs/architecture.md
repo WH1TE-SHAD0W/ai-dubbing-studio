@@ -27,7 +27,7 @@ Cost grows with the number of languages, not listeners.
 | The app (React PWA): register, log in, Studio, join, listener pages | Built |
 | API: host logins, sessions (create, go live, end), joining by code | Built |
 | API: translation tracks, the Redis job stream, the workers' internal API, the sweeper that recovers tracks | Built |
-| Translator workers (Go) with Gemini Live Translate | Built. A worker reads the host's audio from a WAV file and writes the translation to another one. |
+| Translator workers (Go) with Gemini Live Translate | Built. A worker hears the host in LiveKit's source room and publishes the translation into its language's output room. |
 | LiveKit server, and the API's code for rooms and tokens | Connected: going live creates the session's rooms, the host's microphone is sent to the source room (YGP-105) and the listener page plays its language's room (YGP-106). Each worker joins the source room hidden and listen-only, and publishes its translation as one track in its language's output room (YGP-70). |
 | Captions | Not built |
 
@@ -42,7 +42,7 @@ flowchart TB
     DB[("PostgreSQL<br/>accounts, sessions,<br/>who translates each language")]
     Q[("Redis Stream<br/>translate:jobs")]
     W["Translator workers (Go)<br/>1 worker = 1 language of 1 session"]
-    Files[("WAV files<br/>apps/translator/media")]
+    LK[("LiveKit<br/>source room,<br/>one output room per language")]
   end
 
   Gemini["Gemini Live Translate API"]
@@ -54,8 +54,10 @@ flowchart TB
   Q -- "each job to one idle worker" --> W
   W -- "claim, heartbeat, status" --> API
   W <-- "host audio / translated audio" --> Gemini
-  Files -- "host audio" --> W
-  W -- "translated audio" --> Files
+  Host -- "microphone" --> LK
+  LK -- "host audio" --> W
+  W -- "translated audio" --> LK
+  LK -- "their language" --> Listener
 ```
 
 ## Step by step
@@ -86,18 +88,18 @@ sequenceDiagram
   end
   W->>G: host audio
   G-->>W: translated audio
-  Note over W: the host audio comes from a WAV file and the<br/>translation goes to a WAV file
+  Note over W: the host audio comes from the LiveKit source room and the<br/>translation goes to the language's output room
   H->>A: end session
   A->>D: session and its tracks ended
-  W->>A: next heartbeat
-  A-->>W: 409 ended
+  Note over A,W: the API deletes the LiveKit rooms, which stops the worker at once<br/>(409 ended at its next heartbeat is the backstop)
   Note over W: stops, exits, a fresh worker takes its place
 ```
 
-Measured in Docker Compose with the real Gemini API: each language was claimed
-28 ms after **Go live** and live within half a second, translated speech came
-about 3 seconds after the first words, and after **End session** every worker
-stopped at its next heartbeat (within 5 seconds).
+Measured in Docker Compose with the real Gemini API and LiveKit: each language
+was claimed 28 ms after **Go live** and live 1 to 2 seconds after the claim,
+once its worker had joined both rooms. Translated speech came about 3 seconds
+after the first words, and after **End session** the workers stopped
+0.3 seconds later, when the API deleted the rooms.
 
 ### A listener joins
 
@@ -269,5 +271,5 @@ erDiagram
   workers always agree on them.
 - Redis holds only the job messages, never the owner of a track.
 - **Not stored in the database:** audio, captions or transcripts, listener
-  identities, and live state such as connections. The workers write the
-  translated audio to WAV files.
+  identities, and live state such as connections. Audio only passes through
+  LiveKit and isn't recorded.

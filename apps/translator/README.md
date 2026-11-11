@@ -29,10 +29,9 @@ docker compose --profile translator up -d --build
 docker compose logs -f api translator
 ```
 
-Put the host audio in `media/in/input.wav` first. Then create a session in the
-Studio (<http://localhost:3000/studio>) and press **Go live**: one idle worker
-takes each target language, and the translation appears in `media/out/`.
-**End session** stops them. The whole walk-through is in the Setup Guide
+Create a session in the Studio (<http://localhost:3000/studio>) and press
+**Go live**: one idle worker takes each target language. Turn the microphone on
+in the Studio and listen on the join page. **End session** stops them. The whole walk-through is in the Setup Guide
 (`docs/setup-guide.md`, "Run the translator workers").
 
 The workers call the API's internal endpoints at `CONTROL_API_URL`: the `api`
