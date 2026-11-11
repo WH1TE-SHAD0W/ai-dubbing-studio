@@ -46,14 +46,28 @@ The cluster can't take either from the internet directly:
 2. **A VM at AWS, Google Cloud or Azure.** Works the same way.
     - Cons: costs more for the same VM, and outgoing traffic is billed per GB.
       Media is most of our traffic.
-3. **Open ports on the LAN's router.**
+3. **A NanoPi at home, as the relay.** The same relay setup (WireGuard,
+   forwarding, Caddy) on a small ARM board on a team member's home
+   connection, with the router forwarding the ports to it.
+    - Pros: no monthly cost, since we own the hardware; WireGuard, nftables and
+      Caddy all run on ARM, so the same Ansible role would work.
+    - Cons: a home connection often has an address that changes, and LiveKit
+      gives browsers a fixed IP (`--node-ip`), so every change breaks media
+      until the config is updated; many home connections are behind
+      carrier-grade NAT and have no public IPv4 address at all; home upload
+      speed is usually much lower than download, and the relay sends every
+      listener's audio upstream; the ISP may block ports 80 and 443 or not
+      allow servers; calls would depend on one person's power, router and
+      internet, and on the board itself; and the home's address would be
+      public, with the home network one step from the internet.
+4. **Open ports on the LAN's router.**
     - Cons: not possible on the network the VMs are on, and it would tie
       LiveKit to one node's address again.
-4. **Media only over TCP, through something HTTP-based** (Cloudflare Tunnel,
+5. **Media only over TCP, through something HTTP-based** (Cloudflare Tunnel,
    Tailscale Funnel).
     - Cons: they carry HTTP(S) or TCP, not UDP, so WebRTC would fall back to
       TCP, with the delays above.
-5. **LiveKit Cloud.**
+6. **LiveKit Cloud.**
     - Cons: the media server leaves our deployment and becomes a paid service.
       ADR-0001 chose to run LiveKit ourselves.
 
