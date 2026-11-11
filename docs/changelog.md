@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Proposed ADR-0022: architecture tests, go-arch-lint for the worker and
+  dependency-cruiser for the API, run in CI on every pull request; lists which
+  rules each one checks and why (YGP-110).
 - CI/CD page: "What's enforced today" now matches the imported ruleset (pull
   request and one approval on `main` and `testing`; checks and `development`
   not enforced yet) (YGP-76).
