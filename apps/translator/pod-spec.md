@@ -390,6 +390,7 @@ packages/contracts/openapi/translator-control.yaml
     - Both workers joined both rooms inside Compose. Each track was live 1 to 2 s after the claim, and translated audio came 3 s after that.
     - A listener in the Slovak room got the `sk` track from the worker and heard 21 s of Slovak speech, two blocks matching the two times the host spoke.
     - Ending the session deleted the rooms, and both workers stopped 0.3 s later with `room_closed`. Fresh workers were ready about 1 s after that.
+    - From the browsers: the Studio sent a podcast as the host's input, and the listener page played the Dutch translation. A podcast playing in the same browser as the Studio came through silent, because the browser's echo cancellation removed it.
 
 ## 12. Acceptance criteria (this phase)
 
