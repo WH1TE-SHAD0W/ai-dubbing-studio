@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Translator workers join LiveKit (YGP-70): each one listens to the host's
+  microphone in the session's source room (hidden, listen-only) and publishes
+  its translation as one track named after the language in the output room,
+  with the tokens from the claim. A deleted room ends the track. The image now
+  builds with cgo on Debian, for libopus. Without LiveKit in the claim the
+  workers still use WAV files.
 - Branch protection: a second ruleset makes Typecheck, Test, Build and both
   image builds required on `testing`; the CI/CD page lists both rulesets and
   why `main` waits (YGP-76).

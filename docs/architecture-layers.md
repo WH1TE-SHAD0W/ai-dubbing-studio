@@ -273,10 +273,15 @@ flowchart TB
 - **Probes:** `/health` says its connections work (Redis while idle; the lease
   and Gemini while busy). `/ready` says it is idle and waiting for a job.
 - **Media:** host audio comes in and translated audio goes out through two
-  interfaces, implemented by a WAV adapter (`apps/translator/media/in` and
-  `out`).
-- **Size:** 5.5 MiB of memory idle, 10.7 MiB with a live track, in a 41 MB
-  image.
+  interfaces. The LiveKit adapter (`internal/livekit`) joins the source room
+  hidden and listen-only and publishes one track named after the language in
+  the output room, with the tokens from the claim. When the claim carries no
+  LiveKit access, a WAV adapter is used (`apps/translator/media/in` and
+  `out`). A deleted room ends the track; another participant joining with the
+  worker's identity stops it like a `409 not_owner`.
+- **Size:** 5.5 MiB of memory idle, 10.7 MiB with a live track (measured with
+  the WAV adapter). The image is about 188 MB unpacked, on Debian with libopus
+  and libsoxr for the LiveKit adapter.
 
 ### Worker lifecycle
 

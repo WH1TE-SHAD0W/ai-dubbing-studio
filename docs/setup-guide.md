@@ -4,9 +4,10 @@ How to run AI Dubbing Studio on your own machine while it is being rebuilt. So
 far there are the shared schemas, the app (the React PWA), the first part of
 the Hono API (it serves the app and handles host logins, with accounts in
 Postgres), sessions, and the translator workers, which translate each target
-language of a live session with Gemini. LiveKit is partly connected: the
-host's microphone and the listener page use it, but the workers don't join it
-yet (YGP-70), so they read and write WAV files instead of live audio. The plan is in the
+language of a live session with Gemini. LiveKit carries the audio: the host's
+microphone goes to the session's source room, each worker listens there and
+publishes its translation into its language's room, and the listener page
+plays that room (YGP-70). The plan is in the
 [Architecture](architecture.md) page and the [decision records](adr/index.md).
 
 ## What you need
@@ -99,8 +100,9 @@ The API waits for Postgres and Redis to be healthy, brings its tables up to
 date (see [Database migrations](#database-migrations)), then serves the app.
 You can register a host, log in, create a session and take it live or end it,
 and look it up by its code. A listener can join with the code and press
-**Start listening**: the page connects to that language's LiveKit room, but
-stays silent until the workers join LiveKit (YGP-70).
+**Start listening**: the page connects to that language's LiveKit room, where
+the translation plays once the translator workers run (see
+[Run the translator workers](#run-the-translator-workers)).
 
 ```bash
 docker compose ps            # all should show (healthy)
@@ -112,8 +114,11 @@ docker compose logs -f api   # requests and start-up messages
 The workers translate one target language of one session each
 ([ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)).
 They are opt-in, because they need a Gemini key, and start with the
-`translator` profile. Until LiveKit is connected, a worker reads the host's
-audio from a WAV file and writes the translation to another one.
+`translator` profile. When the API has LiveKit configured, as in Compose, a
+worker gets LiveKit tokens with its track: it listens to the host's microphone
+in the source room and publishes the translation into its language's room.
+Without LiveKit it reads the host's audio from a WAV file and writes the
+translation to another one, which the steps below use.
 
 1. Put a speech recording in `apps/translator/media/in/input.wav` (PCM16, mono,
    16 kHz; a file named after the language, such as `sk.wav`, is used for that
