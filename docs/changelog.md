@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Branch protection: a second ruleset makes Typecheck, Test, Build and both
+  image builds required on `testing`; the CI/CD page lists both rulesets and
+  why `main` waits (YGP-76).
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
 - Studio: once the session is live, the host's microphone is sent to the
@@ -70,6 +73,9 @@
   the `api` container. Tested against a real LiveKit, also in CI (YGP-69).
 - Code checks on every pull request: typecheck, tests with a Postgres
   database, and build (YGP-75).
+- CI/CD page: "What's enforced today" now matches the imported ruleset (pull
+  request and one approval on `main` and `testing`; checks and `development`
+  not enforced yet) (YGP-76).
 - Proposed ADR-0021: how we deploy. Argo CD on K3s, syncing from a separate
   deploy repository, with Docker Compose as the fallback if the cluster isn't
   ready by 11 November (YGP-80).
