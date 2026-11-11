@@ -12,7 +12,8 @@
     "tracks": "node --env-file-if-exists=../../.env src/cli/tracks.ts",
     "build": "esbuild src/server.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/server.mjs --external:pg-native --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "arch": "depcruise src --config .dependency-cruiser.cjs"
   },
   "dependencies": {
     "@ads/contracts": "workspace:*",
@@ -26,8 +27,10 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@swc/core": "^1.16.21",
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
+    "dependency-cruiser": "^18.7.2",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
