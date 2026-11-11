@@ -9,7 +9,7 @@ your machine is in the [Setup Guide](setup-guide.md#run-the-translator-workers).
 | Container | Built from | What it does | Port |
 |---|---|---|---|
 | `redis` | `redis:8-alpine` | The translation job stream ([ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md)), with its append-only file on the `redis-data` volume | 6379, published on `127.0.0.1` only |
-| `translator` (profile `translator`) | `apps/translator/Dockerfile` (Go, distroless) | The translator workers: each translates one language of one session with Gemini, then restarts fresh ([ADR-0019](adr/0019-translation-worker-runtime.md)). `TRANSLATOR_REPLICAS` of them, 2 by default. | none; `/health` and `/ready` on 8080 inside |
+| `translator` (profile `translator`) | `apps/translator/Dockerfile` (Go, Debian slim) | The translator workers: each translates one language of one session with Gemini, then restarts fresh ([ADR-0019](adr/0019-translation-worker-runtime.md)). `TRANSLATOR_REPLICAS` of them, 2 by default. | none; `/health` and `/ready` on 8080 inside |
 
 - The API starts once Postgres and Redis are healthy.
 - The translator workers start only with `--profile translator`. They get only
@@ -54,10 +54,11 @@ have defaults that need no change; they are listed in `apps/api/README.md` and
 docker build -t ai-dubbing-studio-translator apps/translator
 ```
 
-1. **Build**: compiles the Go worker into one static program.
-2. **Runtime**: `gcr.io/distroless/static-debian12:nonroot`, with only that
-   program: no shell, no package manager, about 41 MB. That is why the health
-   check is the program itself (`/translator -healthcheck`).
+1. **Build**: compiles the Go worker with cgo and the `livekit` build tag,
+   because the LiveKit audio needs libopus (Opus) and libsoxr (resampling).
+2. **Runtime**: `debian:bookworm-slim` with the program and those two
+   libraries, running as user 65532, about 188 MB. The health check is the
+   program itself (`/translator -healthcheck`), so the image needs no curl.
 
 In Docker Compose the worker's filesystem is read-only, apart from `/tmp` and
 the media folder, and it gets 15 seconds after `SIGTERM` to give its track back.
@@ -84,6 +85,7 @@ docker compose logs -f api translator
   it is lost, the API sends the jobs again from Postgres.
 - **Gemini cost:** each language of a live session is one paid Gemini stream,
   from **Go live** until the session ends, and at most 240 minutes per worker.
-- **Audio files:** the workers read the host's audio from
-  `apps/translator/media/in` and write the translations to
+- **Audio:** the workers hear the host and publish the translations through
+  LiveKit. Only when the API has no LiveKit settings do they read the host's
+  audio from `apps/translator/media/in` and write the translations to
   `apps/translator/media/out`.
