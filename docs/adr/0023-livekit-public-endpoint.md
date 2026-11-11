@@ -197,7 +197,9 @@ Ubuntu 26.04 container, and a third container as the browser:
 ### Bad / trade-offs
 
 - **The relay is a single point of failure** for every call, and one more VM
-  to patch and pay for.
+  to patch and pay for. This is accepted for the prototype: once the platform
+  is released, the plan is to move all of it to a public cloud for higher
+  availability (see follow-up work).
 - **Calls drop and rejoin when the pod moves**, because a call's media lives in
   one LiveKit process.
 - **LiveKit sees every browser as `10.8.0.1`**, so its logs don't show
@@ -217,3 +219,8 @@ Ubuntu 26.04 container, and a third container as the browser:
   certificates (YGP-109).
 - Decide whether the translation workers should reach LiveKit inside the
   cluster instead of through the relay.
+- **After the release, move the whole platform to a public cloud** to make it
+  more highly available: the cluster and LiveKit would then have public
+  addresses of their own, so the relay, and with it this single point of
+  failure, would no longer be needed. That move gets its own ADR, which
+  supersedes this one.
