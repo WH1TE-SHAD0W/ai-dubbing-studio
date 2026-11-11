@@ -122,7 +122,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      # WAV adapter while LiveKit is out of scope: input in media/in, output in media/out.
+      # WAV adapter, used when the API has no LiveKit configured: input in
+      # media/in, output in media/out.
       - ./apps/translator/media:/media
     read_only: true
     tmpfs:
