@@ -23,6 +23,7 @@ import (
 	"github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/httpserver"
 	"github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/jobs"
 	"github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/lifecycle"
+	"github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/livekit"
 	"github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/media"
 	"github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/runner"
 )
@@ -136,14 +137,22 @@ func run(shutdown context.Context, cfg config.Config, log *slog.Logger, conn gem
 		Control: ctl,
 		Queue:   q,
 		Gemini:  conn,
-		NewSource: func(j *jobs.Job) (media.Source, error) {
+		// LiveKit when the claim carries access to it (ADR-0020), else WAV
+		// files, so the job path runs locally without LiveKit.
+		NewSource: func(j *jobs.Job, c control.Claim) (media.Source, error) {
+			if lk := c.Livekit; lk != nil {
+				return livekit.NewSource(lk.Url, lk.SourceToken, log.With("room", "source"))
+			}
 			p, err := media.InputPath(cfg.MediaDir, j.Language)
 			if err != nil {
 				return nil, err
 			}
 			return media.NewWAVSource(p)
 		},
-		NewSink: func(j *jobs.Job) (media.Sink, error) {
+		NewSink: func(j *jobs.Job, c control.Claim) (media.Sink, error) {
+			if lk := c.Livekit; lk != nil {
+				return livekit.NewSink(lk.Url, lk.OutputToken, string(j.Language), cfg.OutBufferMax, log.With("room", "output"))
+			}
 			return media.NewWAVSink(media.OutputPath(cfg.MediaDir, j.SessionId, j.Language, cfg.WorkerID), cfg.OutBufferMax)
 		},
 		Log: log,

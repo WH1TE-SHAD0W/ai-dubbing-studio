@@ -1,7 +1,7 @@
 # Input audio for the WAV adapter
 
-While LiveKit is not wired in, a worker reads the host's audio from a WAV file
-here instead: `<language>.wav` if it exists (for example `sk.wav`), otherwise
+When the API has no LiveKit settings, a worker reads the host's audio from a
+WAV file here instead of the source room: `<language>.wav` if it exists (for example `sk.wav`), otherwise
 `input.wav`. The file must be PCM16, mono, 16 kHz. It is streamed in real time,
 followed by silence until the session ends.
 

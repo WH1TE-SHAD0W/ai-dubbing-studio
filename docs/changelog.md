@@ -5,6 +5,15 @@
 - CI's Test job measures test coverage for each TypeScript package and shows
   it on the run's summary page; `pnpm test:coverage` and
   `pnpm coverage:summary` do the same locally. Reported, not enforced (YGP-75).
+- Translator workers with LiveKit, run end to end through Compose with real
+  Gemini: host speech in the source room came out as Slovak speech in the
+  `sk` room, and ending the session stopped the workers 0.3 s later (YGP-70).
+- Translator workers join LiveKit (YGP-70): each one listens to the host's
+  microphone in the session's source room (hidden, listen-only) and publishes
+  its translation as one track named after the language in the output room,
+  with the tokens from the claim. A deleted room ends the track. The image now
+  builds with cgo on Debian, for libopus. Without LiveKit in the claim the
+  workers still use WAV files.
 - Branch protection: a second ruleset makes Typecheck, Test, Build and both
   image builds required on `testing`; the CI/CD page lists both rulesets and
   why `main` waits (YGP-76).
@@ -20,6 +29,10 @@
 - Architecture: the host's microphone and the listener page use LiveKit now;
   only the workers don't yet (YGP-70). The token section says which routes
   hand the tokens out.
+- ADR-0021: how a new image reaches the cluster, four options compared;
+  decided: Argo CD Image Updater on the floating `testing` tag for the test
+  environment, and a reviewed pull request pinning the commit SHA for
+  production. The K3s cut-off moves to 12 November (YGP-82).
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
 - Studio: once the session is live, the host's microphone is sent to the

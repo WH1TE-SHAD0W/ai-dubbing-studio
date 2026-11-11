@@ -63,7 +63,7 @@ answers the session as `sessionSchema` in `packages/contracts` describes it.
 | `POST /api/sessions` | `{title, sourceLang, targetLangs[], provider, consent: {speaker: true, aiNotice: true}}` → `201` session | A draft, with a new 6-character join code (no 0/O or 1/I). |
 | `GET /api/sessions/:id` | → session | |
 | `POST /api/sessions/:id/start` | → session | Draft → live. With LiveKit configured, creates the session's source room and one output room per target language first. Then opens one translation track per target language, and an idle translator worker takes each one within a second. |
-| `POST /api/sessions/:id/end` | → session | Draft or live → ended. Ends its tracks: each worker stops at its next heartbeat, within 5 seconds. With LiveKit configured, then deletes the session's rooms, which disconnects the listeners. |
+| `POST /api/sessions/:id/end` | → session | Draft or live → ended. Ends its tracks: each worker stops at its next heartbeat, within 5 seconds. With LiveKit configured, then deletes the session's rooms, which disconnects the listeners and stops the workers at once. |
 | `POST /api/sessions/:id/token` | → `{serverUrl, token}` | The host's mic token for a live session: it can only publish, in the session's source room, valid for 10 minutes to connect. The identity is the host's own, so a second device takes over from the first. `409` "This session isn't live." for a draft or ended session; `501` without LiveKit. |
 
 - Without a login they answer `401`. A session of another host is `404`, the
