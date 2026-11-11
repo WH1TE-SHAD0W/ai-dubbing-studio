@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Branch protection: a second ruleset makes Typecheck, Test, Build and both
+  image builds required on `testing`; the CI/CD page lists both rulesets and
+  why `main` waits (YGP-76).
+- Setup Guide, checked from a fresh clone: says which `.env` values to replace
+  before the first start, and that listening connects to LiveKit but stays
+  silent until the workers join it (YGP-73).
+- Deployment page: a release step by step with where to see each step, three
+  ways to roll back on K3s, checks for a K3s deploy, and a rollback drill to
+  fill in once Argo CD runs (YGP-83).
+- Deployment page renamed "Deployment and runbook"; its Components and
+  containers tables now list Redis, LiveKit and the translation workers as
+  built (YGP-83).
+- Architecture: the host's microphone and the listener page use LiveKit now;
+  only the workers don't yet (YGP-70). The token section says which routes
+  hand the tokens out.
 - ADR-0021: how a new image reaches the cluster, four options compared;
   proposed: Argo CD Image Updater, which needs no token and no approval per
   release (YGP-82).
@@ -73,6 +88,9 @@
   the `api` container. Tested against a real LiveKit, also in CI (YGP-69).
 - Code checks on every pull request: typecheck, tests with a Postgres
   database, and build (YGP-75).
+- CI/CD page: "What's enforced today" now matches the imported ruleset (pull
+  request and one approval on `main` and `testing`; checks and `development`
+  not enforced yet) (YGP-76).
 - Proposed ADR-0021: how we deploy. Argo CD on K3s, syncing from a separate
   deploy repository, with Docker Compose as the fallback if the cluster isn't
   ready by 11 November (YGP-80).
