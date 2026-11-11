@@ -225,6 +225,13 @@ func (r *Runner) work(shutdown context.Context, job *jobs.Job, claim control.Cla
 	box := &causeBox{off: off}
 	stopOnShutdown := context.AfterFunc(shutdown, func() { box.set(causeSigterm) })
 	defer stopOnShutdown()
+	// SIGTERM came during the claim: give the track back before starting
+	// anything. AfterFunc runs in its own goroutine, so without this check
+	// Gemini could connect and report the track live first.
+	if shutdown.Err() != nil {
+		box.set(causeSigterm)
+		return r.teardown(job, box, nil, nil, nil, log)
+	}
 
 	src, err := r.d.NewSource(job)
 	if err != nil {
