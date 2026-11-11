@@ -32,6 +32,29 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
 
+  # Which code may import which, in the worker and the API (YGP-110).
+  architecture:
+    name: Architecture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The Go version comes from go.mod, so CI and the Dockerfile match.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/translator/go.mod
+          cache-dependency-path: apps/translator/go.sum
+      - name: Worker rules (go-arch-lint)
+        working-directory: apps/translator
+        run: go run github.com/fe3dback/go-arch-lint@v1.19.1 check
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: API rules (dependency-cruiser)
+        run: pnpm --filter @ads/api arch
+
   test:
     name: Test
     runs-on: ubuntu-latest

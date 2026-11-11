@@ -16,6 +16,7 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           { "context": "Typecheck", "integration_id": 15368 },
+          { "context": "Architecture", "integration_id": 15368 },
           { "context": "Test", "integration_id": 15368 },
           { "context": "Build", "integration_id": 15368 },
           { "context": "API image", "integration_id": 15368 },
