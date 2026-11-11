@@ -1,0 +1,28 @@
+{
+  "name": "Require checks on testing",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/testing"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          { "context": "Typecheck", "integration_id": 15368 },
+          { "context": "Test", "integration_id": 15368 },
+          { "context": "Build", "integration_id": 15368 },
+          { "context": "API image", "integration_id": 15368 },
+          { "context": "Worker image", "integration_id": 15368 }
+        ]
+      }
+    }
+  ],
+  "bypass_actors": []
+}
