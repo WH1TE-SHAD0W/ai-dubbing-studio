@@ -218,7 +218,9 @@ func TestSourceForwardsHostFramesAndHoldsSilence(t *testing.T) {
 	defer cancel()
 	var mu sync.Mutex
 	var loud, quiet int
+	spoke := make(chan struct{})
 	go func() {
+		defer close(spoke)
 		// The host speaks after a pause: 10 ms decoded chunks.
 		time.Sleep(60 * time.Millisecond)
 		chunk := make(msdk.PCM16Sample, 160)
@@ -227,7 +229,7 @@ func TestSourceForwardsHostFramesAndHoldsSilence(t *testing.T) {
 		}
 		for range 40 {
 			s.write(chunk)
-			time.Sleep(4 * time.Millisecond)
+			time.Sleep(time.Millisecond)
 		}
 	}()
 	_ = s.Run(ctx, func(f []byte) {
@@ -239,6 +241,9 @@ func TestSourceForwardsHostFramesAndHoldsSilence(t *testing.T) {
 			loud++
 		}
 	})
+	<-spoke
+	mu.Lock()
+	defer mu.Unlock()
 	if loud != 20 {
 		t.Fatalf("host frames = %d, want 20 (40 chunks of 10 ms)", loud)
 	}
