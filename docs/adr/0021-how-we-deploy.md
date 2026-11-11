@@ -67,10 +67,12 @@ Where the manifests live:
   (`externalTrafficPolicy: Local`), so the API's login rate limits work
   (ADR-0003).
 - **Fallback (option 4):** if K3s with Argo CD isn't syncing the test
-  environment by **Wednesday 11 November**, the prototype is demonstrated with
-  Docker Compose instead (YGP-84), and this ADR is updated.
+  environment by **Thursday 12 November** (moved from Wednesday 11 November,
+  since the cluster and Argo CD are up and only reviews are left), the
+  prototype is demonstrated with Docker Compose instead (YGP-84), and this ADR
+  is updated.
 
-### How a new image reaches the cluster (proposed, YGP-82)
+### How a new image reaches the cluster (YGP-82)
 
 The overlays use moving tags (`testing`, `prod`), so a new image doesn't
 change the manifests and Argo CD doesn't notice it. Two facts narrow the
@@ -90,25 +92,41 @@ choice:
 | C. **The app's CI pins the commit SHA** | After pushing an image, the Images workflow opens a pull request in the deploy repository with the new SHA | Exact, and reviewed | A token for the deploy repository in the app's CI, and a manual approval for every release |
 | D. **Restart by hand** | `kubectl -n ads-test rollout restart deploy/api` (the overlays always pull the image) | Nothing to install | Not automatic, so it doesn't meet YGP-82 |
 
-**Proposed: A** for the prototype, with D as the fallback until it's set up.
-It's the only option that is automatic without a token or a manual approval
-per release.
+**Decided (Marek and Jamie, 11 November): A for the test environment, C for
+production.** D is the fallback for either until it's set up.
+
+- **Test environment (`testing` → `ads-test`): A.** It follows the floating
+  `testing` tag: every merge into `testing` reaches the cluster within minutes,
+  with no token and no approval. That suits an environment whose job is to try
+  each change.
+- **Production (`main` → `ads-prod`): C.** After the `prod` image is pushed,
+  the Images workflow opens a pull request in the deploy repository that pins
+  the production overlay to that commit's SHA. Production only changes when
+  someone approves that pull request, so every release is reviewed and the
+  deploy repository's history shows exactly which commit ran when. The cost is
+  a token in the app's CI that can only open pull requests in the deploy
+  repository.
 
 What it changes for rolling back (see the
 [Deployment page](../deployment.md#roll-back)):
 
-- **Reverting in Git** (in this repository) still works as before: the revert
-  builds a new `testing` image, and Image Updater rolls the cluster onto it.
-- **Pinning a known-good image in the deploy repository** only takes effect
-  once Image Updater is paused for that application, because its digest wins
-  over the tag in Git. Pause it, pin, and turn it back on after the fix.
+- **Test environment:** reverting in Git (in this repository) still works: the
+  revert builds a new `testing` image, and Image Updater rolls the cluster onto
+  it. Pinning a known-good image in the deploy repository only takes effect
+  once Image Updater is paused for `ads-test`, because its digest wins over the
+  tag in Git. Pause it, pin, and turn it back on after the fix.
+- **Production:** revert the release's pull request in the deploy repository,
+  or open one that pins an earlier SHA. Argo CD syncs it like any other change.
 
 ### Follow-up work
 
 - YGP-82: Argo CD is installed and both applications are written (deploy
-  repository #5). Left: agree on option A above, install Image Updater, then
-  mark this ADR accepted.
+  repository #5). Left: install Image Updater for `ads-test` only (option A),
+  then mark this ADR accepted.
+- Production releases (option C): a token for the deploy repository in the
+  app's CI, and a step in the Images workflow that opens the pinning pull
+  request after a push to `main`. Needed before the first production release.
 - YGP-81: add Redis and the translation worker pool to the manifests, with the
   translation workers (ADR-0018).
 - YGP-83: try a rollback on the test environment.
-- YGP-84: the Compose fallback, only if the 11 November cut-off is missed.
+- YGP-84: the Compose fallback, only if the 12 November cut-off is missed.

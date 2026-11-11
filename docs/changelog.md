@@ -18,8 +18,9 @@
   only the workers don't yet (YGP-70). The token section says which routes
   hand the tokens out.
 - ADR-0021: how a new image reaches the cluster, four options compared;
-  proposed: Argo CD Image Updater, which needs no token and no approval per
-  release (YGP-82).
+  decided: Argo CD Image Updater on the floating `testing` tag for the test
+  environment, and a reviewed pull request pinning the commit SHA for
+  production. The K3s cut-off moves to 12 November (YGP-82).
 - The translation worker's image is built on every pull request and pushed to
   Docker Hub after a merge, next to the API's (YGP-52).
 - Studio: once the session is live, the host's microphone is sent to the
