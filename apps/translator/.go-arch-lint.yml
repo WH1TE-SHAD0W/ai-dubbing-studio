@@ -1,0 +1,66 @@
+# Architecture rules for the translator worker (YGP-110), checked by go-arch-lint.
+# Run from apps/translator:
+#   go run github.com/fe3dback/go-arch-lint@v1.19.1 check
+#
+# Every package lists what it may import. The standard library is always allowed.
+# Each provider SDK (vendor) is allowed in one package only, so the rest of the
+# worker uses our own interfaces and a provider can be swapped in one place.
+version: 3
+workdir: .
+allow:
+  depOnAnyVendor: false
+  # Check imports only. Deep scan also checks which types are passed into a
+  # package, and flags cmd handing its own types to the packages it wires.
+  deepScan: false
+  # internal/livekit arrives with YGP-70; until then it isn't there.
+  ignoreNotFoundComponents: true
+
+# Tests may use the fakes and test-only libraries; the rules cover the real code.
+excludeFiles:
+  - "^.*_test\.go$"
+
+components:
+  main:       { in: cmd/** }
+  audio:      { in: internal/audio }
+  config:     { in: internal/config }
+  control:    { in: internal/control }
+  controlapi: { in: internal/control/api }
+  fakes:      { in: internal/fakes/** }
+  gemini:     { in: internal/gemini }
+  httpserver: { in: internal/httpserver }
+  jobs:       { in: internal/jobs }
+  lifecycle:  { in: internal/lifecycle }
+  livekit:    { in: internal/livekit }
+  media:      { in: internal/media }
+  runner:     { in: internal/runner }
+
+vendors:
+  genai:   { in: google.golang.org/genai }
+  livekit: { in: [github.com/livekit/**, github.com/pion/**] }
+  redis:   { in: github.com/redis/go-redis/** }
+  errgroup: { in: golang.org/x/sync/errgroup }
+
+deps:
+  # cmd only wires the packages together; it never touches an SDK itself.
+  main:
+    mayDependOn: [audio, config, control, controlapi, gemini, httpserver, jobs, lifecycle, livekit, media, runner]
+  control:
+    mayDependOn: [controlapi]
+  # Test doubles for the interfaces; nothing outside tests imports them.
+  fakes:
+    mayDependOn: [audio, control, controlapi, gemini]
+  gemini:
+    mayDependOn: [audio]
+    canUse: [genai]
+  jobs:
+    mayDependOn: [controlapi]
+    canUse: [redis]
+  livekit:
+    mayDependOn: [audio, media]
+    canUse: [livekit]
+  media:
+    mayDependOn: [audio]
+  # The runner uses the gemini, livekit and media interfaces, never the SDKs.
+  runner:
+    mayDependOn: [audio, control, controlapi, gemini, jobs, livekit, media]
+    canUse: [errgroup]
