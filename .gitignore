@@ -4,3 +4,8 @@ dist/
 dev-dist/
 .idea/
 site/
+
+# Translator worker: audio in and out of the WAV adapter, probe output.
+apps/translator/media/**/*.wav
+apps/translator/probe-out-*.wav
+apps/translator/test-speech.wav

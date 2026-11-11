@@ -1,0 +1,87 @@
+# ADR-0019 spike: Redis, the two workers, and (profile "live") LiveKit and the tools for
+# the live-track scenario, which uses the real Gemini Live API. Start one worker at a time
+# (measure.mjs does this) so they don't share the machine while being measured.
+#
+#   docker compose -f benchmarks/runtime-test/docker-compose.yml --profile go --profile node --profile live build
+#   node benchmarks/runtime-test/measure.mjs --runtime go [--scenario live]
+name: ads-runtime-test
+
+services:
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  # No memory tuning on either worker (no GOMEMLIMIT, no Node heap flags), so each
+  # shows the footprint it has by default.
+  worker-go:
+    profiles: [go]
+    build: ./worker-go
+    image: ads-spike-worker-go
+    container_name: spike-worker-go
+    environment:
+      POD_NAME: spike-worker-go
+      REDIS_URL: redis://redis:6379
+      # Live scenario only: measure.mjs takes these two from the repo-root .env.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      # Empty = Go's default (the CPU count, or the cgroup CPU limit if there is one).
+      # measure.mjs --gomaxprocs N sets it.
+      GOMAXPROCS: ${GOMAXPROCS:-}
+    ports:
+      - "127.0.0.1:18081:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-node:
+    profiles: [node]
+    build: ./worker-node
+    image: ads-spike-worker-node
+    container_name: spike-worker-node
+    environment:
+      POD_NAME: spike-worker-node
+      REDIS_URL: redis://redis:6379
+      # Live scenario only, as for worker-go.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+    ports:
+      - "127.0.0.1:18082:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ---- live-track scenario (profile "live"); none of these is measured ----
+
+  livekit:
+    profiles: [live]
+    image: livekit/livekit-server:latest
+    # --dev: API key devkey / secret, one UDP port (7882) for media, rooms created on join.
+    command: ["--dev", "--bind", "0.0.0.0"]
+
+  # Publishes the "host microphone" into src-spike. Builds the image the other tools share.
+  host:
+    profiles: [live]
+    build: ./harness
+    image: ads-spike-harness
+    command: ["node", "host.ts"]
+    # The speech recording it loops: harness/make-speech-wav.ps1 writes audio/speech.wav.
+    volumes:
+      - ./harness/audio:/app/audio:ro
+    depends_on: [livekit]
+
+  # Subscribes to the dubbed track in out-spike-sk-0 and logs whether audio arrives.
+  listener:
+    profiles: [live]
+    image: ads-spike-harness
+    command: ["node", "listener.ts"]
+    depends_on: [livekit]
+
+  # One-off commands: docker compose run --rm tools node dispatch.ts start|end
+  tools:
+    profiles: [live]
+    image: ads-spike-harness
+    command: ["node", "dispatch.ts"]
