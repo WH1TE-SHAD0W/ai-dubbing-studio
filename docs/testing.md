@@ -97,6 +97,47 @@ The integration tests run the whole worker against a real Redis, with a fake
 API and a fake Gemini: one job from the stream to exit, a rejected claim that
 keeps waiting, and SIGTERM giving the track back.
 
+### Architecture rules
+
+Two checks make sure code only imports what its layer may (YGP-110). Each
+provider SDK is imported in one place only, so the rest of the code uses our own
+interfaces, and a provider can be swapped in one place.
+
+```bash
+cd apps/translator && go run github.com/fe3dback/go-arch-lint@v1.19.1 check   # worker
+pnpm --filter @ads/api arch                                                    # API
+```
+
+**Worker** ([go-arch-lint](https://github.com/fe3dback/go-arch-lint), rules in
+`apps/translator/.go-arch-lint.yml`). Every package lists the packages and
+libraries it may import; the standard library is always allowed.
+
+- Only `internal/gemini` imports the Gemini SDK, only `internal/livekit` the
+  LiveKit SDK, and only `internal/jobs` Redis.
+- `runner` uses the `gemini`, `livekit` and `media` interfaces, never the SDKs.
+- `cmd` only wires the packages together and imports no SDK.
+- Nothing imports `cmd`, and only tests import `internal/fakes`: test files
+  aren't checked, everything else is.
+
+**API** ([dependency-cruiser](https://github.com/sverweij/dependency-cruiser),
+rules in `apps/api/.dependency-cruiser.cjs`):
+
+- Only `src/livekit` imports `livekit-server-sdk`, and only `src/queue` imports
+  `ioredis`.
+- Routes call the session and track services, never `pg`, `db.ts` or a repo.
+- Only `app.ts` imports the routes.
+- No import cycles.
+
+A broken rule fails the check and names the file and the import, for example:
+
+```text
+Component runner shouldn't depend on google.golang.org/genai in internal/runner/bad.go:5
+error livekit-sdk-only-in-livekit: src/routes/bad.ts → ../../node_modules/.pnpm/livekit-server-sdk@2.19.2/node_modules/livekit-server-sdk/dist/index.js
+```
+
+TypeScript 7 has no compiler API yet, so dependency-cruiser reads the files
+with swc (`@swc/core`).
+
 ### Contract drift
 
 The OpenAPI document `packages/contracts/openapi/translator-control.yaml` is the

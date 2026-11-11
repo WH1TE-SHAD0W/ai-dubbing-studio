@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Architecture rules: go-arch-lint for the worker and dependency-cruiser for
+  the API check which code may import which, and keep each provider SDK in one
+  package. A new CI job, Architecture, runs both and is added to the required
+  checks on `testing` (YGP-110).
 - Branch protection: a second ruleset makes Typecheck, Test, Build and both
   image builds required on `testing`; the CI/CD page lists both rulesets and
   why `main` waits (YGP-76).

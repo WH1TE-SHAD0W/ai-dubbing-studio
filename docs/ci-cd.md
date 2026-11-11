@@ -174,7 +174,7 @@ Rulesets → New ruleset → Import a ruleset**.
 | Ruleset | Branches | Rules | Status |
 |---|---|---|---|
 | **Protect main and testing** (`protect-main-and-testing.json`) | `main`, `testing` | A pull request with **one approval** from someone other than its author; a new push clears an earlier approval; merge commits only; no deleting or force-pushing; nobody can skip the rules, admins included | Active |
-| **Require checks on testing** (`require-checks-testing.json`) | `testing` | Typecheck, Test, Build, API image and Worker image must pass | To import |
+| **Require checks on testing** (`require-checks-testing.json`) | `testing` | Typecheck, Architecture, Test, Build, API image and Worker image must pass | To import |
 | Required checks on `main` | `main` | The same checks | Later: once the workflows are on `main` (see below) |
 
 Nothing protects `development` or the feature branches: reviews there are a
@@ -209,6 +209,7 @@ path filter, so it runs on every pull request, including docs-only ones.
 | Job | What it runs | Fails when |
 |---|---|---|
 | Typecheck | `pnpm typecheck`: `tsc` in every package | A type error anywhere in the monorepo. |
+| Architecture | `go-arch-lint check` in `apps/translator`, then `pnpm --filter @ads/api arch` (YGP-110) | Code imports something its layer may not, for example a provider SDK outside its one package. See [Testing](testing.md#architecture-rules). |
 | Test | `pnpm test`: Vitest in every package, with a Postgres 18 service | A test fails. |
 | Build | `pnpm build`: every package that has a build script | A package doesn't build, for example a broken Vite or esbuild setup. |
 
