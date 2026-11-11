@@ -209,7 +209,7 @@ path filter, so it runs on every pull request, including docs-only ones.
 | Job | What it runs | Fails when |
 |---|---|---|
 | Typecheck | `pnpm typecheck`: `tsc` in every package | A type error anywhere in the monorepo. |
-| Test | `pnpm test`: Vitest in every package, with a Postgres 18 service | A test fails. |
+| Test | `pnpm test:coverage`: Vitest in every package, with Postgres 18 and LiveKit services, measuring [coverage](#test-coverage) | A test fails. |
 | Build | `pnpm build`: every package that has a build script | A package doesn't build, for example a broken Vite or esbuild setup. |
 
 Every job installs the same way:
@@ -230,6 +230,27 @@ It also starts a throwaway LiveKit (`livekit/livekit-server:v1.13.11`, as in
 Compose) and sets `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`, so
 the room tests run too. Its secret is made from the run's ID, so it is
 different every run and never written in the repository.
+
+### Test coverage
+
+The Test job measures how much of the TypeScript code the tests run (Vitest's
+V8 coverage, `@vitest/coverage-v8`) and adds a table to the run's summary page:
+lines, branches and functions for each package. Every file in a package's
+`src/` counts, including files no test touches.
+
+Coverage is **reported, not enforced**: no percentage fails the job. The Go
+worker's coverage isn't included.
+
+To see the same numbers locally:
+
+```bash
+pnpm test:coverage
+pnpm coverage:summary
+```
+
+Without a database and LiveKit (see [Running the checks locally](#running-the-checks-locally))
+most of the API's tests are skipped, so its local number is much lower than
+CI's.
 
 A new push to the same pull request cancels the run still going. The workflow
 can only read the repository.

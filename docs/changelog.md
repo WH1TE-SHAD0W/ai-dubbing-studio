@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- CI's Test job measures test coverage for each TypeScript package and shows
+  it on the run's summary page; `pnpm test:coverage` and
+  `pnpm coverage:summary` do the same locally. Reported, not enforced (YGP-75).
 - Branch protection: a second ruleset makes Typecheck, Test, Build and both
   image builds required on `testing`; the CI/CD page lists both rulesets and
   why `main` waits (YGP-76).

@@ -79,7 +79,11 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      # The tests, measuring coverage as they go. Coverage is reported, not
+      # enforced: no percentage fails the job.
+      - run: pnpm test:coverage
+      - name: Coverage summary
+        run: pnpm coverage:summary >> "$GITHUB_STEP_SUMMARY"
 
   build:
     name: Build
