@@ -135,8 +135,8 @@ took.
 
 The whole path, with the API, Redis, two workers and real Gemini, is in the
 [Setup Guide](setup-guide.md#run-the-translator-workers): create a session in
-the Studio, press **Go live**, watch the logs, listen to the WAVs in
-`apps/translator/media/out`, then press **End session**. To see a takeover, go
+the Studio, press **Go live**, turn the microphone on, listen on the join
+page, then press **End session**. To see a takeover, go
 live with one language (so the other worker is idle), then `docker stop` the
 busy worker (it gives the track back and the other worker has it live within a
 second) or `docker kill` it (the lease runs out and another worker takes over
@@ -163,7 +163,7 @@ The API's lines, in the order they should appear:
 | `tracks: <worker> released <track> (sigterm)` | The worker was stopped and gave the track back; another one takes it. |
 | `tracks: lease on <track> ran out` | The worker stopped sending heartbeats (it crashed); the track goes to another worker. |
 | `tracks: <worker> failed on <track>: …` | The worker gave up, with its reason; another worker tries, up to 3 times. |
-| `sessions: <id> ended (host_ended)` | **End session**; the workers stop at their next heartbeat. |
+| `sessions: <id> ended (host_ended)` | **End session**; the API deletes the LiveKit rooms and the workers stop at once. |
 
 A worker's lines (JSON, each with `workerId`, `trackId` and `language`):
 
@@ -171,12 +171,15 @@ A worker's lines (JSON, each with `workerId`, `trackId` and `language`):
 |---|---|
 | `worker starting`, then nothing | Idle and waiting for a job. That's normal. |
 | `track claimed` | It got a job and the API gave it the track. |
+| `joined the source room`, `joined the output room` | The worker is in the session's LiveKit rooms. If these never come, it can't reach LiveKit: check the `livekit` container. |
+| `receiving the host's audio`, `the host's audio stopped` | The host's microphone reached the worker, and when it stopped. If `receiving` never comes, the host isn't sending: the Studio's Microphone card should say **● Sending to the translators**. |
 | `claim rejected, job dropped` | Another worker already had the track, or it had ended. Normal after a takeover. |
 | `gemini: stream open`, `track live` | The Gemini stream is open. If `stream open` never comes, check `GEMINI_API_KEY` and `GEMINI_MODEL`. |
-| `gemini: first translated audio` | Gemini answered, normally about 3 seconds after the first words. If it never comes, check the input WAV in `apps/translator/media/in`, and that it isn't already in the target language. |
+| `gemini: first translated audio` | Gemini answered, normally about 3 seconds after the first words. If it never comes, check that the host's audio arrives (`receiving the host's audio`) and that it isn't already in the target language. |
 | `gemini: goAway`, `gemini: replacing stream`, `gemini: stream replaced` | Gemini asked for a new connection, about every 9 minutes; the worker moved to it without a gap. |
 | WARN `gemini: stream closed` | The stream failed; the worker reconnects after 0.5, 1.5 and 4 seconds, and gives up after 3 failures in a row. |
-| `session ended (heartbeat 409)`, `job finished` | The session ended, and the worker exited. A fresh one starts. |
+| `stopping job` with `room_closed`, `job finished` | The session ended and the API deleted its rooms; the worker exited. A fresh one starts. |
+| `session ended (heartbeat 409)`, `job finished` | The session ended and the worker learned it from its heartbeat (without LiveKit, or after missing the room deletion). |
 | WARN `fenced: another worker owns the track` | This worker lost the track (it was cut off too long); it stops without another call. |
 | WARN `reading the stream failed`, `redis not ready` | Redis is unreachable. An idle worker exits after 60 seconds of it, so Docker Compose restarts it. |
 

@@ -27,7 +27,7 @@ Settings are in `.env`; see the [Setup Guide](setup-guide.md#settings-env).
 | `postgres` | Built | Host accounts, logins, sessions and translation tracks, on the `postgres-data` volume | [ADR-0002](adr/0002-session-and-account-storage.md) |
 | `api` | Built | The Hono API: serves the built app, host logins (Better Auth), sessions, translation tracks, and LiveKit rooms and tokens | [ADR-0012](adr/0012-serving-pwa-bundle.md), [ADR-0015](adr/0015-auth-library.md) |
 | `redis` | Built | Hands translation jobs to the workers through a Redis Stream | [ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md) |
-| `livekit` | Built, partly connected | Carries the host's audio into a source room, and each language's translation out to listeners. The host's mic and the listener page use it; the workers don't join it yet (YGP-70) | [ADR-0001](adr/0001-audio-fan-out.md), [ADR-0013](adr/0013-sfu-client.md), [ADR-0020](adr/0020-input-audio-stream.md) |
+| `livekit` | Built | Carries the host's audio into a source room, and each language's translation out to listeners. The host's mic, the listener page and the translator workers use it (YGP-70) | [ADR-0001](adr/0001-audio-fan-out.md), [ADR-0013](adr/0013-sfu-client.md), [ADR-0020](adr/0020-input-audio-stream.md) |
 | `translator` | Built in Compose; on K3s planned | Go workers, each serving one track (one language of one session) through Gemini. Started only with the `translator` Compose profile | [ADR-0018](adr/0018-autoscaling-architecture-of-translation-container.md), [ADR-0019](adr/0019-translation-worker-runtime.md) |
 
 The proposed decision records are listed in the [ADR index](adr/index.md).
