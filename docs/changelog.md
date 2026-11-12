@@ -6,6 +6,12 @@
   archived Kubernetes Dashboard and its Kong gateway, on a LAN-only port
   reached through the Tailscale subnet router, with a read-only token
   (YGP-113).
+- Proposed ADR-0022: architecture tests, go-arch-lint for the worker and
+  dependency-cruiser for the API, run in CI on every pull request; lists which
+  rules each one checks and why (YGP-110).
+- Proposed ADR-0023: LiveKit's public address. A Hetzner VPS as the relay, a
+  WireGuard sidecar in the LiveKit pod, and Caddy for signaling, with the move
+  to a public cloud after release for higher availability (YGP-109).
 - CI/CD page: "What's enforced today" now matches the imported ruleset (pull
   request and one approval on `main` and `testing`; checks and `development`
   not enforced yet) (YGP-76).
