@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Proposed ADR-0024: Headlamp as the K3s cluster's dashboard, instead of the
+  archived Kubernetes Dashboard and its Kong gateway, on a LAN-only port
+  reached through the Tailscale subnet router, with a read-only token
+  (YGP-113).
 - Proposed ADR-0022: architecture tests, go-arch-lint for the worker and
   dependency-cruiser for the API, run in CI on every pull request; lists which
   rules each one checks and why (YGP-110).
