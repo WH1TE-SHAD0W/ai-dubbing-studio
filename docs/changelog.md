@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Proposed ADR-0024: Headlamp as the K3s cluster's dashboard, instead of the
+  archived Kubernetes Dashboard and its Kong gateway, reached only through
+  `kubectl port-forward` with a read-only token (YGP-113).
 - CI/CD page: "What's enforced today" now matches the imported ruleset (pull
   request and one approval on `main` and `testing`; checks and `development`
   not enforced yet) (YGP-76).
