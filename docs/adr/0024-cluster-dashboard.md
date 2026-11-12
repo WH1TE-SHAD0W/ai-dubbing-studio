@@ -20,6 +20,10 @@ What limits the choice:
 - **The Cloudflare Tunnel sends every host name to Traefik**
   (`cluster/cloudflared.yaml` in the deploy repository). Giving the dashboard
   an Ingress host with a DNS record at Cloudflare would make it public.
+- **We reach the LAN through a Tailscale subnet router.** It shares the VMs'
+  whole LAN (`10.108.152.0/21`) with the tailnet, so a team member on
+  Tailscale can open any node's LAN address directly, with no port-forward.
+  The nodes' firewall (ufw) only lets the LAN reach the cluster's own ports.
 - **The VMs are small and shared** with the app, LiveKit and the translation
   workers, so the dashboard should be light.
 - **It must still get security fixes**, since it can talk to the Kubernetes API.
@@ -28,6 +32,8 @@ What limits the choice:
   chart, nothing else to run or learn.
 
 ## Options considered
+
+### Which dashboard
 
 1. **Kubernetes Dashboard (v7, with Kong).** The UI that used to be the
    default for Kubernetes. Since 7.0.0 it installs only with Helm, as several
@@ -46,8 +52,8 @@ What limits the choice:
    recommended by SIG UI in place of the Dashboard. One Helm chart
    (`headlamp/headlamp`) with one container; no gateway needed.
     - Pros: maintained, with regular releases; one pod, so light on the VMs;
-      reached with `kubectl port-forward`, so no Ingress or public host name;
-      login with a service account token or OIDC, and every action goes
+      a plain Service, so it can be reached from the LAN without an Ingress
+      or a public host name; login with a service account token or OIDC, and every action goes
       through Kubernetes RBAC, so a read-only token only lets you look; shows
       CPU and memory from metrics-server, which K3s already runs; plugins,
       such as one for Flux, if we ever want more.
@@ -84,10 +90,40 @@ What limits the choice:
     - Cons: graphs metrics over time, but doesn't list or manage workloads.
       A different job from this one, and two more heavy services to run.
 
+### How we reach it
+
+1. **`kubectl port-forward`.** Nothing exposed at all.
+    - Cons: has to be started every time, needs `kubectl` and a kubeconfig,
+      and stops when the terminal closes.
+2. **A LAN-only port, through K3s's built-in load balancer (ServiceLB).** The
+   Headlamp Service is `type: LoadBalancer` on its own port, and K3s opens that
+   port on every node. Team members reach it through the subnet router.
+    - Pros: always on, no `kubectl` needed; works while a node is down (any
+      node answers); bypasses Traefik, so the Cloudflare Tunnel, which only
+      goes to Traefik, can never carry it; ufw lets only the LAN in; no DNS,
+      account or extra software.
+    - Cons: plain HTTP. Traffic is encrypted by Tailscale up to the subnet
+      router, but crosses the LAN unencrypted, token included.
+3. **A Traefik Ingress with a LAN-only name** (such as `headlamp.ads.lan`) and
+   an IP allow-list.
+    - Cons: shares Traefik with the public sites, so its safety rests on the
+      allow-list and on no one ever routing that name through the tunnel; no
+      certificate for a `.lan` name either.
+4. **A public host name through the Cloudflare Tunnel, behind Cloudflare
+   Access** (a Cloudflare login in front of the page).
+    - Pros: reachable from any browser, without Tailscale.
+    - Cons: the access rule lives in the Cloudflare dashboard, not in Git; one
+      mistake in it makes the dashboard public. Nobody needs it from outside
+      the tailnet today.
+5. **Tailscale's Kubernetes operator**, which makes Headlamp its own tailnet
+   device with an HTTPS name.
+    - Cons: one more operator and an OAuth secret, for what the subnet router
+      already gives us.
+
 ## Decision
 
-**Headlamp, installed in the cluster with its Helm chart, reached only through
-`kubectl port-forward`.**
+**Headlamp, installed in the cluster with its Helm chart, on a LAN-only port
+through K3s's ServiceLB, reached through the Tailscale subnet router.**
 
 - **Why not the Kubernetes Dashboard:** it's archived and gets no security
   fixes, and its Kong gateway adds a second proxy we don't need. Headlamp is
@@ -97,10 +133,13 @@ What limits the choice:
   `https://kubernetes-sigs.github.io/headlamp/`, with the chart version and
   image tag pinned (not `latest`), applied once per cluster like the rest of
   `cluster/` in the deploy repository.
-- **Access:** no Ingress and no DNS record, so the dashboard isn't public. A
-  team member with a kubeconfig, over Tailscale, runs
-  `kubectl port-forward -n kube-system service/headlamp 8080:80` and opens
-  `http://localhost:8080`.
+- **Access:** the Headlamp Service is `type: LoadBalancer` on port 4466, so
+  ServiceLB opens 4466 on every node. A team member on Tailscale opens
+  `http://headlamp.ads.lan:4466`, where `headlamp.ads.lan` resolves to the
+  nodes' LAN addresses, the same way as `k3s.ads.lan`. Port 4466 is opened in
+  ufw to the LAN (`k3s_lan_cidr`) only, not added to the public ports. There
+  is no Ingress and no DNS record at Cloudflare, so the dashboard isn't public.
+  `kubectl port-forward` still works for anyone who prefers it.
 - **Login:** a token from a ServiceAccount bound to the built-in `view`
   ClusterRole, made with `kubectl create token`, so it expires. `view` can't
   read Secrets or change anything. Changes still go through Git and Argo CD.
@@ -111,15 +150,21 @@ What limits the choice:
 ### Good
 
 - The team can see workloads, logs and resource use in every namespace from a
-  browser.
-- Nothing new is public, and the default login is read-only.
+  browser, at a fixed address, with no command to run first.
+- Nothing new is public: only the LAN, and through it the tailnet, can reach
+  it, and the default login is read-only.
 - One small pod and one chart, with no gateway beside Traefik.
 - Uses a project that still gets security fixes.
 
 ### Bad / trade-offs
 
-- **It still needs `kubectl` and Tailscale** to open the port-forward, so it
-  helps people who have cluster access, not everyone on the team.
+- **It needs Tailscale** (or being on the LAN), so it isn't reachable from a
+  browser elsewhere.
+- **Plain HTTP on the LAN:** the login token crosses the LAN unencrypted.
+  Accepted for the prototype, since the token is read-only and expires;
+  Headlamp can serve TLS itself if we need it later.
+- **Anyone on the LAN can reach the login page**, not only the team. They
+  still need a token to see anything.
 - **Read-only by default**: restarting a pod or scaling from the UI needs a
   token with more rights, made by hand when needed.
 - **Tokens expire**, so a new one is made each time (one command).
@@ -127,11 +172,15 @@ What limits the choice:
 
 ### Follow-up work
 
-- Add Headlamp, its ServiceAccount and the `view` binding to `cluster/` in the
-  deploy repository, check it lists the workloads and shows metrics, and write
-  down how to open it in the deploy docs (YGP-113).
-- If someone without `kubectl` needs it later, decide on a login in front of it
-  (OIDC, or an identity-aware proxy) before giving it a host name.
+- Add Headlamp (with its LoadBalancer Service on 4466), its ServiceAccount and
+  the `view` binding to `cluster/` in the deploy repository; open 4466 to the
+  LAN in the Ansible firewall role; add `headlamp.ads.lan` next to
+  `k3s.ads.lan`. Check it opens through the subnet router, lists the workloads
+  and shows metrics, and write down how to open it in the deploy docs
+  (YGP-113).
+- If someone outside the tailnet needs it later, decide on a login in front of
+  it (Cloudflare Access, OIDC, or an identity-aware proxy) before giving it a
+  public host name.
 
 ## Sources
 
