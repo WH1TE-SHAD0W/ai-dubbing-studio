@@ -137,6 +137,17 @@ pnpm test
 pnpm build
 ```
 
+For the Go worker, from `apps/translator`:
+
+```bash
+gofmt -l .                      # no output means formatted
+go vet ./...
+go test ./...
+```
+
+`-race` needs a C compiler (cgo), which Windows usually doesn't have, so leave
+it out there; CI runs it on Linux.
+
 The database tests only run if `TEST_DATABASE_URL` or `DATABASE_URL` is set, for
 example to the Compose database from the [Setup Guide](setup-guide.md), and the
 LiveKit tests only if the three `LIVEKIT_` settings are. If
@@ -213,8 +224,9 @@ path filter, so it runs on every pull request, including docs-only ones.
 | Typecheck | `pnpm typecheck`: `tsc` in every package | A type error anywhere in the monorepo. |
 | Test | `pnpm test`: Vitest in every package, with a Postgres 18 service | A test fails. |
 | Build | `pnpm build`: every package that has a build script | A package doesn't build, for example a broken Vite or esbuild setup. |
+| Go worker | In `apps/translator`: `gofmt`, `go vet`, `go generate` (then `git diff`), `go test -race`, and the integration tests against a Redis 8 service | Unformatted Go code, a vet warning, generated control API types that no longer match the OpenAPI document, or a failing test. |
 
-Every job installs the same way:
+Every Node job installs the same way:
 
 - **pnpm** at the version pinned in `package.json` (`packageManager`), and
   **Node 24**.
@@ -233,6 +245,12 @@ Compose) and sets `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`, so
 the room tests run too. Its secret is made from the run's ID, so it is
 different every run and never written in the repository.
 
+The Go worker job installs the Go version from `apps/translator/go.mod`, with a
+module cache. `-race` also fails a test when two goroutines touch the same data
+without a lock. The integration tests (`-tags integration`, in
+`cmd/translator`) need a real Redis, so the job starts a throwaway
+`redis:8-alpine`, the same image as Compose.
+
 A new push to the same pull request cancels the run still going. The workflow
 can only read the repository.
 
@@ -240,8 +258,6 @@ Not checked yet:
 
 - **Lint.** The repository has no lint script, so type-checking does most of
   that job for now.
-- **The Go worker.** Its tests need their own job once the worker is in the
-  repository (YGP-98).
 
 ## Image build
 
