@@ -11,9 +11,9 @@ import { validate } from "../validate.ts";
 // A host only ever sees their own sessions: anyone else's is "not found".
 // Going live sends one translation job per target language to the translator
 // workers (ADR-0018) and, with LiveKit configured, creates the session's rooms
-// first (ADR-0020). The workers still use their WAV adapter until they connect
-// to LiveKit (YGP-70). While live, the host gets a token to send their mic to
-// the source room (YGP-71).
+// first (ADR-0020); each worker then hears the host in the source room and
+// publishes into its language's output room (YGP-70). While live, the host gets
+// a token to send their mic to the source room (YGP-71).
 
 const NOT_FOUND = { message: "Session not found." } as const;
 const idParam = z.object({ id: z.string().min(1) });

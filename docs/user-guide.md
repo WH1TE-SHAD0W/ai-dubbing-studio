@@ -74,10 +74,8 @@ next one. Its code is free to be reused by a later session.
 
 ## Audio
 
-**Start listening** connects you to your language's audio, but there's nothing
-to hear yet: the translators still work from a recording on the server and
-write their translations to files there, until they send their audio to
-LiveKit (YGP-70).
+**Start listening** connects you to your language's audio. The translation
+starts about 3 seconds after the host speaks.
 
 ## Good to know
 

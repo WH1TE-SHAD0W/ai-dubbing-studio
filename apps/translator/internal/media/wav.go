@@ -67,6 +67,9 @@ func (s *WAVSource) Run(ctx context.Context, onFrame func([]byte)) error {
 	}
 }
 
+// Close implements Source. A WAV source holds nothing open.
+func (s *WAVSource) Close() error { return nil }
+
 // WAVSink writes translated audio to a WAV file at real-time pace: once the
 // first audio arrives, every 20 ms it writes 20 ms of audio, or silence when
 // nothing is queued, so the file lines up with wall-clock time.

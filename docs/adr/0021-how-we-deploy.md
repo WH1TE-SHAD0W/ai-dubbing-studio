@@ -7,7 +7,7 @@
 
 ## Context
 
-The app runs on one K3s server (YGP-87), with a test and a production
+The app runs on a K3s cluster (YGP-87: three servers and three agents), with a test and a production
 environment. The CI already builds the images and pushes them to Docker Hub,
 tagged with the commit SHA plus `testing` or `prod` (YGP-52, the
 [CI/CD page](../ci-cd.md)). What's missing is how a merged change gets onto the
@@ -15,7 +15,7 @@ cluster.
 
 - **The server is behind Tailscale,** so GitHub can't reach it: anything that
   deploys has to pull from inside, not be pushed to from outside.
-- **Two environments, one node:** `testing` → test, `main` → production
+- **Two environments, one cluster:** `testing` → test, `main` → production
   ([branching strategy](../branching-strategy.md)).
 - **No secrets in Git,** in any repository.
 - **A two-person team with a deadline:** the prototype is due on 17 November,
@@ -67,41 +67,66 @@ Where the manifests live:
   (`externalTrafficPolicy: Local`), so the API's login rate limits work
   (ADR-0003).
 - **Fallback (option 4):** if K3s with Argo CD isn't syncing the test
-  environment by **Wednesday 11 November**, the prototype is demonstrated with
-  Docker Compose instead (YGP-84), and this ADR is updated.
+  environment by **Thursday 12 November** (moved from Wednesday 11 November,
+  since the cluster and Argo CD are up and only reviews are left), the
+  prototype is demonstrated with Docker Compose instead (YGP-84), and this ADR
+  is updated.
 
-**Still open: how Argo CD picks up a new image.** With moving tags (`testing`,
-`prod`), the manifests never change, so Argo CD needs a restart or Argo CD Image
-Updater to notice a new image. With the CI pinning each commit SHA in the deploy
-repository, every release is a commit there, which makes rollbacks exact, but
-the app's CI needs a token that can push to the deploy repository. This is
-decided in YGP-82 and recorded here.
+### How a new image reaches the cluster (YGP-82)
 
-## Consequences
+The overlays use moving tags (`testing`, `prod`), so a new image doesn't
+change the manifests and Argo CD doesn't notice it. Two facts narrow the
+choice:
 
-### Good
+- **The deploy repository's `main` needs a reviewed pull request**, and nobody
+  can skip that. Anything that writes the new image into Git on its own (CI or
+  a bot) can't push to `main`: it could only open a pull request that a person
+  approves for every release.
+- **The cluster is behind Tailscale**, so GitHub can't reach it to restart
+  anything.
 
-- Nobody deploys by hand, and nothing outside needs to reach the server.
-- What runs in each environment is written in Git, and a rollback is a revert
-  there.
-- Argo CD puts back anything changed on the cluster by hand.
-- The manifests are checked on every pull request (rendered and validated
-  against the Kubernetes schemas), and `main` of the deploy repository needs a
-  reviewed pull request.
+| Option | How | Pros | Cons |
+|---|---|---|---|
+| A. **Argo CD Image Updater, digest, written to Argo CD** | Image Updater (v1.3) runs next to Argo CD, checks the registry every few minutes, and when the `testing` tag points to a new image it sets that image's digest on the application | Fully automatic; needs no token anywhere; works behind Tailscale, since it pulls | The image in use isn't written in Git (it's in the application); one more small component |
+| B. **Image Updater, written to Git** | The same, but it commits the new digest to the deploy repository | Every release is a commit, so the deploy history shows exactly what ran | Needs a write key for the deploy repository, and branch protection stops it pushing to `main`, so it would need a branch of its own for Argo CD to follow |
+| C. **The app's CI pins the commit SHA** | After pushing an image, the Images workflow opens a pull request in the deploy repository with the new SHA | Exact, and reviewed | A token for the deploy repository in the app's CI, and a manual approval for every release |
+| D. **Restart by hand** | `kubectl -n ads-test rollout restart deploy/api` (the overlays always pull the image) | Nothing to install | Not automatic, so it doesn't meet YGP-82 |
 
-### Bad / trade-offs
+**Decided (Marek and Jamie, 11 November): A for the test environment, C for
+production.** D is the fallback for either until it's set up.
 
-- A second repository to keep in step with the code. A change that needs both,
-  such as a new setting, takes two pull requests.
-- Argo CD uses memory on a small server.
-- The Secrets are made by hand, so a new environment needs the README's
-  commands run once.
+- **Test environment (`testing` → `ads-test`): A.** It follows the floating
+  `testing` tag: every merge into `testing` reaches the cluster within minutes,
+  with no token and no approval. That suits an environment whose job is to try
+  each change.
+- **Production (`main` → `ads-prod`): C.** After the `prod` image is pushed,
+  the Images workflow opens a pull request in the deploy repository that pins
+  the production overlay to that commit's SHA. Production only changes when
+  someone approves that pull request, so every release is reviewed and the
+  deploy repository's history shows exactly which commit ran when. The cost is
+  a token in the app's CI that can only open pull requests in the deploy
+  repository.
+
+What it changes for rolling back (see the
+[Deployment page](../deployment.md#roll-back)):
+
+- **Test environment:** reverting in Git (in this repository) still works: the
+  revert builds a new `testing` image, and Image Updater rolls the cluster onto
+  it. Pinning a known-good image in the deploy repository only takes effect
+  once Image Updater is paused for `ads-test`, because its digest wins over the
+  tag in Git. Pause it, pin, and turn it back on after the fix.
+- **Production:** revert the release's pull request in the deploy repository,
+  or open one that pins an earlier SHA. Argo CD syncs it like any other change.
 
 ### Follow-up work
 
-- YGP-82: install Argo CD and add an application per environment; decide how
-  new images are picked up, and record it here.
+- YGP-82: Argo CD is installed and both applications are written (deploy
+  repository #5). Left: install Image Updater for `ads-test` only (option A),
+  then mark this ADR accepted.
+- Production releases (option C): a token for the deploy repository in the
+  app's CI, and a step in the Images workflow that opens the pinning pull
+  request after a push to `main`. Needed before the first production release.
 - YGP-81: add Redis and the translation worker pool to the manifests, with the
   translation workers (ADR-0018).
 - YGP-83: try a rollback on the test environment.
-- YGP-84: the Compose fallback, only if the 11 November cut-off is missed.
+- YGP-84: the Compose fallback, only if the 12 November cut-off is missed.

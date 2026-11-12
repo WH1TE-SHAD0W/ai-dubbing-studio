@@ -6,7 +6,7 @@ A host speaks once; every listener hears them live in their own language, in the
 
 - Hosts register, log in, create sessions, take them live and end them; listeners find a session by its code.
 - Going live sends one job per language through a Redis Stream; an idle translator worker (Go) claims it and translates with Gemini Live Translate. Ending the session stops the workers, and a crashed or stopped worker is replaced.
-- A worker reads the host's audio from a WAV file and writes the translation to another one.
+- The host's microphone goes to LiveKit; a worker hears it there and publishes the translation into its language's room, which the listener page plays.
 
 ## Layout
 
@@ -29,7 +29,7 @@ cp .env.example .env    # set POSTGRES_PASSWORD, BETTER_AUTH_SECRET, INTERNAL_AP
 docker compose --profile translator up -d --build
 ```
 
-Put a speech recording in `apps/translator/media/in/input.wav` (PCM16, mono, 16 kHz), then open <http://localhost:3000/studio>, register, create a session and select **Go live**. The translation is written to `apps/translator/media/out/`. The translator's settings are explained on the [Translator](docs/translator.md) page, and working on the code without Docker in the [Setup Guide](https://wh1te-shad0w.github.io/ai-dubbing-studio/setup-guide/).
+Open <http://localhost:3000/studio>, register, create a session and select **Go live**. Turn the microphone on in the Studio, open the join link in another tab and pick a language: the translation starts about 3 seconds after you speak. The translator's settings are explained on the [Translator](docs/translator.md) page, and working on the code without Docker in the [Setup Guide](https://wh1te-shad0w.github.io/ai-dubbing-studio/setup-guide/).
 
 ## More
 
