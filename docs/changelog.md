@@ -4,7 +4,8 @@
 
 - CI's Test job measures test coverage for each TypeScript package and shows
   it on the run's summary page; `pnpm test:coverage` and
-  `pnpm coverage:summary` do the same locally. Reported, not enforced (YGP-75).
+  `pnpm coverage:summary` do the same locally. Reported, not enforced. The
+  Testing page has a Coverage section with the current numbers (YGP-75).
 - Translator workers with LiveKit, run end to end through Compose with real
   Gemini: host speech in the source room came out as Slovak speech in the
   `sk` room, and ending the session stopped the workers 0.3 s later (YGP-70).

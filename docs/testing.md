@@ -143,6 +143,36 @@ second) or `docker kill` it (the lease runs out and another worker takes over
 within about 20 seconds). `pnpm --filter @ads/api tracks list` shows which
 worker has each track.
 
+## Coverage
+
+Coverage shows how much of the TypeScript code the tests actually run. CI's
+Test job measures it for each package with Vitest's V8 coverage
+(`@vitest/coverage-v8`) and adds a table to the run's summary page (see
+[Test coverage](ci-cd.md#test-coverage)). Every file in a package's `src/`
+counts, including files no test touches, so untested code lowers the number
+instead of being left out.
+
+| Package | Lines | Branches | Functions |
+|---|---|---|---|
+| `apps/api` | 75.1% | 67.9% | 80.5% |
+| `apps/web` | 69.1% | 59.4% | 70.2% |
+| `packages/contracts` | 98.0% | no branches | 66.7% |
+
+These are from CI on 12 November, where the API's tests run against Postgres
+and LiveKit. Coverage is **reported, not enforced**: no percentage fails a
+check, as the numbers are a guide to what's untested rather than a target.
+
+To see the same table locally:
+
+```bash
+pnpm test:coverage
+pnpm coverage:summary
+```
+
+Without a database and LiveKit most of the API's tests are skipped, so its
+local number is much lower than CI's. The Go worker's coverage isn't measured
+yet; `go test -cover ./...` in `apps/translator` shows it per package.
+
 ## Debugging the translator
 
 When a session goes live but nothing is translated, follow one language through
