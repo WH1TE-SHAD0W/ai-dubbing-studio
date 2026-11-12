@@ -29,6 +29,13 @@
 - Architecture: the host's microphone and the listener page use LiveKit now;
   only the workers don't yet (YGP-70). The token section says which routes
   hand the tokens out.
+- CI runs the Go worker's checks on every pull request: `gofmt`, `go vet`,
+  generated code up to date, `go test -race` and the integration tests with a
+  real Redis (YGP-75).
+- A worker stopped (SIGTERM) while claiming a track gives it straight back,
+  without first telling Hono the track is live (YGP-75).
+- A Security check scans the API and worker images with Trivy on every pull
+  request, and fails on a CRITICAL vulnerability that has a fix (YGP-78).
 - ADR-0021: how a new image reaches the cluster, four options compared;
   decided: Argo CD Image Updater on the floating `testing` tag for the test
   environment, and a reviewed pull request pinning the commit SHA for

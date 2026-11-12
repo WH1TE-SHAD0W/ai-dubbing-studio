@@ -1,4 +1,5 @@
-# Checks the code on every pull request: typecheck, tests and build.
+# Checks the code on every pull request: typecheck, tests and build, plus the
+# Go worker's format, vet, generated code and tests.
 name: CI
 
 on:
@@ -97,3 +98,53 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+
+  # The Go translation worker (apps/translator). These are the checks from the
+  # old Translator workflow, which was folded into this file (YGP-75).
+  go:
+    name: Go worker
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/translator
+    # A throwaway Redis for the integration tests. Same version as Compose.
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      # The Go version comes from go.mod, so CI and the Dockerfile match.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/translator/go.mod
+          cache-dependency-path: apps/translator/go.sum
+      # The LiveKit adapter (YGP-70) uses cgo: libopus for Opus and libsoxr for
+      # resampling. Same packages as the Dockerfile's build stage.
+      - name: C libraries for the LiveKit adapter
+        working-directory: .
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pkg-config libopus-dev libsoxr-dev
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then echo "Run gofmt on:"; echo "$unformatted"; exit 1; fi
+      - run: go vet ./...
+      # The control API types are generated from the shared OpenAPI document
+      # and committed; fail if they no longer match it.
+      - name: Generated code is up to date
+        run: |
+          go generate ./...
+          git diff --exit-code -- .
+      # -race also catches two goroutines touching the same data.
+      - run: go test -race ./...
+      - name: Integration tests (real Redis)
+        # The integration tests are only in cmd/translator; the unit tests ran above.
+        run: go test -race -tags integration ./cmd/translator/
+        env:
+          REDIS_URL: redis://localhost:6379
