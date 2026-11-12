@@ -249,7 +249,7 @@ func (r *Runner) work(shutdown context.Context, job *jobs.Job, claim control.Cla
 	// Gemini could connect and report the track live first.
 	if shutdown.Err() != nil {
 		box.set(causeSigterm)
-		return r.teardown(job, box, nil, nil, nil, log)
+		return r.teardown(job, box, nil, nil, nil, nil, log)
 	}
 
 	src, err := r.d.NewSource(job, claim)
