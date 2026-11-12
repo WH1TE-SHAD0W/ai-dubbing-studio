@@ -121,6 +121,11 @@ jobs:
         with:
           go-version-file: apps/translator/go.mod
           cache-dependency-path: apps/translator/go.sum
+      # The LiveKit adapter (YGP-70) uses cgo: libopus for Opus and libsoxr for
+      # resampling. Same packages as the Dockerfile's build stage.
+      - name: C libraries for the LiveKit adapter
+        working-directory: .
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pkg-config libopus-dev libsoxr-dev
       - name: gofmt
         run: |
           unformatted="$(gofmt -l .)"
