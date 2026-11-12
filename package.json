@@ -13,8 +13,5 @@
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.include=src/**",
     "coverage:summary": "node scripts/coverage-summary.mjs"
-  },
-  "devDependencies": {
-    "@vitest/coverage-v8": "5.0.5"
   }
 }
