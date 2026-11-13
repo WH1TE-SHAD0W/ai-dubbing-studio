@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Rollback drill done on test (13 November): way 2 took 18 seconds from merge
+  to healthy. The K3s rollback steps now remove Image Updater's digest from
+  the application, which otherwise wins over a pin in Git, and point to the
+  deploy repository's rule for merging a rollback without waiting (YGP-83).
+- Deployment and runbook: the test environment on K3s, Argo CD and Image
+  Updater are marked built; new sections on the cluster (the app runs only on
+  the agent nodes) and how visitors reach it (Cloudflare Tunnel for the app, the
+  Hetzner relay for LiveKit); rolling back on K3s now pauses Image Updater
+  first; "Still to be decided" is down to the worker pool. CI/CD: the checks on
+  `testing` are required now, the Security scan passes, and a new section shows
+  how an image gets from Docker Hub to the cluster (YGP-83).
 - Translator workers with LiveKit, run end to end through Compose with real
   Gemini: host speech in the source room came out as Slovak speech in the
   `sk` room, and ending the session stopped the workers 0.3 s later (YGP-70).

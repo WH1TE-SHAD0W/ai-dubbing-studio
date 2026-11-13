@@ -187,7 +187,7 @@ Rulesets → New ruleset → Import a ruleset**.
 | Ruleset | Branches | Rules | Status |
 |---|---|---|---|
 | **Protect main and testing** (`protect-main-and-testing.json`) | `main`, `testing` | A pull request with **one approval** from someone other than its author; a new push clears an earlier approval; merge commits only; no deleting or force-pushing; nobody can skip the rules, admins included | Active |
-| **Require checks on testing** (`require-checks-testing.json`) | `testing` | Typecheck, Test, Build, API image and Worker image must pass | To import |
+| **Require checks on testing** (`require-checks-testing.json`) | `testing` | Typecheck, Test, Build, API image and Worker image must pass | Active |
 | Required checks on `main` | `main` | The same checks | Later: once the workflows are on `main` (see below) |
 
 Nothing protects `development` or the feature branches: reviews there are a
@@ -210,8 +210,9 @@ start on those pull requests, so they could never be merged. Once a release
 brings the workflows to `main`, the same checks are added for `main`.
 
 The Docs checks, the Security scan and the Go worker job aren't required:
-the Docs checks only run when docs change, and the other two are new (and the
-Security scan fails on purpose while the worker has a CRITICAL issue).
+the Docs checks only run when docs change, and the other two are new. Both now
+pass: the worker's CRITICAL gRPC issue that the Security scan reported was fixed
+by upgrading gRPC with the LiveKit work (YGP-70).
 
 ## Code checks
 
@@ -305,6 +306,22 @@ The test environment only ever runs the `testing` tag and production only runs
 `prod` (YGP-81), so a test deployment never picks up an image that hasn't been
 through `testing`, and production never picks up one that hasn't reached
 `main`.
+
+### From Docker Hub to the cluster
+
+The pipeline doesn't stop at Docker Hub, but GitHub Actions never touches the
+cluster:
+
+1. **Argo CD Image Updater** checks Docker Hub every 15 minutes. When `testing`
+   points to a new image, it sets that image's digest on the test environment's
+   Argo CD application.
+2. **Argo CD** rolls the `ads-test` pods onto it, the same way it applies any
+   change merged into the deploy repository.
+
+So a merge into `testing` reaches the test environment within about 15
+minutes, with no step by hand. Production is planned to be pinned to a commit
+SHA by a reviewed pull request instead. How it works, and how to check and roll
+back a deploy, is on the [Deployment and runbook](deployment.md) page.
 
 ## Security scan
 
