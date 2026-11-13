@@ -25,7 +25,7 @@ Accepted ADRs are not edited; a new ADR supersedes an old one.
 | [0018](0018-autoscaling-architecture-of-translation-container.md) | Redis Streams dispatch for translation workers   | Proposed |
 | [0021](0021-how-we-deploy.md)                    | Argo CD on K3s, from a separate deploy repository | Proposed |
 | [0022](0022-architecture-tests.md)               | Architecture tests for the worker and the API    | Proposed |
-| [0023](0023-livekit-public-endpoint.md)          | LiveKit's public address: Hetzner relay, WireGuard sidecar, Caddy | Proposed |
+| [0023](0023-livekit-public-endpoint.md)          | LiveKit's public address: Hetzner relay, WireGuard sidecar, Caddy | Accepted |
 | [0024](0024-cluster-dashboard.md)                | Headlamp as the K3s cluster's dashboard          | Proposed |
 
 Numbers 0004–0006 were not used.
