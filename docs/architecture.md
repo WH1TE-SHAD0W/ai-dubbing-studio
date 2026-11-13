@@ -90,12 +90,14 @@ sequenceDiagram
   D-->>A: title and languages
   A-->>L: session details and languages
   L->>A: choose language, ask for a LiveKit token
-  A-->>L: LiveKit token
-  L->>K: connect with the token (WebRTC)
+  A-->>L: LiveKit token and LiveKit's public address
+  L->>K: connect with the token, through the relay (WebRTC)
   K-->>L: audio track for the chosen language
 ```
 
-Listeners have no account. They only need the join code.
+Listeners have no account. They only need the join code. On test, the listener
+reaches the API at `test.glossia.ie` and LiveKit at `livekit.test.glossia.ie`,
+through the relay (see [Networking](#networking-test)).
 
 ### A host logs in
 
@@ -114,6 +116,61 @@ sequenceDiagram
 ```
 
 The details are in [ADR-0003](adr/0003-host-authentication.md).
+
+## Networking (test)
+
+This part runs today on the test environment. The cluster sits on a LAN with no
+open ports, so browsers reach it by two public paths, both dialled out from
+inside the cluster:
+
+- **The app and the API** at `test.glossia.ie`, through a Cloudflare Tunnel.
+- **LiveKit** at `livekit.test.glossia.ie`, through a Hetzner VPS (the relay)
+  and a WireGuard tunnel ([ADR-0023](adr/0023-livekit-public-endpoint.md)).
+
+```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 60, "rankSpacing": 80}}}%%
+flowchart LR
+  Browser["Browser<br/>(host or listener)"]
+
+  Edge["Cloudflare<br/>test.glossia.ie<br/>HTTPS, Cloudflare certificate"]
+
+  subgraph Relay["Hetzner VPS (relay)"]
+    Caddy["Caddy<br/>livekit.test.glossia.ie<br/>Let's Encrypt certificate"]
+    NFT["nftables<br/>7881/tcp, 7882/udp"]
+  end
+
+  subgraph Cluster["K3s cluster (LAN, no open ports)"]
+    CFD["cloudflared<br/>2 copies"]
+    Traefik["Traefik<br/>routes by host name"]
+    API["Hono API"]
+    Translator["Translator"]
+    LK["LiveKit pod<br/>WireGuard sidecar"]
+  end
+
+  Browser -- "app and API<br/>(HTTPS, WebSockets)" --> Edge
+  Edge -- "Cloudflare Tunnel" --> CFD
+  CFD --> Traefik
+  Traefik --> API
+  Browser -- "signaling<br/>wss://livekit.test.glossia.ie" --> Caddy
+  Browser -- "media (WebRTC)" --> NFT
+  Caddy -- "WireGuard tunnel<br/>to port 7880" --> LK
+  NFT -- "WireGuard tunnel<br/>same ports" --> LK
+  API -- "ws://livekit:7880" --> LK
+  Translator -- "ws://livekit:7880" --> LK
+```
+
+- **Cloudflare** ends HTTPS and passes requests, WebSockets too, through the
+  tunnel that `cloudflared` keeps open from the cluster. Traefik sends each
+  host name to its environment's API (YGP-92).
+- **The relay** serves LiveKit's signaling through Caddy and forwards media on
+  UDP 7882 and TCP 7881. LiveKit tells browsers to send media to the relay's
+  address. The WireGuard sidecar dials out to the relay, so the tunnel follows
+  the pod to whichever node it runs on.
+- **Inside the cluster** the API and the translator reach LiveKit directly at
+  `ws://livekit:7880`, without going through the relay.
+
+The [Deployment page](deployment.md#livekits-public-address-test) has the
+details of the relay.
 
 ## Why it's built this way
 

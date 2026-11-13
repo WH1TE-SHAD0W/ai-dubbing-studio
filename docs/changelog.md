@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Architecture page: a "Networking (test)" diagram with both public paths,
+  `test.glossia.ie` through the Cloudflare Tunnel and
+  `livekit.test.glossia.ie` through the Hetzner relay and WireGuard. The
+  listener-join flow and the Media layer show the relay; the TURN server is
+  removed from the Media layer.
 - ADR-0023 accepted. The Deployment page describes LiveKit's public address
   on test: Caddy and media forwarding on the Hetzner relay, and the WireGuard
   sidecar in the LiveKit pod; a host and a listener connect through it

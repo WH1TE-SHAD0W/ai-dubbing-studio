@@ -138,16 +138,20 @@ flowchart TB
   ListenersSk["Listeners who chose Slovak"]
   ListenersDe["Listeners who chose German"]
   API["Hono API"]
-  TURN["TURN server<br/>for networks that block UDP"]
+  Relay["Hetzner relay<br/>livekit.test.glossia.ie<br/>WireGuard tunnel to LiveKit"]
 
   Dubbing -- "publishes" --> Slovak
   Dubbing -- "publishes" --> German
-  Slovak -- "WebRTC" --> ListenersSk
-  German -- "WebRTC" --> ListenersDe
+  Slovak -- "WebRTC" --> Relay
+  German -- "WebRTC" --> Relay
+  Relay -- "Slovak" --> ListenersSk
+  Relay -- "German" --> ListenersDe
   API -. "LiveKit token" .-> ListenersSk
   API -. "LiveKit token" .-> ListenersDe
-  Media -.- TURN
 ```
 
-Each language has its own LiveKit room. TURN needs setting up before the app runs
-on a public server.
+Each language has its own LiveKit room. On test, listeners reach LiveKit through
+a Hetzner VPS: Caddy serves the signaling at `livekit.test.glossia.ie`, media
+goes over UDP 7882 or TCP 7881, and a WireGuard tunnel carries both to the
+LiveKit pod ([ADR-0023](adr/0023-livekit-public-endpoint.md)). There is no TURN
+server. See [Networking](architecture.md#networking-test).
