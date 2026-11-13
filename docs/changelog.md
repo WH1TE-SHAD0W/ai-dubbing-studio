@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Deployment page: how to open the Headlamp cluster dashboard through
+  Tailscale, and how to get and revoke its read-only viewer token (YGP-113).
 - ADR-0023 accepted. The Deployment page describes LiveKit's public address
   on test: Caddy and media forwarding on the Hetzner relay, and the WireGuard
   sidecar in the LiveKit pod; a host and a listener connect through it

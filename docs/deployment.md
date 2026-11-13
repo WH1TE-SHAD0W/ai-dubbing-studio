@@ -131,6 +131,74 @@ flowchart LR
 Checked on the test environment: a host's microphone and a listener both
 connect to LiveKit through the relay, over UDP.
 
+## The cluster dashboard (Headlamp)
+
+[Headlamp](https://headlamp.dev) shows what runs on the K3s cluster in a
+browser: the workloads in every namespace, pod status and logs, events, nodes,
+and CPU and memory use. It's read-only, so you can look but not change
+anything; changes still go through the deploy repository and Argo CD. Why
+Headlamp: [ADR-0024](adr/0024-cluster-dashboard.md). The deploy repository
+sets it up in `cluster/headlamp/` (deploy #17, #22).
+
+It isn't public. You reach it from the LAN, or from your own machine through
+Tailscale and the subnet router that shares the LAN.
+
+### What you need
+
+- **Tailscale**, signed in to the team's tailnet. Ask whoever runs the tailnet
+  to add you.
+- **The viewer token.** It doesn't expire, so you paste it once and Headlamp
+  keeps you logged in. If you have `kubectl` access to the cluster, read it
+  yourself (below). If not, ask someone who has: they send it to you through a
+  password manager, never in a chat or a ticket.
+
+### Open it
+
+1. Open <http://10.108.159.43:4466>. Every node answers on port 4466, so any
+   node's LAN address works, and so does <http://k3s.ads.lan:4466> if
+   `k3s.ads.lan` is in your hosts file.
+2. Paste the token into the login page.
+
+If the page doesn't load, check that Tailscale is connected.
+
+### Get the token
+
+With `kubectl` pointed at the cluster:
+
+```bash
+kubectl -n headlamp get secret headlamp-viewer-token -o jsonpath='{.data.token}' | base64 -d
+```
+
+In PowerShell:
+
+```powershell
+$b64 = kubectl -n headlamp get secret headlamp-viewer-token -o jsonpath='{.data.token}'
+[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64))
+```
+
+Treat the token like a password: anyone who has it can read the cluster
+(everything except Secrets) until it's revoked. Keep it in a password manager.
+
+### Revoke the token
+
+If the token leaks, or someone who had it leaves the team, make a new one. The
+old token stops working at once, so everyone then needs the new one. From the
+deploy repository:
+
+```bash
+kubectl -n headlamp delete secret headlamp-viewer-token
+kubectl apply -f cluster/headlamp/viewer-token.yaml
+```
+
+### Limits
+
+- **Plain HTTP.** Tailscale encrypts the traffic up to the subnet router, but
+  it crosses the LAN unencrypted, token included.
+- **Anyone on the LAN can open the login page**, but sees nothing without a
+  token.
+- **One shared token.** Everyone uses the same viewer token, so the cluster
+  can't tell who looked at what.
+
 ## Deploy or update with Docker Compose (built)
 
 On the server, from the repository folder:
