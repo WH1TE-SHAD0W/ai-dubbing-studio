@@ -187,20 +187,25 @@ The database is not rolled back. The API only ever adds tables and columns, so
 older code still runs against them. To undo data changes too, restore the
 backup taken before the update.
 
-### On K3s (built, not drilled yet)
+### On K3s (built, way 2 drilled)
 
 Three ways back, from the normal one to the emergency one. Whichever you use,
 [check the deploy](#check-a-deploy) afterwards and tell the team what was
 rolled back and why.
 
-**For ways 2 and 3, pause Image Updater first.** A digest it set on the
-application wins over the tag in Git, and it would move the environment back
-onto the newest `testing` image within 15 minutes. Pause it, roll back, and
-start it again once the fix is released:
+**For ways 2 and 3, pause Image Updater and remove its digest first.** Image
+Updater writes the newest `testing` digest onto the Argo CD application, and
+that wins over the tag in Git, even while Image Updater is paused (the
+[drill](#rollback-drill) found this). Left in place, a pin in Git does nothing,
+and a running Image Updater moves the environment back within 15 minutes.
+Pause it, remove its digest, roll back, and start it again once the fix is
+released:
 
 ```bash
 kubectl -n argocd scale deploy/argocd-image-updater-controller --replicas=0   # pause
-kubectl -n argocd scale deploy/argocd-image-updater-controller --replicas=1   # resume
+kubectl -n argocd patch application ads-test --type json \
+  -p '[{"op":"remove","path":"/spec/source/kustomize/images"}]'              # remove its digest
+kubectl -n argocd scale deploy/argocd-image-updater-controller --replicas=1   # resume: it puts the digest back
 ```
 
 **1. Revert in Git (the normal way).** Use it when there's time for a build
@@ -240,6 +245,11 @@ earlier commit's images straight away, without a build.
 
 3. Once it merges, Argo CD syncs the namespace to that exact image.
 4. When the fix is released, set the tag back to `testing` the same way.
+
+A rollback pull request (branch `rollback/...`) doesn't have to wait for an
+approval: the deploy repository's owner can merge it straight away, and the
+other person reviews it afterwards. The deploy repository's README
+("Urgent changes") has the rule. Whoever can't do that uses way 3.
 
 **3. Roll back in Argo CD (emergency only).** Use it when the app is down and
 a pull request would take too long.
@@ -295,25 +305,27 @@ old pods keep serving until then.
 YGP-83 asks for a rollback to be tried once on the test environment, so the
 steps are known to work before they're needed.
 
-**Status: not tried yet.** Argo CD and the `ads-test` environment have been
-running since 12 November, so the drill can now be done; this section is
-filled in when it is.
+**Status: done on 13 November 2026, with way 2.**
 
-The drill:
+What we did:
 
-1. Note the image the test environment runs now (the last good one).
-2. Release a harmless visible change to `testing`, such as a version label.
-3. Roll it back with way 2, pinning the last good SHA, and time it.
-4. [Check the deploy](#check-a-deploy), and that the change is gone.
-5. Set the tag back to `testing`.
+1. Noted the images test ran: the release from #72 (the LiveKit worker).
+2. Paused Image Updater and removed its digest from the application.
+3. Pinned test to the images from `5b35d50`, the `testing` release before
+   #72 (deploy #18), and timed it from the merge.
+4. [Checked the deploy](#check-a-deploy): both Deployments on `5b35d50`, the
+   workers on the older image's digest, `/health` and `/ready` OK.
+5. Set the tag back to `testing` (deploy #20) and resumed Image Updater, which
+   put the newest digest back within a minute. Test was back on #72's images,
+   Synced and Healthy.
 
 | | Result |
 |---|---|
-| Date | Not tried yet |
-| Change rolled back | |
-| Way used | |
-| Time from merge to healthy | |
-| What we learned | |
+| Date | 13 November 2026 |
+| Change rolled back | The `testing` release from #72 (LiveKit worker), back to `5b35d50` |
+| Way used | 2: pin a known-good image in the deploy repository |
+| Time from merge to healthy | 18 seconds (images already on the nodes) |
+| What we learned | Image Updater's digest on the application wins over a pin in Git, even while it's paused, so it has to be removed too (now in the steps above). A rollback that waits for an approval isn't quick: the deploy repository's owner can now merge a rollback straight away. |
 
 ## Back up the database
 

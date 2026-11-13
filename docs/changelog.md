@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Rollback drill done on test (13 November): way 2 took 18 seconds from merge
+  to healthy. The K3s rollback steps now remove Image Updater's digest from
+  the application, which otherwise wins over a pin in Git, and point to the
+  deploy repository's rule for merging a rollback without waiting (YGP-83).
 - Deployment and runbook: the test environment on K3s, Argo CD and Image
   Updater are marked built; new sections on the cluster (the app runs only on
   the agent nodes) and how visitors reach it (Cloudflare Tunnel for the app, the
