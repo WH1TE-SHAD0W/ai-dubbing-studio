@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- ADR-0023 accepted. The Deployment page describes LiveKit's public address
+  on test: Caddy and media forwarding on the Hetzner relay, and the WireGuard
+  sidecar in the LiveKit pod; a host and a listener connect through it
+  (YGP-109).
 - Proposed ADR-0024: Headlamp as the K3s cluster's dashboard, instead of the
   archived Kubernetes Dashboard and its Kong gateway, on a LAN-only port
   reached through the Tailscale subnet router, with a read-only token

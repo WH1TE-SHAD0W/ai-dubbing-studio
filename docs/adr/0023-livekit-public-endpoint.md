@@ -1,6 +1,6 @@
 # 0023. LiveKit's public address: a Hetzner relay, a WireGuard sidecar and Caddy
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-11
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-109 (part of YGP-53)
