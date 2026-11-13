@@ -101,6 +101,36 @@ The manifests are kept apart from the code, as Argo CD recommends. Changing
 what runs never triggers this repository's CI, and the deploy repository's
 history is a log of what ran when. Neither repository holds any secrets.
 
+## LiveKit's public address (test)
+
+Browsers can't reach the cluster on the LAN, so they reach LiveKit through a
+Hetzner VPS with a public address, as decided in
+[ADR-0023](adr/0023-livekit-public-endpoint.md). The deploy repository sets it
+up: `ansible/relay.yml` for the VPS, and `components/livekit-relay` for the
+LiveKit pod (deploy #15, #16).
+
+```mermaid
+flowchart LR
+    browser["Browser<br>(host or listener)"] -- "wss://livekit.test.glossia.ie" --> caddy["Caddy<br>on the relay"]
+    browser -- "media: 7881/tcp, 7882/udp" --> nft["nftables<br>on the relay"]
+    caddy -- "WireGuard tunnel" --> pod["LiveKit pod<br>(WireGuard sidecar)"]
+    nft -- "WireGuard tunnel" --> pod
+```
+
+- **Signaling**: Caddy on the relay serves `livekit.test.glossia.ie` over
+  HTTPS and WebSockets, with a Let's Encrypt certificate, and passes it to the
+  pod's port 7880. The API gives browsers this address as `LIVEKIT_PUBLIC_URL`.
+- **Media**: the relay forwards UDP 7882 and TCP 7881 to the pod, on the same
+  ports. LiveKit tells browsers to send media to the relay's address.
+- **The tunnel**: a WireGuard sidecar in the LiveKit pod dials out to the
+  relay, so the tunnel follows the pod to whichever node it runs on. No port is
+  opened on the cluster or the LAN.
+- **Inside the cluster** the API and the workers keep using
+  `ws://livekit:7880`, without going through the relay.
+
+Checked on the test environment: a host's microphone and a listener both
+connect to LiveKit through the relay, over UDP.
+
 ## Deploy or update with Docker Compose (built)
 
 On the server, from the repository folder:
@@ -205,4 +235,5 @@ Use the `POSTGRES_USER` and `POSTGRES_DB` from `.env` if they differ.
   commit SHA (CI commits the change), or follow the `testing` and `prod` tags.
 - **The worker pool's size and limits** (ADR-0018 follow-up).
 - **How secrets get into the cluster.**
-- **HTTPS and the public address** for the VM (YGP-53).
+- **HTTPS and the public address** for the VM (YGP-53). LiveKit's public
+  address is settled: see above.
