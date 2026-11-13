@@ -9,6 +9,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/control"
 	"github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/control/api"
 	fakecontrol "github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/fakes/control"
 	fakegemini "github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/fakes/gemini"
@@ -63,13 +64,13 @@ func newEnv(opts runner.Options) *env {
 		Control: e.store.Direct("w1"),
 		Queue:   e.acks,
 		Gemini:  e.gem,
-		NewSource: func(*jobs.Job) (media.Source, error) {
+		NewSource: func(*jobs.Job, control.Claim) (media.Source, error) {
 			if e.srcErr != nil {
 				return nil, e.srcErr
 			}
 			return e.src, nil
 		},
-		NewSink: func(*jobs.Job) (media.Sink, error) { return e.sink, nil },
+		NewSink: func(*jobs.Job, control.Claim) (media.Sink, error) { return e.sink, nil },
 	}, opts)
 	return e
 }
@@ -194,6 +195,65 @@ func TestMediaFailureReportsFailed(t *testing.T) {
 		calls := e.store.Calls()
 		if last := calls[len(calls)-1]; last.Body["status"] != "failed" || last.Body["reason"] == "" {
 			t.Fatalf("last call %+v", last)
+		}
+	})
+}
+
+func TestSourceRoomClosedEndsTheTrack(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(runner.Options{})
+		e.src.FailAfter = 10 * time.Second
+		e.src.FailWith = media.ErrRoomClosed // Hono deleted the source room
+		if got := <-e.run(context.Background()); got != runner.Ended {
+			t.Fatalf("outcome %v", got)
+		}
+		calls := e.store.Calls()
+		last := calls[len(calls)-1]
+		if last.Body["status"] != "ended" || last.Body["reason"] != "room_closed" {
+			t.Fatalf("last call %+v", last)
+		}
+		if !e.src.Closed() || !e.sink.Closed() || !e.gem.Last().Closed() {
+			t.Fatal("a room or Gemini left open")
+		}
+	})
+}
+
+func TestReplacedInTheRoomStopsWithoutCallingHono(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(runner.Options{})
+		e.src.FailAfter = 10 * time.Second
+		e.src.FailWith = media.ErrReplaced
+		if got := <-e.run(context.Background()); got != runner.Fenced {
+			t.Fatalf("outcome %v", got)
+		}
+		for _, c := range e.store.Calls() {
+			if c.Body["status"] == "ended" || c.Body["status"] == "failed" {
+				t.Fatalf("a replaced worker reported %+v", c)
+			}
+		}
+		if !e.src.Closed() {
+			t.Fatal("source room left open")
+		}
+	})
+}
+
+func TestSinkFailureClosesTheSource(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(runner.Options{})
+		e.r = runner.New(runner.Deps{
+			Control:   e.store.Direct("w1"),
+			Queue:     e.acks,
+			Gemini:    e.gem,
+			NewSource: func(*jobs.Job, control.Claim) (media.Source, error) { return e.src, nil },
+			NewSink: func(*jobs.Job, control.Claim) (media.Sink, error) {
+				return nil, errors.New("no output room")
+			},
+		}, runner.Options{})
+		if got := e.r.Run(context.Background(), e.job); got != runner.Failed {
+			t.Fatalf("outcome %v", got)
+		}
+		if !e.src.Closed() {
+			t.Fatal("source room left open after the sink failed")
 		}
 	})
 }

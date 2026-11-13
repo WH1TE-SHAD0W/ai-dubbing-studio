@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/WH1TE-SHAD0W/ai-dubbing-studio/apps/translator/internal/audio"
@@ -14,7 +15,19 @@ import (
 type Source struct {
 	// FailAfter makes Run fail after this long (0 = never).
 	FailAfter time.Duration
+	// FailWith is the error Run returns after FailAfter (default: a generic one).
+	FailWith error
+	closed   atomic.Bool
 }
+
+// Close implements media.Source.
+func (s *Source) Close() error {
+	s.closed.Store(true)
+	return nil
+}
+
+// Closed reports whether Close was called.
+func (s *Source) Closed() bool { return s.closed.Load() }
 
 // Run implements media.Source.
 func (s *Source) Run(ctx context.Context, onFrame func([]byte)) error {
@@ -30,6 +43,9 @@ func (s *Source) Run(ctx context.Context, onFrame func([]byte)) error {
 		case <-ctx.Done():
 			return nil
 		case <-fail:
+			if s.FailWith != nil {
+				return s.FailWith
+			}
 			return errors.New("fake source: failed")
 		case <-t.C:
 			onFrame(frame)

@@ -71,12 +71,14 @@ func TestWAVSinkPacesAndPadsWithSilence(t *testing.T) {
 		done := make(chan error, 1)
 		go func() { done <- sink.Run(ctx) }()
 
-		time.Sleep(100 * time.Millisecond) // nothing is written before the first audio
+		// The sink ticks every 20 ms. Wake between ticks (110 ms, 310 ms): a
+		// wake-up on a tick races the tick, and either may run first.
+		time.Sleep(110 * time.Millisecond) // nothing is written before the first audio
 		sink.Enqueue(make([]byte, audio.Bytes(audio.OutRate, 50*time.Millisecond)))
 		if sink.Buffered() != 50*time.Millisecond {
 			t.Fatalf("buffered %v", sink.Buffered())
 		}
-		time.Sleep(200*time.Millisecond + time.Millisecond)
+		time.Sleep(200 * time.Millisecond) // ticks at 120, 140, ..., 300 ms
 		cancel()
 		if err := <-done; err != nil {
 			t.Fatal(err)

@@ -1,7 +1,7 @@
 # CI/CD
 
 The code and the docs are checked by GitHub Actions, which also builds the
-container images and publishes the docs. Four workflows do the work:
+container images, scans them and publishes the docs. Five workflows do the work:
 
 - **CI** (`.github/workflows/ci.yml`) type-checks, tests and builds the code on
   every pull request into `development`, `testing` or `main`; see
@@ -9,6 +9,8 @@ container images and publishes the docs. Four workflows do the work:
 - **Images** (`.github/workflows/images.yml`) builds the container images on
   every pull request, and pushes them to Docker Hub after a merge into
   `testing` or `main`; see [Image build](#image-build).
+- **Security** (`.github/workflows/security.yml`) scans both images for known
+  vulnerabilities on every pull request; see [Security scan](#security-scan).
 - **Docs** (`.github/workflows/docs.yml`) checks the docs on every pull request
   that changes them, and again after each merge into `main`.
 - **Deploy docs** (`.github/workflows/deploy-docs.yml`) builds the site and
@@ -135,6 +137,17 @@ pnpm test
 pnpm build
 ```
 
+For the Go worker, from `apps/translator`:
+
+```bash
+gofmt -l .                      # no output means formatted
+go vet ./...
+go test ./...
+```
+
+`-race` needs a C compiler (cgo), which Windows usually doesn't have, so leave
+it out there; CI runs it on Linux.
+
 The database tests only run if `TEST_DATABASE_URL` or `DATABASE_URL` is set, for
 example to the Compose database from the [Setup Guide](setup-guide.md), and the
 LiveKit tests only if the three `LIVEKIT_` settings are. If
@@ -211,8 +224,9 @@ path filter, so it runs on every pull request, including docs-only ones.
 | Typecheck | `pnpm typecheck`: `tsc` in every package | A type error anywhere in the monorepo. |
 | Test | `pnpm test`: Vitest in every package, with a Postgres 18 service | A test fails. |
 | Build | `pnpm build`: every package that has a build script | A package doesn't build, for example a broken Vite or esbuild setup. |
+| Go worker | In `apps/translator`: `gofmt`, `go vet`, `go generate` (then `git diff`), `go test -race`, and the integration tests against a Redis 8 service | Unformatted Go code, a vet warning, generated control API types that no longer match the OpenAPI document, or a failing test. |
 
-Every job installs the same way:
+Every Node job installs the same way:
 
 - **pnpm** at the version pinned in `package.json` (`packageManager`), and
   **Node 24**.
@@ -231,6 +245,12 @@ Compose) and sets `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`, so
 the room tests run too. Its secret is made from the run's ID, so it is
 different every run and never written in the repository.
 
+The Go worker job installs the Go version from `apps/translator/go.mod`, with a
+module cache. `-race` also fails a test when two goroutines touch the same data
+without a lock. The integration tests (`-tags integration`, in
+`cmd/translator`) need a real Redis, so the job starts a throwaway
+`redis:8-alpine`, the same image as Compose.
+
 A new push to the same pull request cancels the run still going. The workflow
 can only read the repository.
 
@@ -238,8 +258,6 @@ Not checked yet:
 
 - **Lint.** The repository has no lint script, so type-checking does most of
   that job for now.
-- **The Go worker.** Its tests need their own job once the worker is in the
-  repository (YGP-98).
 
 ## Image build
 
@@ -287,3 +305,34 @@ The test environment only ever runs the `testing` tag and production only runs
 `prod` (YGP-81), so a test deployment never picks up an image that hasn't been
 through `testing`, and production never picks up one that hasn't reached
 `main`.
+
+## Security scan
+
+The **Security** workflow (YGP-78) builds the API and worker images on every
+pull request into `development`, `testing` or `main`, and checks them with
+[Trivy](https://trivy.dev/) for known vulnerabilities in their system packages
+and libraries. Nothing is pushed.
+
+| What Trivy finds | What happens |
+|---|---|
+| A CRITICAL issue that has a fix | The check fails. Update the package or base image, then push again. |
+| A CRITICAL issue with no fix yet | Listed, but the check passes: nobody can fix it yet, so it shouldn't block every pull request. |
+| A HIGH issue | Listed, but the check passes. |
+
+Where to see the results:
+
+- **The check** on the pull request: red or green.
+- **The run's summary page** (open the check, then *Summary*): a table of every
+  HIGH and CRITICAL issue for each image.
+
+The scan isn't a required check yet, so a red scan warns but doesn't block a
+merge. It uses Trivy's official image at a pinned version instead of a
+third-party action, so the scan can't change without a pull request.
+
+Run the same scan locally (Docker must be running). Build the image first, for
+example `docker build -t scan/ai-dubbing-studio-translator apps/translator`,
+then:
+
+```bash
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.76.1 image --scanners vuln --severity HIGH,CRITICAL scan/ai-dubbing-studio-translator
+```

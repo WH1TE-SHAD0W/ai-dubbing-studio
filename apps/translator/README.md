@@ -5,9 +5,17 @@ ADR-0020; design in [pod-spec.md](pod-spec.md)). It waits on the Redis Stream
 `translate:jobs` for one job and claims the track from the API. It runs one Gemini
 Live Translate stream, then exits; a fresh process takes its place.
 
-Host audio comes from a WAV file and the translation is written to a WAV file
-([media/in](media/in/README.md)), through the `media.Source` and `media.Sink`
-interfaces.
+Audio goes through the `media.Source` and `media.Sink` interfaces. With the
+LiveKit tokens from the claim (`internal/livekit`), the worker joins the
+session's source room hidden and listen-only, subscribes to the host's mic, and
+publishes the translation as one track named after the language in the output
+room. When the claim has no LiveKit access, host audio comes from a WAV file and
+the translation is written to a WAV file ([media/in](media/in/README.md)).
+
+The Opus encoder needs cgo with libopus and libsoxr, so the LiveKit adapter is
+behind the `livekit` build tag. The Docker image is built with it; a plain
+`go build` or `go test` leaves it out, and the worker then fails a track that
+comes with LiveKit access.
 
 ## Run it
 
@@ -21,10 +29,9 @@ docker compose --profile translator up -d --build
 docker compose logs -f api translator
 ```
 
-Put the host audio in `media/in/input.wav` first. Then create a session in the
-Studio (<http://localhost:3000/studio>) and press **Go live**: one idle worker
-takes each target language, and the translation appears in `media/out/`.
-**End session** stops them. The whole walk-through is in the Setup Guide
+Create a session in the Studio (<http://localhost:3000/studio>) and press
+**Go live**: one idle worker takes each target language. Turn the microphone on
+in the Studio and listen on the join page. **End session** stops them. The whole walk-through is in the Setup Guide
 (`docs/setup-guide.md`, "Run the translator workers").
 
 The workers call the API's internal endpoints at `CONTROL_API_URL`: the `api`
@@ -45,6 +52,15 @@ From `apps/translator`:
 go test -race ./...                                   # unit tests
 REDIS_URL=redis://localhost:6379 go test -race -tags integration ./...   # needs Redis
 go generate ./...                                     # after changing the OpenAPI document
+```
+
+The LiveKit adapter's tests against a real server need libopus, so they run
+in a container next to `livekit-server --dev`:
+
+```bash
+docker run -d --name lk livekit/livekit-server:v1.13.11 --dev --bind 0.0.0.0
+docker run --rm --network container:lk -v "$PWD:/src" -w /src -e LIVEKIT_URL=ws://localhost:7880 golang:1.27-bookworm \
+  sh -c 'apt-get update && apt-get install -y pkg-config libopus-dev libsoxr-dev && go test -race -tags livekit,nolibopusfile,integration ./internal/livekit/'
 ```
 
 The control API types in `internal/control/api` are generated from

@@ -75,9 +75,10 @@ type Deps struct {
 	Control control.API
 	Queue   Acker
 	Gemini  gemini.Connector
-	// NewSource and NewSink open the media for a job.
-	NewSource func(job *jobs.Job) (media.Source, error)
-	NewSink   func(job *jobs.Job) (media.Sink, error)
+	// NewSource and NewSink open the media for a claimed job. The claim
+	// carries the LiveKit access when Hono has LiveKit configured.
+	NewSource func(job *jobs.Job, claim control.Claim) (media.Source, error)
+	NewSink   func(job *jobs.Job, claim control.Claim) (media.Sink, error)
 	Log       *slog.Logger
 }
 
@@ -159,7 +160,25 @@ var (
 	causeFenced  = cause{Fenced, StateFenced, "not_owner"}
 	causeSigterm = cause{Released, StateDraining, "sigterm"}
 	causeMaxLen  = cause{Ended, StateEnding, "max_duration"}
+	// causeRoomClosed: Hono deleted a room, which is how LiveKit tells us the
+	// session is ending (ADR-0020). Unlike a heartbeat 409, Hono hasn't heard
+	// from us, so we report the track as ended.
+	causeRoomClosed = cause{Ended, StateEnding, "room_closed"}
+	// causeReplaced: another participant took our LiveKit identity.
+	causeReplaced = cause{Fenced, StateFenced, "replaced"}
 )
+
+// mediaCause is why a media error stops the job.
+func mediaCause(side string, err error) cause {
+	switch {
+	case errors.Is(err, media.ErrRoomClosed):
+		return causeRoomClosed
+	case errors.Is(err, media.ErrReplaced):
+		return causeReplaced
+	default:
+		return failed(side + ": " + err.Error())
+	}
+}
 
 func failed(reason string) cause { return cause{Failed, StateFailing, reason} }
 
@@ -225,16 +244,23 @@ func (r *Runner) work(shutdown context.Context, job *jobs.Job, claim control.Cla
 	box := &causeBox{off: off}
 	stopOnShutdown := context.AfterFunc(shutdown, func() { box.set(causeSigterm) })
 	defer stopOnShutdown()
+	// SIGTERM came during the claim: give the track back before starting
+	// anything. AfterFunc runs in its own goroutine, so without this check
+	// Gemini could connect and report the track live first.
+	if shutdown.Err() != nil {
+		box.set(causeSigterm)
+		return r.teardown(job, box, nil, nil, nil, nil, log)
+	}
 
-	src, err := r.d.NewSource(job)
+	src, err := r.d.NewSource(job, claim)
 	if err != nil {
 		box.set(failed("media_in: " + err.Error()))
-		return r.teardown(job, box, nil, nil, nil, log)
+		return r.teardown(job, box, nil, nil, nil, nil, log)
 	}
-	sink, err := r.d.NewSink(job)
+	sink, err := r.d.NewSink(job, claim)
 	if err != nil {
 		box.set(failed("media_out: " + err.Error()))
-		return r.teardown(job, box, nil, nil, nil, log)
+		return r.teardown(job, box, src, nil, nil, nil, log)
 	}
 
 	inQ := audio.NewFrameQueue(int(r.o.InBuffer / audio.FrameDuration))
@@ -255,13 +281,13 @@ func (r *Runner) work(shutdown context.Context, job *jobs.Job, claim control.Cla
 	g, gctx := errgroup.WithContext(jobCtx)
 	g.Go(func() error {
 		if err := sink.Run(sinkCtx); err != nil {
-			box.set(failed("media_out: " + err.Error()))
+			box.set(mediaCause("media_out", err))
 		}
 		return nil
 	})
 	g.Go(func() error {
 		if err := src.Run(gctx, inQ.Push); err != nil {
-			box.set(failed("media_in: " + err.Error()))
+			box.set(mediaCause("media_in", err))
 		}
 		return nil
 	})
@@ -288,7 +314,7 @@ func (r *Runner) work(shutdown context.Context, job *jobs.Job, claim control.Cla
 	})
 
 	<-jobCtx.Done()
-	return r.teardown(job, box, sink, stopSink, g, log)
+	return r.teardown(job, box, src, sink, stopSink, g, log)
 }
 
 // reportLive tells Hono the stream is open (live means ready).
@@ -364,7 +390,7 @@ func (r *Runner) heartbeat(ctx context.Context, job *jobs.Job, every, lease time
 }
 
 // teardown is the only way out of a claimed job.
-func (r *Runner) teardown(job *jobs.Job, box *causeBox, sink media.Sink, stopSink context.CancelFunc, g *errgroup.Group, log *slog.Logger) Outcome {
+func (r *Runner) teardown(job *jobs.Job, box *causeBox, src media.Source, sink media.Sink, stopSink context.CancelFunc, g *errgroup.Group, log *slog.Logger) Outcome {
 	c := box.get()
 	r.state.Store(int32(c.state))
 	log = log.With("outcome", string(c.outcome), "reason", c.reason)
@@ -390,6 +416,11 @@ func (r *Runner) teardown(job *jobs.Job, box *causeBox, sink media.Sink, stopSin
 			log.Warn("job goroutines did not stop in time")
 		}
 	}
+	if src != nil {
+		if err := src.Close(); err != nil {
+			log.Warn("closing input failed", "error", err.Error())
+		}
+	}
 	if sink != nil {
 		if err := sink.Close(); err != nil {
 			log.Warn("closing output failed", "error", err.Error())
@@ -406,7 +437,7 @@ func (r *Runner) teardown(job *jobs.Job, box *causeBox, sink media.Sink, stopSin
 		err = r.d.Control.Release(ctx, job.TrackId, api.Sigterm)
 	case c.outcome == Failed:
 		err = r.d.Control.Status(ctx, job.TrackId, api.TrackStatusFailed, truncate(c.reason, 500))
-	case c == causeMaxLen:
+	case c == causeMaxLen || c == causeRoomClosed:
 		err = r.d.Control.Status(ctx, job.TrackId, api.TrackStatusEnded, c.reason)
 	}
 	if err != nil && !control.IsConflict(err) {

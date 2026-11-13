@@ -4,8 +4,8 @@ Project: **AI Dubbing Studio — live dubbing**: a host speaks, and listeners he
 This is the design of the **translator worker**, the autoscaled pod that translates one language of one session. It follows ADR-0018 (job dispatch), ADR-0019 (Go runtime) and ADR-0020 (host audio through LiveKit). §9 lists where it fills in or departs from them.
 
 > **This phase** covers the whole job path: the OpenAPI contract, the Go worker, the Redis Stream in Docker Compose, and Hono's leases and internal endpoints.
-> **Deferred:** LiveKit (rooms, tokens, the media adapter), Kubernetes (manifests, KEDA, self-delete, `/metrics`), the host's go-live gate in the UI, and captions.
-> Until LiveKit lands, host audio comes from a WAV file and the translation is written to a WAV file, behind interfaces the LiveKit adapter will implement.
+> **Deferred:** Kubernetes (manifests, KEDA, self-delete, `/metrics`), the host's go-live gate in the UI, and captions.
+> The LiveKit media adapter (YGP-70) is used when the claim carries LiveKit access; otherwise host audio comes from a WAV file and the translation is written to a WAV file.
 
 ---
 
@@ -42,7 +42,7 @@ flowchart LR
 
     subgraph Workers["Docker Compose (Kubernetes later)"]
         W["Translator workers (Go)<br/>1 worker = 1 session x language"]
-        M[("media/in, media/out<br/>WAV adapter (LiveKit later)")]
+        M[("LiveKit rooms<br/>(WAV files without LiveKit)")]
     end
 
     Gem[["Gemini Live Translate"]]
@@ -104,7 +104,7 @@ sequenceDiagram
     and audio
         W->>Gemini: host audio, 100 ms chunks of 16 kHz PCM
         Gemini-->>W: translated 24 kHz PCM
-        W->>W: write to the output (WAV now, LiveKit later)
+        W->>W: publish to the output room (or a WAV file)
     end
 ```
 
@@ -177,8 +177,8 @@ sequenceDiagram
 flowchart LR
     Q[("Redis Stream")]
     API["Hono API"]
-    SRC[("media.Source<br/>WAV now, LiveKit later")]
-    OUT[("media.Sink<br/>WAV now, LiveKit later")]
+    SRC[("media.Source<br/>LiveKit source room or WAV")]
+    OUT[("media.Sink<br/>LiveKit output room or WAV")]
     GEM[["Gemini Live Translate"]]
 
     subgraph Worker["Translator worker (one job, then exit)"]
@@ -246,13 +246,16 @@ stateDiagram-v2
 ### 4.3 Media
 
 - `media.Source` delivers 20 ms frames of 16 kHz PCM; `media.Sink` plays 24 kHz PCM at real-time pace.
-- **WAV adapter (this phase):**
+- **WAV adapter (when the claim has no LiveKit access):**
     - Input comes from `MEDIA_DIR/in/{lang}.wav`, else `in/input.wav`. It is streamed in real time, then silence until the job ends.
     - Output goes to `MEDIA_DIR/out/{sessionId}-{lang}-{workerId}.wav`. The worker id stops a fenced old owner and the new owner from writing one file.
     - Writing starts at the first translated audio. After that, every 20 ms the sink writes audio or silence, so the file lines up with wall-clock time. The header is patched every 5 s.
-- **LiveKit adapter (later, ADR-0020):**
-    - Join the source room hidden and subscribe-only, as the worker id. Subscribe only to `hostIdentity`'s audio.
-    - Join the output room publish-only as `translator-{trackId}` (the shared identity disconnects an old owner). Publish one mono track named `{language}`.
+- **LiveKit adapter (`internal/livekit`, ADR-0020, YGP-70):**
+    - Both rooms are joined before Gemini opens, so `live` still means ready. The URL and both tokens come from the claim; the identity is the one Hono signs (`worker-{workerId}`).
+    - Source: joins the source room hidden and subscribe-only, with auto-subscribe off. It subscribes to any audio track there, since only the host can publish; a newer track (the host's second device) replaces the old one. Audio is decoded to 16 kHz mono and cut into 20 ms frames. With no host audio for 100 ms it sends silence, like the WAV source.
+    - Sink: joins the output room publish-only and publishes one mono Opus track named `{language}`. The track paces itself at 20 ms; the sink hands it one frame per tick, with one extra frame whenever audio starts again, so the two never leave a gap. An interruption clears both queues.
+    - A deleted or closed room, or being removed, ends the job as `status ended` (`room_closed`). Another participant joining with the same identity stops it without another call to Hono (`replaced`). The SDK reports a deleted room only through `Room.DisconnectReason()`, so the adapter reads that.
+    - Opus encoding and resampling need cgo (libopus, libsoxr). The code is behind the `livekit` build tag; without it a track with LiveKit access fails.
 
 ### 4.4 Gemini
 
@@ -311,9 +314,9 @@ Environment variables and defaults are listed in [README.md](README.md#configura
 - **Docker Compose (this phase):**
     - `redis` (AOF on) runs in the default set.
     - `translator` is in the `translator` profile, with 2 replicas, `restart: unless-stopped`, `stop_grace_period: 15s`, a read-only root filesystem, and `media/` mounted.
-    - Its healthcheck runs `/translator -healthcheck`, because distroless has no curl.
+    - Its healthcheck runs `/translator -healthcheck`, so the image needs no curl.
     - An idle worker that can't reach Redis for `UNHEALTHY_EXIT_SEC` exits, so the restart policy replaces it (Compose doesn't restart unhealthy containers).
-- **Image:** `golang:1.27-bookworm` build with `CGO_ENABLED=0` → `gcr.io/distroless/static-debian12:nonroot`, about 41 MB. Revisit when the LiveKit adapter needs libopus.
+- **Image:** `golang:1.27-bookworm` build with cgo and `-tags livekit,nolibopusfile` → `debian:bookworm-slim` with `libopus0` and `libsoxr0`, user 65532, about 188 MB unpacked.
 - **Kubernetes (later):** a Deployment with a self-delete exit hook (`internal/lifecycle`), KEDA scaling on busy pods plus the warm pool, RBAC, and a NetworkPolicy (ADR-0018 follow-ups).
 
 ---
@@ -339,7 +342,7 @@ ADR-0018, ADR-0019 and ADR-0020 are still proposed; ADR-0019 would supersede ADR
     2. **`BLOCK 1000`** instead of 5000 (see §4.2).
     3. **The Live Translate model** replaces the earlier native-audio-with-prompt idea.
     4. **`status failed` means "retry me"**: Hono re-enqueues up to `TRACK_MAX_ATTEMPTS`, then marks the track failed. This is the dead-letter handling ADR-0018 asked for.
-    5. Until LiveKit, the stop signal is **heartbeat `409 ended`**.
+    5. The stop signal is the source room being deleted, with **heartbeat `409 ended`** as the backstop.
 
 ---
 
@@ -356,6 +359,7 @@ apps/translator/
   internal/runner/       # one job: state machine, heartbeat, teardown
   internal/gemini/       # Live Translate adapter + stream manager
   internal/media/        # Source/Sink interfaces + WAV adapter
+  internal/livekit/      # LiveKit adapter (build tag livekit)
   internal/audio/        # WAV, chunker, bounded buffers
   internal/httpserver/   # /health, /ready
   internal/lifecycle/    # exit hook (Kubernetes self-delete later)
@@ -380,6 +384,13 @@ packages/contracts/openapi/translator-control.yaml
     - Ending the session stopped the workers 2 s and 5 s later (their next heartbeat); fresh workers were ready again.
     - Memory: 5.5 MiB idle, 10.7 MiB with a live track; the API 34 MiB.
 - [x] Sessions stored; `/start` and `/end` open and end the tracks. From the Studio (2026-11-06): Go live → both tracks claimed 28 ms later, live within 0.5 s, translated audio 3 s later; End session → both workers stopped at their next heartbeat (4.5 s).
+
+- [x] LiveKit adapter (YGP-70), tested against `livekit-server --dev` (2026-11-11): the host's tone arrives as 16 kHz frames, a listener hears the `sk` track, deleting the source room ends the source with `room_closed`, and a second participant with the worker's identity stops the sink.
+- [x] End to end through Compose with LiveKit and real Gemini (2026-11-11): a session going live from English into Slovak and German; a host client played 9 s of English speech twice into the source room.
+    - Both workers joined both rooms inside Compose. Each track was live 1 to 2 s after the claim, and translated audio came 3 s after that.
+    - A listener in the Slovak room got the `sk` track from the worker and heard 21 s of Slovak speech, two blocks matching the two times the host spoke.
+    - Ending the session deleted the rooms, and both workers stopped 0.3 s later with `room_closed`. Fresh workers were ready about 1 s after that.
+    - From the browsers: the Studio sent a podcast as the host's input, and the listener page played the Dutch translation. A podcast playing in the same browser as the Studio came through silent, because the browser's echo cancellation removed it.
 
 ## 12. Acceptance criteria (this phase)
 
