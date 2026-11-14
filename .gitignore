@@ -9,3 +9,6 @@ site/
 apps/translator/media/**/*.wav
 apps/translator/probe-out-*.wav
 apps/translator/test-speech.wav
+
+# Test coverage reports (pnpm test:coverage).
+coverage/

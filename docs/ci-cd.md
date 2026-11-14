@@ -222,7 +222,7 @@ path filter, so it runs on every pull request, including docs-only ones.
 | Job | What it runs | Fails when |
 |---|---|---|
 | Typecheck | `pnpm typecheck`: `tsc` in every package | A type error anywhere in the monorepo. |
-| Test | `pnpm test`: Vitest in every package, with a Postgres 18 service | A test fails. |
+| Test | `pnpm test:coverage`: Vitest in every package, with Postgres 18 and LiveKit services, measuring [coverage](#test-coverage) | A test fails. |
 | Build | `pnpm build`: every package that has a build script | A package doesn't build, for example a broken Vite or esbuild setup. |
 | Go worker | In `apps/translator`: `gofmt`, `go vet`, `go generate` (then `git diff`), `go test -race`, and the integration tests against a Redis 8 service | Unformatted Go code, a vet warning, generated control API types that no longer match the OpenAPI document, or a failing test. |
 
@@ -246,10 +246,32 @@ the room tests run too. Its secret is made from the run's ID, so it is
 different every run and never written in the repository.
 
 The Go worker job installs the Go version from `apps/translator/go.mod`, with a
-module cache. `-race` also fails a test when two goroutines touch the same data
+module cache, and the C libraries the LiveKit adapter links through cgo
+(`libopus-dev`, `libsoxr-dev`), the same as the Dockerfile. `-race` also fails a test when two goroutines touch the same data
 without a lock. The integration tests (`-tags integration`, in
 `cmd/translator`) need a real Redis, so the job starts a throwaway
 `redis:8-alpine`, the same image as Compose.
+
+### Test coverage
+
+The Test job measures how much of the TypeScript code the tests run (Vitest's
+V8 coverage, `@vitest/coverage-v8`) and adds a table to the run's summary page:
+lines, branches and functions for each package. Every file in a package's
+`src/` counts, including files no test touches.
+
+Coverage is **reported, not enforced**: no percentage fails the job. The Go
+worker's coverage isn't included.
+
+To see the same numbers locally:
+
+```bash
+pnpm test:coverage
+pnpm coverage:summary
+```
+
+Without a database and LiveKit (see [Running the checks locally](#running-the-checks-locally))
+most of the API's tests are skipped, so its local number is much lower than
+CI's.
 
 A new push to the same pull request cancels the run still going. The workflow
 can only read the repository.
