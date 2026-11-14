@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Rollback drill done on test (13 November): way 2 took 18 seconds from merge
+  to healthy. The K3s rollback steps now remove Image Updater's digest from
+  the application, which otherwise wins over a pin in Git, and point to the
+  deploy repository's rule for merging a rollback without waiting (YGP-83).
+- Deployment and runbook: the test environment on K3s, Argo CD and Image
+  Updater are marked built; new sections on the cluster (the app runs only on
+  the agent nodes) and how visitors reach it (Cloudflare Tunnel for the app, the
+  Hetzner relay for LiveKit); rolling back on K3s now pauses Image Updater
+  first; "Still to be decided" is down to the worker pool. CI/CD: the checks on
+  `testing` are required now, the Security scan passes, and a new section shows
+  how an image gets from Docker Hub to the cluster (YGP-83).
 - CI's Test job measures test coverage for each TypeScript package and shows
   it on the run's summary page; `pnpm test:coverage` and
   `pnpm coverage:summary` do the same locally. Reported, not enforced. The
