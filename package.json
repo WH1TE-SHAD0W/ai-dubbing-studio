@@ -10,6 +10,8 @@
     "dev:mock": "pnpm --filter @ads/web dev:mock",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "test:coverage": "pnpm -r test --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.include=src/**",
+    "coverage:summary": "node scripts/coverage-summary.mjs"
   }
 }
