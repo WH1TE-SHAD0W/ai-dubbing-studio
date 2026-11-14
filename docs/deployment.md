@@ -370,7 +370,11 @@ kubectl -n ads-test exec postgres-0 -- pg_dump -U dubbing dubbing > backup.sql
 ## Still to be decided
 
 - **The worker pool's size and limits** (ADR-0018 follow-up). The test
-  environment runs a fixed pool of two workers for now.
+  environment runs a fixed pool of 12 workers (deploy #23), so it can serve up
+  to 12 tracks at once. The 12 comes from Gemini usage seen in Google AI
+  Studio, not from a published limit. Still open: scaling on the number of
+  idle workers, and Gemini quota for prod, since test and prod each running 12
+  workers on one Gemini project would be throttled.
 
 Decided since this page was first written: how we deploy and how a new image
 reaches the cluster ([ADR-0021](adr/0021-how-we-deploy.md)), secrets (created

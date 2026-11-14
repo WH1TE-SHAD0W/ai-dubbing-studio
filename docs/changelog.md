@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Deployment page: the test environment's worker pool is 12 workers, sized
+  from observed Gemini usage; Gemini quota for prod is still open (YGP-83).
 - Rollback drill done on test (13 November): way 2 took 18 seconds from merge
   to healthy. The K3s rollback steps now remove Image Updater's digest from
   the application, which otherwise wins over a pin in Git, and point to the
