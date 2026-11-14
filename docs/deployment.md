@@ -154,8 +154,8 @@ Tailscale and the subnet router that shares the LAN.
 
 ### Open it
 
-1. Open <http://10.108.159.43:4466>. Every node answers on port 4466, so any
-   node's LAN address works, and so does <http://k3s.ads.lan:4466> if
+1. Open <http://10.108.159.43:4466/>. Every node answers on port 4466, so any
+   node's LAN address works, and so does `http://k3s.ads.lan:4466` if
    `k3s.ads.lan` is in your hosts file.
 2. Paste the token into the login page.
 
