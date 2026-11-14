@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Branch protection: a third ruleset, `require-checks-main.json`, makes the
+  same five checks required on `main`, now that the first release brought the
+  workflows there; the CI/CD page says why `main` came later (YGP-76).
 - Rollback drill done on test (13 November): way 2 took 18 seconds from merge
   to healthy. The K3s rollback steps now remove Image Updater's digest from
   the application, which otherwise wins over a pin in Git, and point to the
