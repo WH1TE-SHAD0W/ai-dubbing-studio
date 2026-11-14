@@ -22,7 +22,9 @@ listeners, so cost grows with languages, not listeners.
 
 ## Where the project is
 
-Working today, in Docker Compose:
+Working today, in Docker Compose on your own machine and on the test
+environment, a K3s cluster at <https://test.glossia.ie>
+([Deployment and runbook](deployment.md)):
 
 - **Hosts** register and log in (Better Auth, with accounts in PostgreSQL).
 - **Sessions:** a host creates a session, shares its join code, takes it live
@@ -35,6 +37,10 @@ Working today, in Docker Compose:
 - **Audio:** the host's microphone goes to LiveKit. A worker hears it there
   and publishes the translation into its language's room, which the listener
   page plays.
+
+Checked end to end on the test environment (13 and 14 November): a host on a
+laptop, and listeners on phones over Wi-Fi and 4G, each heard only their own
+language, and switching language changed the audio without reloading the page.
 
 The [decision records](adr/index.md) behind it:
 
