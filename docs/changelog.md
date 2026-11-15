@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Branch protection: a third ruleset, `require-checks-main.json`, makes the
+  same five checks required on `main`, now that the first release brought the
+  workflows there; the CI/CD page says why `main` came later (YGP-76).
 - Docs match what runs: the Home page and User Guide point to the test
   environment and the end-to-end phone test; the Data model says expired logins
   and ended sessions aren't cleaned up yet (YGP-67); the Translator page says
