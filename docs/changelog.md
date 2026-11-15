@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Feature flags: a `.github/feature-flags.json` file the web app reads when it
+  is built. The first flag, `peakListeners`, is off, so the Studio no longer
+  shows "peak 0 listeners" while nothing records the count (YGP-114).
 - Branch protection: a third ruleset, `require-checks-main.json`, makes the
   same five checks required on `main`, now that the first release brought the
   workflows there; the CI/CD page says why `main` came later (YGP-76).
