@@ -51,15 +51,41 @@ flowchart LR
   `cloudflared` pods keep the tunnel open; Cloudflare serves HTTPS with its own
   certificate and passes requests to Traefik, which sends each host name to its
   environment. `/internal` (the workers' API) is refused at the Ingress.
-- **LiveKit's audio** can't go through that tunnel, which carries only HTTP. A
-  WireGuard sidecar in the LiveKit pod dials out to a small relay VM at Hetzner,
-  which serves `livekit.test.glossia.ie` with Caddy and forwards the media ports
-  (7881/TCP and 7882/UDP for test) through the tunnel
-  ([ADR-0023](https://wh1te-shad0w.github.io/ai-dubbing-studio/adr/0023-livekit-public-endpoint/), YGP-109). The API gives
-  browsers this address as `LIVEKIT_PUBLIC_URL`. The API and the workers reach
-  LiveKit directly inside the cluster.
+- **LiveKit's audio** can't go through that tunnel, which carries only HTTP,
+  so it goes through a relay VM at Hetzner instead: see
+  [LiveKit's public address](#livekits-public-address-test) below.
 - **The Argo CD UI** is only on the LAN (and over Tailscale), on port 8443 of
   any node, never through the tunnel.
+
+### LiveKit's public address (test)
+
+Browsers can't reach the cluster on the LAN, so they reach LiveKit through a
+Hetzner VPS with a public address, as decided in
+[ADR-0023](adr/0023-livekit-public-endpoint.md). The deploy repository sets it
+up: `ansible/relay.yml` for the VPS, and `components/livekit-relay` for the
+LiveKit pod (deploy #15, #16).
+
+```mermaid
+flowchart LR
+    browser["Browser<br>(host or listener)"] -- "wss://livekit.test.glossia.ie" --> caddy["Caddy<br>on the relay"]
+    browser -- "media: 7881/tcp, 7882/udp" --> nft["nftables<br>on the relay"]
+    caddy -- "WireGuard tunnel" --> pod["LiveKit pod<br>(WireGuard sidecar)"]
+    nft -- "WireGuard tunnel" --> pod
+```
+
+- **Signaling**: Caddy on the relay serves `livekit.test.glossia.ie` over
+  HTTPS and WebSockets, with a Let's Encrypt certificate, and passes it to the
+  pod's port 7880. The API gives browsers this address as `LIVEKIT_PUBLIC_URL`.
+- **Media**: the relay forwards UDP 7882 and TCP 7881 to the pod, on the same
+  ports. LiveKit tells browsers to send media to the relay's address.
+- **The tunnel**: a WireGuard sidecar in the LiveKit pod dials out to the
+  relay, so the tunnel follows the pod to whichever node it runs on. No port is
+  opened on the cluster or the LAN.
+- **Inside the cluster** the API and the workers keep using
+  `ws://livekit:7880`, without going through the relay.
+
+Checked on the test environment: a host's microphone and a listener both
+connect to LiveKit through the relay, over UDP.
 
 ## Components
 
@@ -379,4 +405,4 @@ kubectl -n ads-test exec postgres-0 -- pg_dump -U dubbing dubbing > backup.sql
 Decided since this page was first written: how we deploy and how a new image
 reaches the cluster ([ADR-0021](adr/0021-how-we-deploy.md)), secrets (created
 by hand on the cluster), and HTTPS and the public address (the Cloudflare
-Tunnel, and the LiveKit relay in [ADR-0023](https://wh1te-shad0w.github.io/ai-dubbing-studio/adr/0023-livekit-public-endpoint/)).
+Tunnel, and the LiveKit relay in [ADR-0023](adr/0023-livekit-public-endpoint.md)).
