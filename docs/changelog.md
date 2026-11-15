@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Docs match what runs: the Home page and User Guide point to the test
+  environment and the end-to-end phone test; the Data model says expired logins
+  and ended sessions aren't cleaned up yet (YGP-67); the Translator page says
+  test runs 12 workers.
 - Deployment page: the test environment's worker pool is 12 workers, sized
   from observed Gemini usage; Gemini quota for prod is still open (YGP-83).
 - Rollback drill done on test (13 November): way 2 took 18 seconds from merge
