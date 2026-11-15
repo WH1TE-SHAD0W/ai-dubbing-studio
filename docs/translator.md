@@ -34,7 +34,7 @@ These go in `.env` with the rest (see the
 | `INTERNAL_API_TOKEN` | **required** | the API and the workers | The token the workers send on every `/internal` call. At least 32 random characters, for example from `openssl rand -hex 32`. Both sides must have the same one, so after changing it restart the API and the workers together. |
 | `GEMINI_API_KEY` | none | the workers only | A Google AI Studio key with access to the Live Translate model. It never reaches the API or the browser. Without it a worker stops at start with "GEMINI_API_KEY is required" in its log. |
 | `GEMINI_MODEL` | `gemini-3.5-live-translate-preview` | the workers | The Gemini model. |
-| `TRANSLATOR_REPLICAS` | `2` | Docker Compose | How many workers run. Each translates one language at a time, so this is how many languages can be live at once; a language waits until a worker is free. |
+| `TRANSLATOR_REPLICAS` | `2` | Docker Compose | How many workers run. Each translates one language at a time, so this is how many languages can be live at once; a language waits until a worker is free. On the test cluster the deploy repository sets the pool instead: 12 workers ([Deployment](deployment.md#still-to-be-decided)). |
 | `TRANSLATOR_CONTROL_API_URL` | the `api` container (`http://api:3000`) | Docker Compose, for the workers | Where the workers find the API. Set `http://host.docker.internal:3000` when the API runs on your machine instead of in Docker. |
 | `TRANSLATOR_LOG_LEVEL` | `info` | Docker Compose, for the workers | `debug` adds a line for each transcript the worker receives, without its text. |
 
