@@ -17,6 +17,20 @@
   it on the run's summary page; `pnpm test:coverage` and
   `pnpm coverage:summary` do the same locally. Reported, not enforced. The
   Testing page has a Coverage section with the current numbers (YGP-75).
+- ADR-0023 accepted. The Deployment page describes LiveKit's public address
+  on test: Caddy and media forwarding on the Hetzner relay, and the WireGuard
+  sidecar in the LiveKit pod; a host and a listener connect through it
+  (YGP-109).
+- Proposed ADR-0024: Headlamp as the K3s cluster's dashboard, instead of the
+  archived Kubernetes Dashboard and its Kong gateway, on a LAN-only port
+  reached through the Tailscale subnet router, with a read-only token
+  (YGP-113).
+- Proposed ADR-0022: architecture tests, go-arch-lint for the worker and
+  dependency-cruiser for the API, run in CI on every pull request; lists which
+  rules each one checks and why (YGP-110).
+- Proposed ADR-0023: LiveKit's public address. A Hetzner VPS as the relay, a
+  WireGuard sidecar in the LiveKit pod, and Caddy for signaling, with the move
+  to a public cloud after release for higher availability (YGP-109).
 - Translator workers with LiveKit, run end to end through Compose with real
   Gemini: host speech in the source room came out as Slovak speech in the
   `sk` room, and ending the session stopped the workers 0.3 s later (YGP-70).
