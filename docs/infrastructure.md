@@ -221,9 +221,23 @@ media comes in through the relay now.
 
 ### Hetzner Cloud Firewall
 
-If the relay has a Hetzner Cloud Firewall in front of it, it needs the same
-openings: UDP 51820, TCP 80 and 443, and the media ports (7881/tcp, 7882/udp,
-7891/tcp, 7892/udp).
+The relay sits behind a Hetzner Cloud Firewall, `firewall-2`, applied to it
+by hand in the Hetzner console. It filters before traffic reaches the VM, and
+lets in only these, from any IPv4 or IPv6 address:
+
+| Port | For |
+|---|---|
+| 80/tcp, 443/tcp | Caddy (Let's Encrypt and LiveKit's signaling) |
+| 7881/tcp, 7882/udp | Test's LiveKit media |
+| 7891/tcp, 7892/udp | Prod's LiveKit media |
+| 51820/udp | WireGuard from the LiveKit pods |
+
+It has no outbound rules, so the relay's outgoing traffic is not limited.
+There's no rule for SSH (22): the team reaches the relay over Tailscale,
+which connects out.
+
+A new environment's media ports need a rule here as well as in
+`ansible/group_vars/relay.yml`.
 
 ## K3s
 
