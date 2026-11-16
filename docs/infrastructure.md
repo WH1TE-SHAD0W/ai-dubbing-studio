@@ -256,7 +256,7 @@ What K3s brings with it, in `kube-system`:
 | `cloudflared` | The two `cloudflared` pods and the tunnel token | `cluster/cloudflared.yaml` |
 | `headlamp` | The cluster dashboard and its read-only viewer token | `cluster/headlamp/` |
 | `ads-test` | The test environment: api, postgres, redis, livekit (with its sidecar), translator | Argo CD (`ads-test`) |
-| `ads-prod` | Production, once its application is applied | Argo CD (`ads-prod`), not applied yet |
+| `ads-prod` | Production at <https://glossia.ie>: the same components as test, with its own LiveKit pod on the relay (`10.8.0.3`) | Argo CD (`ads-prod`) |
 
 `ads-local` exists only on a developer's own k3d cluster, never on this one.
 
@@ -265,7 +265,7 @@ What K3s brings with it, in `kube-system`:
 | Application | Source (deploy repo, `main`) | Namespace | Sync | Status |
 |---|---|---|---|---|
 | `ads-test` | `overlays/test` | `ads-test` | Automatic, prune and self-heal | Applied |
-| `ads-prod` | `overlays/prod` | `ads-prod` | Automatic, prune and self-heal | Written (`argocd/prod.yaml`), not applied |
+| `ads-prod` | `overlays/prod` | `ads-prod` | Automatic, prune and self-heal | Applied (16 November), Synced |
 
 Argo CD checks the deploy repository every 3 minutes, so it needs only
 outgoing access to GitHub; GitHub never reaches the cluster. The cluster-wide
