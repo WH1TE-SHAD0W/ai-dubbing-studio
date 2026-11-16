@@ -251,8 +251,8 @@ erDiagram
 - **account:** how a host signs in. For email and password, it holds the
   password, stored only as an Argon2id hash.
 - **logins:** one row per logged-in browser. Better Auth calls this table
-  `session`; it is renamed so "session" always means a live event. Rows expire
-  after 12 hours.
+  `session`; it is renamed so "session" always means a live event. A login
+  expires 12 hours after it starts.
 - **sessions:** one row per live event, owned by a host. `join_code` only has to
   be unique among sessions that haven't ended, so short codes can be reused.
 - **session_languages:** each target language of a session, in the order the
@@ -264,6 +264,8 @@ erDiagram
   worker. After 3 workers failed or vanished on it, it is `failed`.
 - Deleting a session deletes its languages and tracks; deleting a host deletes
   their logins and sessions.
+- **Nothing is cleaned up on a schedule yet:** expired logins and ended
+  sessions stay in the database. A cleanup job is future work (YGP-67).
 - Our tables are created by numbered SQL files in `apps/api/migrations`, each
   applied once and recorded in `schema_migrations`.
 - LiveKit room names aren't stored: they're built from the session ID and the

@@ -188,7 +188,7 @@ Rulesets → New ruleset → Import a ruleset**.
 |---|---|---|---|
 | **Protect main and testing** (`protect-main-and-testing.json`) | `main`, `testing` | A pull request with **one approval** from someone other than its author; a new push clears an earlier approval; merge commits only; no deleting or force-pushing; nobody can skip the rules, admins included | Active |
 | **Require checks on testing** (`require-checks-testing.json`) | `testing` | Typecheck, Test, Build, API image and Worker image must pass | Active |
-| Required checks on `main` | `main` | The same checks | Later: once the workflows are on `main` (see below) |
+| **Require checks on main** (`require-checks-main.json`) | `main` | The same five checks | Active, since the first release brought the workflows to `main` (see below) |
 
 Nothing protects `development` or the feature branches: reviews there are a
 team agreement.
@@ -196,7 +196,7 @@ team agreement.
 There's also an old ruleset called **Main** that targets no branches, so it
 has no effect. An admin can delete it.
 
-### Why `main` waits
+### Why `main` came later
 
 A pull request runs the workflows from **its own branch**, not from the branch
 it targets. Pull requests into `testing` come from `development`, which has the
@@ -204,10 +204,12 @@ CI and Images workflows, so the checks always run: #60 ran them although
 `testing` didn't have the workflows yet.
 
 Docs-only branches start from `main` instead
-([branching strategy](branching-strategy.md)), and `main` doesn't have the
-workflows until the first release reaches it. Required checks would never
-start on those pull requests, so they could never be merged. Once a release
-brings the workflows to `main`, the same checks are added for `main`.
+([branching strategy](branching-strategy.md)), and `main` didn't have the
+workflows until the first release reached it. Required checks would never have
+started on those pull requests, so they could never have been merged. Since
+that release, every branch made from `main` has the workflows, so the same
+checks are required on `main` too. They have no path filters, so a docs-only
+pull request runs them as well.
 
 The Docs checks, the Security scan and the Go worker job aren't required:
 the Docs checks only run when docs change, and the other two are new. Both now

@@ -7,8 +7,9 @@ AI Dubbing Studio has two kinds of user:
 
 Listeners don't need an account. The host has one.
 
-This describes the app as it works today. Hosts can do everything below.
-Listeners can find a session and pick a language (see [Audio](#audio)).
+This describes the app as it works today: a host runs a session, and listeners
+hear it live in their own language. You can try it on the test environment at
+<https://test.glossia.ie>.
 
 ## Host
 
