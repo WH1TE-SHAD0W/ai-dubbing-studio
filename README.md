@@ -33,6 +33,8 @@ Open <http://localhost:3000/studio>, register, create a session and select **Go 
 
 ## More
 
+The full documentation is at <https://wh1te-shad0w.github.io/ai-dubbing-studio/>, built from [`docs`](docs/) on every merge into `main`.
+
 - [Architecture](https://wh1te-shad0w.github.io/ai-dubbing-studio/architecture/): how the parts fit together.
 - [API](https://wh1te-shad0w.github.io/ai-dubbing-studio/api/): the HTTP endpoints.
 - [Testing](https://wh1te-shad0w.github.io/ai-dubbing-studio/testing/): the tests, the Gemini probe, and debugging.
