@@ -31,6 +31,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --filter "@ads/api..." --filter "@ads/web..."
 
 COPY packages/contracts packages/contracts
+COPY .github/feature-flags.json .github/
 COPY apps/web apps/web
 COPY apps/api apps/api
 RUN pnpm --filter @ads/web build && pnpm --filter @ads/api build

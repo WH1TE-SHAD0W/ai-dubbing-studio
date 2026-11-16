@@ -2,6 +2,7 @@ import { type Session, languageName } from "@ads/contracts";
 import { useState } from "react";
 import { MicPicker } from "../../features/mic/MicPicker.tsx";
 import { api } from "../../lib/api.ts";
+import { isEnabled } from "../../lib/flags.ts";
 
 const STATUS_TEXT: Record<Session["status"], string> = { draft: "Not live yet", live: "Live", ended: "Ended" };
 
@@ -100,7 +101,7 @@ export function ControlRoom({
           {session.languages.map((l) => (
             <li key={l.lang} className="row">
               <span>{languageName(l.lang)}</span>
-              <span className="hint">peak {l.peakListeners} listeners</span>
+              {isEnabled("peakListeners") && <span className="hint">peak {l.peakListeners} listeners</span>}
             </li>
           ))}
         </ul>
