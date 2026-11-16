@@ -26,7 +26,7 @@ Working today, in Docker Compose on your own machine and on the test
 environment, a K3s cluster at <https://test.glossia.ie>
 ([Deployment and runbook](deployment.md)). Production runs on the same cluster
 at <https://glossia.ie> since release v0.1.0 (16 November); listener audio
-there waits on the relay being set up for prod:
+there is not yet tested end to end:
 
 - **Hosts** register and log in (Better Auth, with accounts in PostgreSQL).
 - **Sessions:** a host creates a session, shares its join code, takes it live

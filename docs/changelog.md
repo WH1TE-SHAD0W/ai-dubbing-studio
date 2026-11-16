@@ -3,9 +3,13 @@
 ## Unreleased
 
 - Production runs: the `ads-prod` namespace is deployed by Argo CD at
-  <https://glossia.ie>, and the Deployment page and Home page say so. Listener
-  audio waits on the relay being set up for prod. The changelog now has a
+  <https://glossia.ie>, and the Deployment page and Home page say so. The relay
+  carries prod's LiveKit too (deploy #24). The changelog now has a
   section per release (YGP-50).
+- Deployment page: how to open the Headlamp cluster dashboard through
+  Tailscale, and how to get and revoke its read-only viewer token (YGP-113).
+- ADR-0024 amended: the Headlamp viewer token doesn't expire and is revoked
+  by deleting its Secret (YGP-113).
 
 ## v0.1.0 (16 November 2026)
 
