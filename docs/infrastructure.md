@@ -281,7 +281,7 @@ images reach them, is on [Deployment and runbook](deployment.md).
 | SSH to the relay | `100.91.159.122` | Tailscale |
 | kubectl | `https://k3s.ads.lan:6443` | LAN or Tailscale; kubeconfig saved by `site.yml` |
 | Argo CD UI | `https://10.108.153.26:8443` (`ads-server-b`; any node answers) | LAN or Tailscale |
-| Headlamp | `http://k3s.ads.lan:4466` | LAN or Tailscale |
+| Headlamp | `http://10.108.159.43:4466` (`ads-server-a`; any node answers) | LAN or Tailscale |
 
 None of these have an Ingress or a Cloudflare record, so the tunnel never
 carries them.
