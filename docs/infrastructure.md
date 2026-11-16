@@ -24,18 +24,20 @@ flowchart LR
         relay["hetzner-relay<br>46.62.226.178<br>Caddy, nftables, WireGuard"]
     end
     subgraph lan["LAN 10.108.152.0/21 (VMs in Xen Orchestra)"]
-        servers["ads-server-a, -b, -c<br>K3s servers + etcd"]
-        agents["ads-agent-1, -2, -3<br>K3s agents (the app)"]
+        subgraph cluster["K3s cluster"]
+            servers["ads-server-a, -b, -c<br>K3s servers + etcd"]
+            agents["ads-agent-1, -2, -3<br>K3s agents (the app)"]
+        end
     end
     team["Team laptop"]
 
     user -- "HTTPS: glossia.ie,<br>test.glossia.ie" --> cf
-    cf -- "Cloudflare Tunnel<br>(cloudflared dials out)" --> agents
+    cf -- "Cloudflare Tunnel<br>(cloudflared dials out)" --> cluster
     user -- "wss + media:<br>livekit.*.glossia.ie" --> relay
-    relay -- "WireGuard 10.8.0.0/24<br>(the pod dials out)" --> agents
-    agents -- "pull images" --> dh
-    servers -- "Argo CD pulls Git" --> gh
-    team -- "Tailscale" --> servers
+    relay -- "WireGuard 10.8.0.0/24<br>(the LiveKit pod dials out)" --> agents
+    cluster -- "pull images" --> dh
+    cluster -- "Argo CD pulls Git" --> gh
+    team -- "Tailscale" --> cluster
     team -- "Tailscale" --> relay
 ```
 
