@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- New Infrastructure page: the LAN VMs and the Hetzner relay, the networks and
+  names, Cloudflare, the WireGuard tunnel, the firewalls, and the K3s cluster
+  with its namespaces and Argo CD applications, kept apart from the
+  Deployment page (YGP-93).
 - Production runs: the `ads-prod` namespace is deployed by Argo CD at
   <https://glossia.ie>, and the Deployment page and Home page say so. The relay
   carries prod's LiveKit too (deploy #24). The changelog now has a
