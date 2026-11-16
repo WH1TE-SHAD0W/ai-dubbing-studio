@@ -1,0 +1,17 @@
+# Keep the build context small and free of secrets: the images install their own
+# dependencies and build the PWA themselves.
+**/node_modules
+**/dist
+**/dev-dist
+.git
+.github
+!.github/feature-flags.json
+.idea
+.claude
+.env
+.env.*
+!.env.example
+docs
+site
+benchmarks
+**/*.log

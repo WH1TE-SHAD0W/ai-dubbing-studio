@@ -1,16 +1,21 @@
 # CI/CD
 
-The docs are checked and published by GitHub Actions. Two workflows do the
-work:
+The code and the docs are checked by GitHub Actions, which also builds the
+container images, scans them and publishes the docs. Five workflows do the work:
 
+- **CI** (`.github/workflows/ci.yml`) type-checks, tests and builds the code on
+  every pull request into `development`, `testing` or `main`; see
+  [Code checks](#code-checks).
+- **Images** (`.github/workflows/images.yml`) builds the container images on
+  every pull request, and pushes them to Docker Hub after a merge into
+  `testing` or `main`; see [Image build](#image-build).
+- **Security** (`.github/workflows/security.yml`) scans both images for known
+  vulnerabilities on every pull request; see [Security scan](#security-scan).
 - **Docs** (`.github/workflows/docs.yml`) checks the docs on every pull request
   that changes them, and again after each merge into `main`.
 - **Deploy docs** (`.github/workflows/deploy-docs.yml`) builds the site and
   publishes it to [GitHub Pages](https://wh1te-shad0w.github.io/ai-dubbing-studio/)
   whenever the docs change on `main`.
-
-The application code has no pipeline yet; see
-[Code CI (planned)](#code-ci-planned).
 
 ## How a docs change goes live
 
@@ -123,6 +128,31 @@ PATH. Run them through Python instead: `python -m mkdocs build --strict` and
 
 The link check runs only in CI, so it isn't installed locally.
 
+To run the code checks, from the repository root:
+
+```bash
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+For the Go worker, from `apps/translator`:
+
+```bash
+gofmt -l .                      # no output means formatted
+go vet ./...
+go test ./...
+```
+
+`-race` needs a C compiler (cgo), which Windows usually doesn't have, so leave
+it out there; CI runs it on Linux.
+
+The database tests only run if `TEST_DATABASE_URL` or `DATABASE_URL` is set, for
+example to the Compose database from the [Setup Guide](setup-guide.md), and the
+LiveKit tests only if the three `LIVEKIT_` settings are. If
+`pnpm` isn't found, run `corepack enable` once.
+
 ## When a check fails
 
 To find the error:
@@ -149,54 +179,141 @@ fixed them.
 ## What's enforced today
 
 The [branching strategy](branching-strategy.md) says every merge is a pull
-request, reviewed by a teammate, with all checks passing. Since 7 November,
-GitHub enforces part of that on `main` and `testing`, through the ruleset
-**Protect main and testing** (step 1 below). Not enforced yet:
+request, reviewed by a teammate, with all checks passing. GitHub enforces it
+with rulesets (YGP-76), kept in `.github/rulesets/`. Only a repository admin
+can turn one on or change it, by importing its file under **Settings → Rules →
+Rulesets → New ruleset → Import a ruleset**.
 
-- **Passing checks.** A red check warns but doesn't block the merge button
-  until step 2.
-- **Anything on `development`** and the feature branches. Reviews there are a
-  team agreement.
-
-The older ruleset **Main** targets no branches, so it has no effect.
-
-### Branch protection (YGP-76)
-
-The rules are written down as a GitHub ruleset in
-`.github/rulesets/protect-main-and-testing.json`. A repository admin imports
-the file under **Settings → Rules → Rulesets → New ruleset → Import a
-ruleset**. That was done for step 1 on 7 November. The rules come in two
-steps.
-
-**Step 1 (live since 7 November)**, for `main` and `testing`:
-
-- Every change goes through a pull request with **one approval** from someone
-  other than its author.
-- A new push to the pull request clears an earlier approval, so the reviewer
-  always approves the final version.
-- Pull requests are merged with a merge commit, as all of them have been so far.
-- The branches can't be deleted or force-pushed.
-- Nobody can skip the rules, admins included.
-
-**Step 2, once the code checks are on `main`:** the CI workflow's Typecheck,
-Test and Build become required checks. They can't be required before that:
-pull requests into `main` run the workflows that are on `main`, so the checks
-would never start and every pull request would wait for them forever. The Docs
-checks stay optional, for the same reason: they only run when docs change.
-
-## Code CI (planned)
-
-None of this is built yet. It is planned in Jira. The code monorepo (`apps/`,
-`pnpm-workspace.yaml`) is now on `development`, so only the workflows are
-missing.
-
-| Workflow | Jira | Runs on | What it does |
+| Ruleset | Branches | Rules | Status |
 |---|---|---|---|
-| Code checks | YGP-75 | Every pull request into `development`, `testing` or `main` | Installs with pnpm (cached), then runs lint, typecheck and the Vitest tests across the monorepo. Needs a Postgres service: without `DATABASE_URL`, the API tests that use the database are skipped and the run still passes. Shows pass or fail on the pull request. |
-| Image build and push | YGP-52 | Every merge into `testing` or `main` | Builds the Hono API and translation worker images and pushes them to Docker Hub, logging in with an access token stored as a GitHub Actions secret. If a build fails, nothing is pushed. |
+| **Protect main and testing** (`protect-main-and-testing.json`) | `main`, `testing` | A pull request with **one approval** from someone other than its author; a new push clears an earlier approval; merge commits only; no deleting or force-pushing; nobody can skip the rules, admins included | Active |
+| **Require checks on testing** (`require-checks-testing.json`) | `testing` | Typecheck, Test, Build, API image and Worker image must pass | Active |
+| **Require checks on main** (`require-checks-main.json`) | `main` | The same five checks | Active, since the first release brought the workflows to `main` (see below) |
 
-If [ADR-0019](adr/index.md) (Go for the translation worker, still proposed) is
-accepted, the code checks will also need a Go job for the worker.
+Nothing protects `development` or the feature branches: reviews there are a
+team agreement.
+
+There's also an old ruleset called **Main** that targets no branches, so it
+has no effect. An admin can delete it.
+
+### Why `main` came later
+
+A pull request runs the workflows from **its own branch**, not from the branch
+it targets. Pull requests into `testing` come from `development`, which has the
+CI and Images workflows, so the checks always run: #60 ran them although
+`testing` didn't have the workflows yet.
+
+Docs-only branches start from `main` instead
+([branching strategy](branching-strategy.md)), and `main` didn't have the
+workflows until the first release reached it. Required checks would never have
+started on those pull requests, so they could never have been merged. Since
+that release, every branch made from `main` has the workflows, so the same
+checks are required on `main` too. They have no path filters, so a docs-only
+pull request runs them as well.
+
+The Docs checks, the Security scan and the Go worker job aren't required:
+the Docs checks only run when docs change, and the other two are new. Both now
+pass: the worker's CRITICAL gRPC issue that the Security scan reported was fixed
+by upgrading gRPC with the LiveKit work (YGP-70).
+
+## Code checks
+
+The **CI** workflow (YGP-75) runs on every pull request into `development`,
+`testing` or `main`, and again after each push to those branches. It has no
+path filter, so it runs on every pull request, including docs-only ones.
+
+| Job | What it runs | Fails when |
+|---|---|---|
+| Typecheck | `pnpm typecheck`: `tsc` in every package | A type error anywhere in the monorepo. |
+| Test | `pnpm test:coverage`: Vitest in every package, with Postgres 18 and LiveKit services, measuring [coverage](#test-coverage) | A test fails. |
+| Build | `pnpm build`: every package that has a build script | A package doesn't build, for example a broken Vite or esbuild setup. |
+| Go worker | In `apps/translator`: `gofmt`, `go vet`, `go generate` (then `git diff`), `go test -race`, and the integration tests against a Redis 8 service | Unformatted Go code, a vet warning, generated control API types that no longer match the OpenAPI document, or a failing test. |
+
+Every Node job installs the same way:
+
+- **pnpm** at the version pinned in `package.json` (`packageManager`), and
+  **Node 24**.
+- **A pnpm cache**, so repeat runs don't download every package again.
+- **`pnpm install --frozen-lockfile`**, which fails if `pnpm-lock.yaml` is out
+  of date instead of quietly installing different versions.
+
+The Test job starts a throwaway `postgres:18-alpine` database, the same image
+as Docker Compose, and sets `TEST_DATABASE_URL` to it. Without a database URL
+the API's database tests are skipped and the run still passes, so the CI sets
+one to make sure they run. The database has no password, because it only
+exists inside the run.
+
+It also starts a throwaway LiveKit (`livekit/livekit-server:v1.13.11`, as in
+Compose) and sets `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`, so
+the room tests run too. Its secret is made from the run's ID, so it is
+different every run and never written in the repository.
+
+The Go worker job installs the Go version from `apps/translator/go.mod`, with a
+module cache, and the C libraries the LiveKit adapter links through cgo
+(`libopus-dev`, `libsoxr-dev`), the same as the Dockerfile. `-race` also fails a test when two goroutines touch the same data
+without a lock. The integration tests (`-tags integration`, in
+`cmd/translator`) need a real Redis, so the job starts a throwaway
+`redis:8-alpine`, the same image as Compose.
+
+### Test coverage
+
+The Test job measures how much of the TypeScript code the tests run (Vitest's
+V8 coverage, `@vitest/coverage-v8`) and adds a table to the run's summary page:
+lines, branches and functions for each package. Every file in a package's
+`src/` counts, including files no test touches.
+
+Coverage is **reported, not enforced**: no percentage fails the job. The Go
+worker's coverage isn't included.
+
+To see the same numbers locally:
+
+```bash
+pnpm test:coverage
+pnpm coverage:summary
+```
+
+Without a database and LiveKit (see [Running the checks locally](#running-the-checks-locally))
+most of the API's tests are skipped, so its local number is much lower than
+CI's.
+
+A new push to the same pull request cancels the run still going. The workflow
+can only read the repository.
+
+Not checked yet:
+
+- **Lint.** The repository has no lint script, so type-checking does most of
+  that job for now.
+
+## Image build
+
+The **Images** workflow (YGP-52) builds the container images that the test and
+production environments run.
+
+| When | What it does |
+|---|---|
+| A pull request into `development`, `testing` or `main` | Builds each image, to prove it still builds. Nothing is pushed. |
+| A merge (push) into `testing` or `main` | Builds each image and pushes it to Docker Hub with its [tags](#image-tags). |
+| A release tag such as `v0.1.0` is pushed | Builds each image and pushes it with the version as a tag as well (`0.1.0`). |
+
+| Job | Image | Built from |
+|---|---|---|
+| API image | `<Docker Hub user>/ai-dubbing-studio-api` | `apps/api/Dockerfile`, from the repository root: the Hono API with the built app |
+| Worker image | `<Docker Hub user>/ai-dubbing-studio-translator` | `apps/translator/Dockerfile`, from `apps/translator`: the Go translation worker |
+
+Both are one job with two entries (a matrix), so they build side by side, and
+one failing doesn't stop the other.
+
+How it pushes:
+
+- **Only after the whole build passed**, so a failed build pushes nothing.
+- **With a Docker Hub access token**, never the account password. The workflow
+  reads two repository secrets, `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
+  (Settings → Secrets and variables → Actions). Only a repository admin can add
+  them.
+- **If the secrets aren't set**, a merge still builds the image and the run
+  stays green, with a warning that nothing was pushed.
+- **Docker's build cache is kept in GitHub Actions**, so a build that changes
+  little is quick.
 
 ### Image tags
 
@@ -207,8 +324,56 @@ Every image gets more than one tag:
 | The commit SHA, for example `a7fa5e4…` | Every image | Finding exactly which code an image was built from, and rolling back to it. |
 | `testing` | Images built from `testing` | The test environment. |
 | `prod` | Images built from `main` | Production. |
+| The version, for example `0.1.0` | Images built from a release tag (`v0.1.0`) | Knowing which images make up a release, such as the MVP. |
 
 The test environment only ever runs the `testing` tag and production only runs
 `prod` (YGP-81), so a test deployment never picks up an image that hasn't been
 through `testing`, and production never picks up one that hasn't reached
 `main`.
+
+### From Docker Hub to the cluster
+
+The pipeline doesn't stop at Docker Hub, but GitHub Actions never touches the
+cluster:
+
+1. **Argo CD Image Updater** checks Docker Hub every 15 minutes. When `testing`
+   points to a new image, it sets that image's digest on the test environment's
+   Argo CD application.
+2. **Argo CD** rolls the `ads-test` pods onto it, the same way it applies any
+   change merged into the deploy repository.
+
+So a merge into `testing` reaches the test environment within about 15
+minutes, with no step by hand. Production is planned to be pinned to a commit
+SHA by a reviewed pull request instead. How it works, and how to check and roll
+back a deploy, is on the [Deployment and runbook](deployment.md) page.
+
+## Security scan
+
+The **Security** workflow (YGP-78) builds the API and worker images on every
+pull request into `development`, `testing` or `main`, and checks them with
+[Trivy](https://trivy.dev/) for known vulnerabilities in their system packages
+and libraries. Nothing is pushed.
+
+| What Trivy finds | What happens |
+|---|---|
+| A CRITICAL issue that has a fix | The check fails. Update the package or base image, then push again. |
+| A CRITICAL issue with no fix yet | Listed, but the check passes: nobody can fix it yet, so it shouldn't block every pull request. |
+| A HIGH issue | Listed, but the check passes. |
+
+Where to see the results:
+
+- **The check** on the pull request: red or green.
+- **The run's summary page** (open the check, then *Summary*): a table of every
+  HIGH and CRITICAL issue for each image.
+
+The scan isn't a required check yet, so a red scan warns but doesn't block a
+merge. It uses Trivy's official image at a pinned version instead of a
+third-party action, so the scan can't change without a pull request.
+
+Run the same scan locally (Docker must be running). Build the image first, for
+example `docker build -t scan/ai-dubbing-studio-translator apps/translator`,
+then:
+
+```bash
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.76.1 image --scanners vuln --severity HIGH,CRITICAL scan/ai-dubbing-studio-translator
+```

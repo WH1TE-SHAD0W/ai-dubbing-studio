@@ -1,0 +1,9 @@
+# Types for the translator control API, generated from the shared OpenAPI
+# document (ADR-0019). Only models: the HTTP client is hand-written on net/http.
+package: api
+# Relative to internal/control/api, where go:generate runs.
+output: types.gen.go
+generate:
+  models: true
+output-options:
+  skip-prune: true

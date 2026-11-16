@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- Feature flags: a `.github/feature-flags.json` file the web app reads when it
+  is built. The first flag, `peakListeners`, is off, so the Studio no longer
+  shows "peak 0 listeners" while nothing records the count (YGP-114).
+- Branch protection: a third ruleset, `require-checks-main.json`, makes the
+  same five checks required on `main`, now that the first release brought the
+  workflows there; the CI/CD page says why `main` came later (YGP-76).
+- Docs match what runs: the Home page and User Guide point to the test
+  environment and the end-to-end phone test; the Data model says expired logins
+  and ended sessions aren't cleaned up yet (YGP-67); the Translator page says
+  test runs 12 workers.
+- Deployment page: the test environment's worker pool is 12 workers, sized
+  from observed Gemini usage; Gemini quota for prod is still open (YGP-83).
+- Rollback drill done on test (13 November): way 2 took 18 seconds from merge
+  to healthy. The K3s rollback steps now remove Image Updater's digest from
+  the application, which otherwise wins over a pin in Git, and point to the
+  deploy repository's rule for merging a rollback without waiting (YGP-83).
+- Deployment and runbook: the test environment on K3s, Argo CD and Image
+  Updater are marked built; new sections on the cluster (the app runs only on
+  the agent nodes) and how visitors reach it (Cloudflare Tunnel for the app, the
+  Hetzner relay for LiveKit); rolling back on K3s now pauses Image Updater
+  first; "Still to be decided" is down to the worker pool. CI/CD: the checks on
+  `testing` are required now, the Security scan passes, and a new section shows
+  how an image gets from Docker Hub to the cluster (YGP-83).
+- CI's Test job measures test coverage for each TypeScript package and shows
+  it on the run's summary page; `pnpm test:coverage` and
+  `pnpm coverage:summary` do the same locally. Reported, not enforced. The
+  Testing page has a Coverage section with the current numbers (YGP-75).
 - ADR-0023 accepted. The Deployment page describes LiveKit's public address
   on test: Caddy and media forwarding on the Hetzner relay, and the WireGuard
   sidecar in the LiveKit pod; a host and a listener connect through it
@@ -16,6 +43,109 @@
 - Proposed ADR-0023: LiveKit's public address. A Hetzner VPS as the relay, a
   WireGuard sidecar in the LiveKit pod, and Caddy for signaling, with the move
   to a public cloud after release for higher availability (YGP-109).
+- Translator workers with LiveKit, run end to end through Compose with real
+  Gemini: host speech in the source room came out as Slovak speech in the
+  `sk` room, and ending the session stopped the workers 0.3 s later (YGP-70).
+- Translator workers join LiveKit (YGP-70): each one listens to the host's
+  microphone in the session's source room (hidden, listen-only) and publishes
+  its translation as one track named after the language in the output room,
+  with the tokens from the claim. A deleted room ends the track. The image now
+  builds with cgo on Debian, for libopus. Without LiveKit in the claim the
+  workers still use WAV files.
+- Branch protection: a second ruleset makes Typecheck, Test, Build and both
+  image builds required on `testing`; the CI/CD page lists both rulesets and
+  why `main` waits (YGP-76).
+- Setup Guide, checked from a fresh clone: says which `.env` values to replace
+  before the first start, and that listening connects to LiveKit but stays
+  silent until the workers join it (YGP-73).
+- Deployment page: a release step by step with where to see each step, three
+  ways to roll back on K3s, checks for a K3s deploy, and a rollback drill to
+  fill in once Argo CD runs (YGP-83).
+- Deployment page renamed "Deployment and runbook"; its Components and
+  containers tables now list Redis, LiveKit and the translation workers as
+  built (YGP-83).
+- Architecture: the host's microphone and the listener page use LiveKit now;
+  only the workers don't yet (YGP-70). The token section says which routes
+  hand the tokens out.
+- CI runs the Go worker's checks on every pull request: `gofmt`, `go vet`,
+  generated code up to date, `go test -race` and the integration tests with a
+  real Redis (YGP-75).
+- A worker stopped (SIGTERM) while claiming a track gives it straight back,
+  without first telling Hono the track is live (YGP-75).
+- A Security check scans the API and worker images with Trivy on every pull
+  request, and fails on a CRITICAL vulnerability that has a fix (YGP-78).
+- ADR-0021: how a new image reaches the cluster, four options compared;
+  decided: Argo CD Image Updater on the floating `testing` tag for the test
+  environment, and a reviewed pull request pinning the commit SHA for
+  production. The K3s cut-off moves to 12 November (YGP-82).
+- The translation worker's image is built on every pull request and pushed to
+  Docker Hub after a merge, next to the API's (YGP-52).
+- Studio: once the session is live, the host's microphone is sent to the
+  translators through LiveKit, and the Microphone card says whether it's
+  sending (YGP-105).
+- Listener page: Mute and Volume, "Connecting…" instead of "Disconnected" while
+  joining, and "This session has ended" when the host ends it (YGP-106).
+- The host gets a mic token for a live session: publish only, in the source
+  room (YGP-71).
+- Listeners get a LiveKit token: a join code and a language of a live session
+  return a listen-only token for that language's room, and the address in the
+  new `LIVEKIT_PUBLIC_URL` setting (YGP-71).
+- With LiveKit configured, going live creates the session's rooms before its
+  translation tracks open, and ending deletes them (YGP-69).
+- A worker's claim returns its two LiveKit tokens and the LiveKit URL when the
+  API has LiveKit configured (YGP-71).
+- LiveKit docs: the Architecture page lists LiveKit as built but not yet
+  connected, and the Setup Guide says the session routes don't create rooms
+  yet (YGP-73).
+- Setup Guide: database migration examples use the real file names, and a
+  command checks a fresh database has every table. Data model: room names
+  aren't stored (YGP-66).
+- Home page, Architecture, Architecture layers, User Guide and README
+  updated to what works today; a Translator page covers the workers, Redis,
+  their settings and the worker image.
+- Logging in works from an address in `TRUSTED_ORIGINS` written with a
+  trailing slash (it was refused with "Invalid origin").
+- The API's database tests run in their own `_test` database, so a running
+  API never sends their tracks to real workers.
+- Sessions are stored (ADR-0002): a host creates a draft with a join code,
+  takes it live and ends it, and only sees their own. Going live opens one
+  translation track per target language, which idle translator workers pick
+  up; ending it stops them. Listeners can look a session up by its code. Each
+  language in a session shows its translation track's status.
+- `apps/translator`: the translator worker in Go (ADR-0018 to ADR-0020). Each
+  process takes one job from the Redis Stream `translate:jobs`, claims the
+  track from the API, streams the host's audio through one Gemini Live
+  Translate session (resumed seamlessly when Gemini asks it to reconnect), then
+  exits so a fresh process takes its place. Audio is read from and written to
+  WAV files until LiveKit is connected. `/health` and `/ready` probes, a probe
+  command for the real Gemini API, and a 41 MB distroless image.
+- `packages/contracts/openapi/translator-control.yaml`: the API the workers
+  call, with Go and TypeScript types generated from it and Zod schemas checked
+  against them.
+- `apps/api`: translation tracks in Postgres (the first numbered SQL
+  migration), the Redis job stream, the workers' `/internal` routes behind a
+  shared token, and a sweeper that recovers tracks from crashed workers. A
+  `tracks list` command shows which worker has each track.
+- Redis and the translator workers (profile `translator`) in Docker Compose;
+  `REDIS_URL`, `INTERNAL_API_TOKEN` and the Gemini settings in `.env.example`.
+- API, Setup Guide and Testing pages updated for the translator.
+- API image built on every pull request and pushed to Docker Hub after a merge
+  into `testing` or `main`, tagged with the commit SHA plus `testing` or `prod`;
+  a release tag such as `v0.1.0` adds the version tag (YGP-52).
+- Database migrations: the API applies the numbered `.sql` files in
+  `apps/api/migrations/` on every start, records them in `schema_migrations`,
+  and runs them and Better Auth's under one Postgres lock so API copies starting
+  together don't clash (YGP-62).
+- LiveKit tokens in the API: a listener token (listen only, one output room), a
+  host token (microphone only, the source room) and a worker's two tokens
+  (hear the source room hidden, publish to its output room), all expiring after
+  10 minutes (YGP-71).
+- LiveKit rooms in the API: room names from the session and language
+  (ADR-0020), creating a session's source room and one output room per
+  language, and deleting them in two steps; new `LIVEKIT_` settings, passed to
+  the `api` container. Tested against a real LiveKit, also in CI (YGP-69).
+- Code checks on every pull request: typecheck, tests with a Postgres
+  database, and build (YGP-75).
 - CI/CD page: "What's enforced today" now matches the imported ruleset (pull
   request and one approval on `main` and `testing`; checks and `development`
   not enforced yet) (YGP-76).
@@ -33,6 +163,25 @@
   deploy and backing up the database (YGP-83).
 - CI/CD page: the docs checks, publishing the site, running and fixing the
   checks, what's enforced today, and the planned code CI (YGP-77).
+- `apps/api`: the Hono API, first part. It serves the built app with cache
+  headers, connects to Postgres and handles host sign-up, login and logout with
+  Better Auth, configured as ADR-0003 decides (12-hour logins in a `logins`
+  table, Argon2id, rate limits in the database, one message for every failed
+  login). Session and listener routes check their requests and answer `501`
+  until sessions and LiveKit are built.
+- An `api` container in Docker Compose, built by `apps/api/Dockerfile`, with a
+  health check; new settings in `.env.example`.
+- `packages/contracts`: the API error body (`apiErrorSchema`) and the sign-up and
+  rate-limit messages.
+- API, Setup Guide, Deployment and Testing pages updated for the API.
+- The proof of concept is removed and the app is being rebuilt as a pnpm
+  monorepo (ADR-0016, ADR-0017).
+- `packages/contracts`: shared Zod schemas for host accounts, sessions, joining,
+  listener tokens and the dubbing-container request.
+- `apps/web`: the React PWA with the five pages from ADR-0014, a host
+  microphone picker, LiveKit listener playback and a minimal service worker. It
+  runs against a mock API until the Hono API exists.
+- Setup Guide and Testing pages updated for the new layout.
 - Docs checks on every pull request: strict site build, Markdown lint, spell check
   and link check (YGP-32).
 - Pull request template and a "Writing the docs" page.
@@ -54,3 +203,7 @@
   half of Node's memory when idle and about a third with a live track.
 - Proposed ADR-0018: translation jobs dispatched through a Redis Stream to a
   warm pool of single-use worker pods, one track per pod (YGP-91, YGP-98).
+- Postgres in Docker Compose for local development, with a named volume and a
+  health check; settings in `.env.example` (YGP-61).
+- LiveKit server in Docker Compose (v1.13.11), with its config in
+  `config/livekit.yaml`, keys from `.env` and a health check (YGP-68).

@@ -1,0 +1,6 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Don't install package versions published less than a week ago (supply-chain safety).
+minimumReleaseAge: 10080
