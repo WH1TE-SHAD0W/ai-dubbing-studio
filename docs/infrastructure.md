@@ -37,7 +37,8 @@ flowchart LR
     relay -- "WireGuard 10.8.0.0/24<br>(the LiveKit pod dials out)" --> agents
     cluster -- "pull images" --> dh
     cluster -- "Argo CD pulls Git" --> gh
-    team -- "Tailscale" --> cluster
+    team -- "Tailscale" --> sr["Tailscale subnet router<br>(shares 10.108.152.0/21)"]
+    sr -- "LAN addresses" --> cluster
     team -- "Tailscale" --> relay
 ```
 
@@ -46,8 +47,9 @@ Two rules shape all of it:
 - **Nothing on the LAN is opened to the internet.** Every public path starts
   from inside and connects out: `cloudflared` to Cloudflare, the LiveKit pod's
   WireGuard sidecar to the relay, Argo CD to GitHub, the nodes to Docker Hub.
-- **The team reaches the machines over Tailscale,** never over a public port.
-  Ansible connects to the cluster VMs and to the relay through it.
+- **The team reaches the machines over Tailscale,** never over a public port:
+  the cluster VMs through a Tailscale subnet router that shares the whole LAN,
+  and the relay on its own Tailscale address. Ansible connects the same way.
 
 ## The machines
 
@@ -100,13 +102,13 @@ Ansible logs in as `root` over Tailscale. It runs three things, all set up by
 
 | Name | Resolves to | Set where |
 |---|---|---|
-| `k3s.ads.lan` | All three server addresses | The hosts file on each team machine (`site.yml` writes it on the machine running Ansible) |
 | `glossia.ie`, `test.glossia.ie` | The Cloudflare Tunnel (proxied CNAME) | Cloudflare DNS, created by `cloudflared tunnel route dns` |
 | `livekit.glossia.ie`, `livekit.test.glossia.ie` | The relay's public address (`A`, DNS only) | Cloudflare DNS, by hand |
 
-`k3s.ads.lan` resolves to all three servers so kubectl tries them in turn: when
-one is down it moves on to the next, with no virtual IP. The API certificate
-accepts that name and each server's address.
+Inside the LAN there are no names to set up: the team uses the VMs' addresses
+directly (see [How the team reaches it](#how-the-team-reaches-it)). The
+Kubernetes API certificate accepts each server's address, so a kubeconfig can
+point straight at one of them.
 
 ## Cloudflare
 
@@ -291,16 +293,35 @@ images reach them, is on [Deployment and runbook](deployment.md).
 
 ## How the team reaches it
 
-| What | Address | From |
+All by address, with no names to set up:
+
+| What | Address | Through |
 |---|---|---|
-| SSH to the cluster VMs | each VM's LAN address | LAN or Tailscale subnet router |
+| SSH to the cluster VMs | each VM's LAN address ([The machines](#the-machines)) | Tailscale subnet router |
 | SSH to the relay | `100.91.159.122` | Tailscale |
-| kubectl | `https://10.108.159.43:6443` (`ads-server-a`; any server answers) | LAN or Tailscale; kubeconfig saved by `site.yml` |
-| Argo CD UI | `https://10.108.153.26:8443` (`ads-server-b`; any node answers) | LAN or Tailscale |
-| Headlamp | `http://10.108.159.43:4466` (`ads-server-a`; any node answers) | LAN or Tailscale |
+| kubectl | `https://10.108.159.43:6443` (`ads-server-a`; any server answers) | Tailscale subnet router |
+| Argo CD UI | `https://10.108.153.26:8443` (`ads-server-b`; any node answers) | Tailscale subnet router |
+| Headlamp | `http://10.108.159.43:4466` (`ads-server-a`; any node answers) | Tailscale subnet router |
 
 None of these have an Ingress or a Cloudflare record, so the tunnel never
 carries them.
+
+### The Tailscale subnet router
+
+The VMs' LAN has no public addresses, so the team reaches it through a
+Tailscale subnet router. It advertises the whole LAN, `10.108.152.0/21`, to the
+tailnet: a team member with Tailscale running opens any VM's LAN address
+directly, with no port-forward and no VPN of its own. On the LAN itself the
+same addresses work without Tailscale.
+
+The router only carries traffic; the VMs' firewall still decides what gets
+through. ufw lets the LAN reach the cluster's own ports (6443, etcd, kubelet,
+flannel), and ServiceLB opens 8443 and 4466 on every node.
+
+kubectl uses `https://10.108.159.43:6443` directly. `site.yml` saves the
+kubeconfig with `server: https://k3s.ads.lan:6443`; change that line to the
+address. If `ads-server-a` is down, point it at `10.108.153.26` or
+`10.108.159.83`; the API certificate accepts all three.
 
 ## Where to change things
 
