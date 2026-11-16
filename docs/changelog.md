@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Production runs: the `ads-prod` namespace is deployed by Argo CD at
+  <https://glossia.ie>, and the Deployment page and Home page say so. Listener
+  audio waits on the relay being set up for prod. The changelog now has a
+  section per release (YGP-50).
+
+## v0.1.0 (16 November 2026)
+
+The first release of the prototype to `main`.
+
 - Feature flags: a `.github/feature-flags.json` file the web app reads when it
   is built. The first flag, `peakListeners`, is off, so the Studio no longer
   shows "peak 0 listeners" while nothing records the count (YGP-114).
