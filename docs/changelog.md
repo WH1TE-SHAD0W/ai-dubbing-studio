@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- New Infrastructure page: the LAN VMs and the Hetzner relay, the networks and
+  names, Cloudflare, the WireGuard tunnel, the firewalls, and the K3s cluster
+  with its namespaces and Argo CD applications, kept apart from the
+  Deployment page.
 - Feature flags: a `.github/feature-flags.json` file the web app reads when it
   is built. The first flag, `peakListeners`, is off, so the Studio no longer
   shows "peak 0 listeners" while nothing records the count (YGP-114).
