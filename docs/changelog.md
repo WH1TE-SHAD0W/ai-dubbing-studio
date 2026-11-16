@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Deployment page: how to open the Headlamp cluster dashboard through
+  Tailscale, and how to get and revoke its read-only viewer token (YGP-113).
+- ADR-0024 amended: the Headlamp viewer token doesn't expire and is revoked
+  by deleting its Secret (YGP-113).
 - Feature flags: a `.github/feature-flags.json` file the web app reads when it
   is built. The first flag, `peakListeners`, is off, so the Studio no longer
   shows "peak 0 listeners" while nothing records the count (YGP-114).
