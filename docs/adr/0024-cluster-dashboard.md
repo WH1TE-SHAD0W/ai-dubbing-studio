@@ -4,6 +4,7 @@
 - **Date:** 2026-11-12
 - **Deciders:** Marek Culak
 - **Ticket:** YGP-113 (part of YGP-53)
+- **Amended:** 2026-11-14, the login token doesn't expire (see Amendment)
 
 ## Context
 
@@ -181,6 +182,28 @@ through K3s's ServiceLB, reached through the Tailscale subnet router.**
 - If someone outside the tailnet needs it later, decide on a login in front of
   it (Cloudflare Access, OIDC, or an identity-aware proxy) before giving it a
   public host name.
+
+## Amendment (2026-11-14): a token that doesn't expire
+
+The Decision above says the login token is made with `kubectl create token`,
+so it expires. In use, Headlamp logs you out when the token expires, and the
+24-hour token meant logging in again every day.
+
+We changed it to a token that doesn't expire but can be revoked: a
+`kubernetes.io/service-account-token` Secret for the same `headlamp-viewer`
+ServiceAccount (`cluster/headlamp/viewer-token.yaml` in the deploy
+repository). Kubernetes fills in the token when the Secret is applied, so Git
+still holds no token. Its rights are unchanged: `view`, read-only, no Secrets.
+
+- **Why it's acceptable:** the token is read-only, the dashboard is reachable
+  only from the LAN and the tailnet, and revoking it is one command: delete
+  the Secret and the token stops working at once; applying the file again
+  makes a new one.
+- **What it costs:** anyone who copies the token can read the cluster until
+  the Secret is deleted, and the team shares one token. This replaces "the
+  token is read-only and expires" and "Tokens expire" under Bad / trade-offs.
+- `kubectl create token --duration` still works for anyone who wants a token
+  that expires.
 
 ## Sources
 
