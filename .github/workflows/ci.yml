@@ -1,0 +1,150 @@
+# Checks the code on every pull request: typecheck, tests and build, plus the
+# Go worker's format, vet, generated code and tests.
+name: CI
+
+on:
+  pull_request:
+    branches: [development, testing, main]
+  push:
+    branches: [development, testing, main]
+
+# Read-only: these checks never write to the repo.
+permissions:
+  contents: read
+
+# A new push to the same pull request cancels the old run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Installs the pnpm version pinned in package.json ("packageManager").
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      # --frozen-lockfile fails if pnpm-lock.yaml is out of date.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    # A throwaway Postgres for the API's database tests. Same version as Compose.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: dubbing
+          POSTGRES_DB: dubbing
+          # No password: this database only exists inside the run.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dubbing"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      # A throwaway LiveKit for the room tests (YGP-69). Same version as Compose.
+      livekit:
+        image: livekit/livekit-server:v1.13.11
+        env:
+          LIVEKIT_KEYS: "ci-key: ci-${{ github.run_id }}-${{ github.run_attempt }}-throwaway-livekit-secret"
+        ports:
+          - 7880:7880
+        options: >-
+          --health-cmd "wget -q -O - http://127.0.0.1:7880"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Without these the database and LiveKit tests are skipped, and the run
+      # still passes.
+      TEST_DATABASE_URL: postgres://dubbing@localhost:5432/dubbing
+      LIVEKIT_URL: ws://localhost:7880
+      LIVEKIT_API_KEY: ci-key
+      # Made from this run's ID, so it differs every run and only lives inside it.
+      LIVEKIT_API_SECRET: ci-${{ github.run_id }}-${{ github.run_attempt }}-throwaway-livekit-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The tests, measuring coverage as they go. Coverage is reported, not
+      # enforced: no percentage fails the job.
+      - run: pnpm test:coverage
+      - name: Coverage summary
+        run: pnpm coverage:summary >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  # The Go translation worker (apps/translator). These are the checks from the
+  # old Translator workflow, which was folded into this file (YGP-75).
+  go:
+    name: Go worker
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/translator
+    # A throwaway Redis for the integration tests. Same version as Compose.
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      # The Go version comes from go.mod, so CI and the Dockerfile match.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/translator/go.mod
+          cache-dependency-path: apps/translator/go.sum
+      # The LiveKit adapter (YGP-70) uses cgo: libopus for Opus and libsoxr for
+      # resampling. Same packages as the Dockerfile's build stage.
+      - name: C libraries for the LiveKit adapter
+        working-directory: .
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pkg-config libopus-dev libsoxr-dev
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then echo "Run gofmt on:"; echo "$unformatted"; exit 1; fi
+      - run: go vet ./...
+      # The control API types are generated from the shared OpenAPI document
+      # and committed; fail if they no longer match it.
+      - name: Generated code is up to date
+        run: |
+          go generate ./...
+          git diff --exit-code -- .
+      # -race also catches two goroutines touching the same data.
+      - run: go test -race ./...
+      - name: Integration tests (real Redis)
+        # The integration tests are only in cmd/translator; the unit tests ran above.
+        run: go test -race -tags integration ./cmd/translator/
+        env:
+          REDIS_URL: redis://localhost:6379

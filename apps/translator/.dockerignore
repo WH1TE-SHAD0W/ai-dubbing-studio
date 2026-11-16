@@ -1,0 +1,7 @@
+media/
+*.wav
+pod-spec.md
+README.md
+scripts/
+Dockerfile
+.dockerignore

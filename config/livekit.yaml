@@ -1,0 +1,18 @@
+# LiveKit server settings for local development (YGP-68, ADR-0001).
+# The API key and secret aren't kept here: docker-compose.yml passes them in
+# from .env as LIVEKIT_KEYS.
+
+# API and signalling (WebSocket). Hono calls the room API here too.
+port: 7880
+
+rtc:
+  # Media over TCP, for networks that block UDP.
+  tcp_port: 7881
+  # All media over UDP on one port, instead of a large port range.
+  udp_port: 7882
+  # Don't look up the public IP; docker-compose.yml sets the address to
+  # advertise with --node-ip (127.0.0.1 unless LIVEKIT_NODE_IP is set).
+  use_external_ip: false
+
+logging:
+  level: info
