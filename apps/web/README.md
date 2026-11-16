@@ -51,6 +51,14 @@ The microphone and the service worker need a secure context: `localhost` works, 
 | `src/mocks/` | MSW handlers for the mock API, dev and tests only, never in a build |
 | `src/app.test.tsx` | Whole-app tests through the real router |
 
+## Feature flags
+
+Flags live in [`.github/feature-flags.json`](../../.github/feature-flags.json), one `true` or `false` per feature, and are read when the app is built (`src/lib/flags.ts`); the build fails if a value isn't `true` or `false`. To turn a feature on, change its value and rebuild.
+
+| Flag | Default | What it shows |
+|---|---|---|
+| `peakListeners` | `false` | The peak listener count per language in the Studio. Off because nothing writes `peak_listeners` yet, so it would always say 0 (YGP-114). |
+
 ## Not decided yet
 
 How the host's microphone audio reaches the dubbing container, and how captions are delivered. The UI shows a short note in those places.
