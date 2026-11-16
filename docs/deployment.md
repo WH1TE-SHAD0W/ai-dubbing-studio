@@ -16,7 +16,7 @@ is still planned, so each part says which:
 |---|---|---|
 | **Local** | Docker Compose, on a developer's machine | Built |
 | **Test** | A K3s (lightweight Kubernetes) cluster of six VMs (YGP-53, YGP-87), namespace `ads-test`, kept up to date by Argo CD (YGP-82), at <https://test.glossia.ie> | Built |
-| **Production** | The same cluster, namespace `ads-prod`, at `glossia.ie` | Planned: its Argo CD application is written but not applied yet |
+| **Production** | The same cluster, namespace `ads-prod`, deployed by Argo CD, at <https://glossia.ie> | Built (16 November): the site, sign-in, workers and LiveKit run, and the relay carries prod's LiveKit at `livekit.glossia.ie` (deploy #24, [LiveKit's public address](#livekits-public-address-test)). Listener audio on prod not yet tested end to end |
 | **Backup** | Docker Compose on a VM, if K3s wasn't ready in time (YGP-84) | Not needed: the test environment was running on K3s by the 12 November cut-off |
 
 Compose settings are in `.env`; see the
@@ -159,10 +159,11 @@ flowchart LR
 | 4. Within about 15 minutes, Argo CD Image Updater sees that `testing` points to a new image, and sets that image's digest on the `ads-test` application. Argo CD then rolls the pods onto it. | Built | The Image Updater log shows `images_updated`; the test application shows **Synced** and **Healthy** in Argo CD |
 | 5. [Check the deploy](#check-a-deploy). | Built | See below |
 
-Production (planned) will come from `main` into the `ads-prod` namespace, but
-each release is pinned to its commit SHA by a reviewed pull request in the
-deploy repository, not picked up automatically
-([ADR-0021](adr/0021-how-we-deploy.md)).
+Production comes from `main` into the `ads-prod` namespace. For now it runs
+the `prod` tag and pulls it again only when its pods restart; there is no Image
+Updater for prod. The plan ([ADR-0021](adr/0021-how-we-deploy.md)) is to pin
+each release, starting with `0.1.0`, by a reviewed pull request in the deploy
+repository, so nothing reaches production automatically (planned).
 
 | Branch | Image tag | Namespace |
 |---|---|---|
