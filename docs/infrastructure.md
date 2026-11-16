@@ -68,10 +68,9 @@ The addresses are in `ansible/inventory/hosts.yml`.
 ### The LAN VMs
 
 The six cluster VMs are virtual machines managed in Xen Orchestra (XOA). Each
-runs Ubuntu 26.04 and is reached by SSH as `administrator`, which can use sudo
-without a password (Ansible needs that: Ubuntu 26.04's sudo-rs prompts in a way
-Ansible doesn't recognise). They need outgoing internet access, to download K3s
-and pull images, but no incoming access from it.
+runs Ubuntu 26.04. They need outgoing internet access, to download K3s and pull
+images, but no incoming access from it. What Ansible needs on them to log in is
+in the deploy repository's `ansible/README.md`.
 
 Each VM's LAN address must be the one on its default route: K3s uses it as the
 node's address, and the other nodes use it to reach the cluster.
@@ -79,7 +78,7 @@ node's address, and the other nodes use it to reach the cluster.
 ### The Hetzner relay
 
 An Ubuntu VM at Hetzner, with a public IPv4 address, added to Tailscale.
-Ansible logs in as `root` over Tailscale. It runs three things, all set up by
+Ansible reaches it over Tailscale. It runs three things, all set up by
 `ansible/relay.yml`:
 
 | Service | What it does |
