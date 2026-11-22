@@ -7,13 +7,22 @@ export type RateLimiter = {
   allow(key: string): Promise<boolean>;
 };
 
-export function createRateLimiter(redis: Pick<Redis, "incr" | "expire">, opts: { prefix: string; limit: number; windowSec: number }): RateLimiter {
+// One Lua step, so the counter and its expiry can't be split by a crash: a key
+// without an expiry (TTL -1) gets one on the next hit, too.
+const INCR_WITH_EXPIRY = `
+local count = redis.call("INCR", KEYS[1])
+if count == 1 or redis.call("TTL", KEYS[1]) == -1 then
+  redis.call("EXPIRE", KEYS[1], ARGV[1])
+end
+return count
+`;
+
+export function createRateLimiter(redis: Pick<Redis, "eval">, opts: { prefix: string; limit: number; windowSec: number }): RateLimiter {
   return {
     async allow(key) {
       const k = `${opts.prefix}:${key}`;
-      const count = await redis.incr(k);
       // The first hit starts the window.
-      if (count === 1) await redis.expire(k, opts.windowSec);
+      const count = Number(await redis.eval(INCR_WITH_EXPIRY, 1, k, opts.windowSec));
       return count <= opts.limit;
     },
   };

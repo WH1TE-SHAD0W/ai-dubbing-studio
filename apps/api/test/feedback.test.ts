@@ -14,8 +14,7 @@ import { feedbackRoutes } from "../src/routes/feedback.ts";
 
 const counts = new Map<string, number>();
 const fakeRedis = {
-  incr: async (k: string) => counts.set(k, (counts.get(k) ?? 0) + 1).get(k)!,
-  expire: async () => 1,
+  eval: async (_script: string, _keys: number, k: string) => counts.set(k, (counts.get(k) ?? 0) + 1).get(k)!,
 };
 const limiter = createRateLimiter(fakeRedis, { prefix: "t", limit: 3, windowSec: 60 });
 
