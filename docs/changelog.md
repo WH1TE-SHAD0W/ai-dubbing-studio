@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Listener feedback: `POST /api/feedback` validates a message (with optional
+  rating, reply email and session id) and emails it to the team inbox with
+  Nodemailer over SMTP (Gmail by default). Rate limited to 5 an hour per client
+  IP, counted in Redis. New settings `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_TO`
+  (all or none), `MAIL_FROM`, `MAIL_HOST`, `MAIL_PORT` (YGP-119).
 - Production runs: the `ads-prod` namespace is deployed by Argo CD at
   <https://glossia.ie>, and the Deployment page and Home page say so. The relay
   carries prod's LiveKit too (deploy #24). The changelog now has a
