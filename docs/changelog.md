@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Listener feedback form: after a session ends, the listener page shows a form
+  (message, optional rating and email) that posts to `/api/feedback`. It sits
+  behind the new `listenerFeedback` flag, off by default (YGP-120).
 - Listener feedback: `POST /api/feedback` validates a message (with optional
   rating, reply email and session id) and emails it to the team inbox with
   Nodemailer over SMTP (Gmail by default). Rate limited to 5 an hour per client
