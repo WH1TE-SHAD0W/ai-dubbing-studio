@@ -3,6 +3,7 @@ export * from "./languages.ts";
 export * from "./auth.ts";
 export * from "./sessions.ts";
 export * from "./join.ts";
+export * from "./feedback.ts";
 export * from "./dubbing.ts";
 export * from "./errors.ts";
 export * from "./translator.ts";

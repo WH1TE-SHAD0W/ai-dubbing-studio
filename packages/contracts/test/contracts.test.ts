@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createSessionRequestSchema,
+  feedbackRequestSchema,
   joinCodeSchema,
   passwordSchema,
   registerRequestSchema,
@@ -79,5 +80,20 @@ describe("dubbing container contract", () => {
       provider: "gemini",
     });
     expect(r.success).toBe(true);
+  });
+});
+
+describe("feedbackRequestSchema", () => {
+  it("trims the message and keeps the optional fields optional", () => {
+    expect(feedbackRequestSchema.parse({ message: "  Great  " })).toEqual({ message: "Great" });
+    expect(feedbackRequestSchema.safeParse({ message: "Great", rating: 5, email: "a@b.example", sessionId: "s1" }).success).toBe(true);
+  });
+
+  it("rejects an empty or long message, a bad rating and a bad email", () => {
+    expect(feedbackRequestSchema.safeParse({ message: "   " }).success).toBe(false);
+    expect(feedbackRequestSchema.safeParse({ message: "x".repeat(2001) }).success).toBe(false);
+    expect(feedbackRequestSchema.safeParse({ message: "ok", rating: 6 }).success).toBe(false);
+    expect(feedbackRequestSchema.safeParse({ message: "ok", rating: 2.5 }).success).toBe(false);
+    expect(feedbackRequestSchema.safeParse({ message: "ok", email: "nope" }).success).toBe(false);
   });
 });
