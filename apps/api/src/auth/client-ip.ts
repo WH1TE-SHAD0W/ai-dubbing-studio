@@ -1,3 +1,4 @@
+import { BlockList, isIP } from "node:net";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import type { Context } from "hono";
 
@@ -23,4 +24,23 @@ export function withClientIp(c: Context, trustForwarded: boolean): Request {
   const forwarded = trustForwarded ? headers.get("x-forwarded-for") : null;
   headers.set("x-forwarded-for", forwarded ? `${forwarded}, ${peer}` : peer);
   return new Request(c.req.raw, { headers });
+}
+
+// The client's IP for our own rate limits, found the way Better Auth finds it:
+// the right-most address in X-Forwarded-For (as written by withClientIp) that is
+// not one of our trusted proxies. A client can only add entries on the left.
+export function clientIp(c: Context, trustedProxies: string[] = []): string {
+  const trusted = new BlockList();
+  for (const entry of trustedProxies) {
+    const [address, prefix] = entry.split("/");
+    const family = address!.includes(":") ? "ipv6" : "ipv4";
+    if (prefix === undefined) trusted.addAddress(address!, family);
+    else trusted.addSubnet(address!, Number(prefix), family);
+  }
+  const chain = (withClientIp(c, trustedProxies.length > 0).headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const isTrusted = (ip: string) => isIP(ip) !== 0 && trusted.check(ip, isIP(ip) === 6 ? "ipv6" : "ipv4");
+  return [...chain].reverse().find((ip) => !isTrusted(ip)) ?? chain[0] ?? "unknown";
 }
