@@ -63,6 +63,18 @@ export const baseEnvSchema = z.object({
   // server it's the public wss:// address. Defaults to LIVEKIT_URL.
   LIVEKIT_PUBLIC_URL: optional(z.url({ protocol: /^wss?$/, error: "Set LIVEKIT_PUBLIC_URL to a ws:// or wss:// URL." })),
 
+  // Listener feedback is sent by email (YGP-119), over SMTP (Gmail needs an app
+  // password, not the account password). Optional; set MAIL_USER, MAIL_PASSWORD
+  // and MAIL_TO together or none. Without them, POST /api/feedback answers 501.
+  MAIL_HOST: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).default("smtp.gmail.com")),
+  MAIL_PORT: z.preprocess((v) => (v === "" ? undefined : v), z.coerce.number().int().min(1).max(65535).default(465)),
+  MAIL_USER: optional(z.string().min(1)),
+  MAIL_PASSWORD: optional(z.string().min(1)),
+  // The inbox that receives the feedback.
+  MAIL_TO: optional(z.email()),
+  // The From address; defaults to MAIL_USER.
+  MAIL_FROM: optional(z.email()),
+
   // Translation jobs go to the workers through a Redis Stream (ADR-0018).
   // Inside Docker Compose the host is `redis`.
   REDIS_URL: z.url({ protocol: /^rediss?$/, error: "Set REDIS_URL to a redis:// URL." }),
@@ -83,6 +95,13 @@ export const envSchema = baseEnvSchema
     (env) => [env.LIVEKIT_URL, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET].every((v) => v === undefined) ||
       [env.LIVEKIT_URL, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET].every((v) => v !== undefined),
     { error: "Set all three of LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET, or none of them." },
+  )
+  .refine(
+    (env) => {
+      const set = [env.MAIL_USER, env.MAIL_PASSWORD, env.MAIL_TO].filter((v) => v !== undefined).length;
+      return set === 0 || set === 3;
+    },
+    { error: "Set all three of MAIL_USER, MAIL_PASSWORD and MAIL_TO, or none of them." },
   )
   .refine((env) => env.HEARTBEAT_SEC * 3 <= env.LEASE_TTL_SEC, {
     error: "HEARTBEAT_SEC must be at most a third of LEASE_TTL_SEC, so a worker can miss a heartbeat and keep its track.",
