@@ -1,5 +1,3 @@
-import type { Redis } from "ioredis";
-
 // A fixed-window counter per key, kept in Redis so every API copy shares it
 // (an in-memory map would give each pod its own allowance).
 export type RateLimiter = {
@@ -17,7 +15,10 @@ end
 return count
 `;
 
-export function createRateLimiter(redis: Pick<Redis, "eval">, opts: { prefix: string; limit: number; windowSec: number }): RateLimiter {
+// The one Redis call the limiter needs (ioredis fits it; a test can fake it).
+export type Evaluator = { eval(script: string, numkeys: number, ...args: (string | number)[]): Promise<unknown> };
+
+export function createRateLimiter(redis: Evaluator, opts: { prefix: string; limit: number; windowSec: number }): RateLimiter {
   return {
     async allow(key) {
       const k = `${opts.prefix}:${key}`;
