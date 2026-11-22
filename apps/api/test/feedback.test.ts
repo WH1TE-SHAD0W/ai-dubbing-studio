@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { RATE_LIMITED_MESSAGE, apiErrorSchema, feedbackResponseSchema } from "@ads/contracts";
+import { FEEDBACK_RATE_LIMITED_MESSAGE, apiErrorSchema, feedbackResponseSchema } from "@ads/contracts";
 import { Hono } from "hono";
 import { Redis } from "ioredis";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -69,7 +69,7 @@ describe("POST /api/feedback", () => {
     for (let i = 0; i < 3; i++) expect((await post({ message: "hi" }, "10.0.0.5")).status).toBe(200);
     const res = await post({ message: "hi" }, "10.0.0.5");
     expect(res.status).toBe(429);
-    expect(apiErrorSchema.parse(await res.json()).message).toBe(RATE_LIMITED_MESSAGE);
+    expect(apiErrorSchema.parse(await res.json()).message).toBe(FEEDBACK_RATE_LIMITED_MESSAGE);
     expect(sent).toHaveLength(3);
     expect((await post({ message: "hi" }, "10.0.0.6")).status).toBe(200);
   });

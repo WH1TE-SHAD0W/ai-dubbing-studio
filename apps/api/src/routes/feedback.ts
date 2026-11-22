@@ -1,4 +1,4 @@
-import { FEEDBACK_MAX_LENGTH, RATE_LIMITED_MESSAGE, feedbackRequestSchema, feedbackResponseSchema } from "@ads/contracts";
+import { FEEDBACK_MAX_LENGTH, FEEDBACK_RATE_LIMITED_MESSAGE, feedbackRequestSchema, feedbackResponseSchema } from "@ads/contracts";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { Mailer } from "../mail/mailer.ts";
@@ -14,7 +14,7 @@ export function feedbackRoutes(feedback: { mailer: Mailer; limiter: RateLimiter 
     if (!feedback) return c.json({ message: "Feedback isn't available yet: email isn't set up." }, 501);
     const { mailer, limiter } = feedback;
     try {
-      if (!(await limiter.allow(ipOf(c)))) return c.json({ message: RATE_LIMITED_MESSAGE }, 429);
+      if (!(await limiter.allow(ipOf(c)))) return c.json({ message: FEEDBACK_RATE_LIMITED_MESSAGE }, 429);
     } catch (err) {
       console.error("feedback: rate limiter failed:", err instanceof Error ? err.message : err);
       return c.json({ message: "Feedback isn't available right now. Try again later." }, 503);
