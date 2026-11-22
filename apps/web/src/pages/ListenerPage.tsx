@@ -2,8 +2,10 @@ import { type JoinSessionResponse, type LanguageCode, type ListenerTokenResponse
 import { Link, getRouteApi } from "@tanstack/react-router";
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { Layout } from "../components/Layout.tsx";
+import { FeedbackForm } from "../features/feedback/FeedbackForm.tsx";
 import { useMediaSession } from "../features/listen/useMediaSession.ts";
 import { ApiError, api } from "../lib/api.ts";
+import { isEnabled } from "../lib/flags.ts";
 import { useAsync } from "../lib/useAsync.ts";
 
 const route = getRouteApi("/listen/$code");
@@ -33,7 +35,7 @@ export function ListenerPage() {
         <Notice title={join.data.title} text="The session hasn't started yet. This page checks again every few seconds." />
       )}
       {join.status === "ready" && join.data.status === "ended" && (
-        <Notice title={join.data.title} text="This session has ended. Thanks for listening." />
+        <Ended title={join.data.title} />
       )}
       {join.status === "ready" && join.data.status === "live" && <LiveListener code={code} session={join.data} />}
     </Layout>
@@ -92,7 +94,7 @@ function LiveListener({ code, session }: { code: string; session: JoinSessionRes
     setConnection(null);
   }, []);
 
-  if (ended) return <Notice title={session.title} text="This session has ended. Thanks for listening." />;
+  if (ended) return <Ended title={session.title} />;
 
   return (
     <div className="stack">
@@ -164,6 +166,16 @@ function LiveListener({ code, session }: { code: string; session: JoinSessionRes
 function MediaSession({ title, lang, onStop }: { title: string; lang: LanguageCode; onStop: () => void }) {
   useMediaSession(title, languageName(lang), onStop);
   return null;
+}
+
+// The session is over and this listener is no longer connected: offer the feedback form.
+function Ended({ title }: { title: string }) {
+  return (
+    <div className="stack">
+      <Notice title={title} text="This session has ended. Thanks for listening." />
+      {isEnabled("listenerFeedback") && <FeedbackForm />}
+    </div>
+  );
 }
 
 function Notice({ title, text }: { title: string; text: string }) {
