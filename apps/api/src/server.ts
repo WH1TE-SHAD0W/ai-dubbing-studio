@@ -1,11 +1,11 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
+import { Redis } from "ioredis";
 import { type AppDeps, createApp } from "./app.ts";
 import { authOptions, createAuth } from "./auth/auth.ts";
 import { createPool } from "./db.ts";
 import { loadEnv } from "./env.ts";
-import { Redis } from "ioredis";
 import { createMailer } from "./mail/mailer.ts";
 import { createRateLimiter } from "./mail/rate-limit.ts";
 import { createRoomService } from "./livekit/rooms.ts";
