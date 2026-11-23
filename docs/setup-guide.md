@@ -81,6 +81,8 @@ explained on the [Translator](translator.md#settings) page.
 | `API_PORT` | Port Docker Compose publishes the API on. Default 3000. |
 | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | LiveKit's address and the key and secret it shares with the API; see [Run LiveKit](#run-livekit). The API needs all three or none; without them, sessions have no rooms and the listener and host tokens answer `501`. |
 | `LIVEKIT_PUBLIC_URL` | Where browsers (listeners and the host) reach LiveKit, if not at `LIVEKIT_URL` (`ws://` or `wss://`). Docker Compose sets `ws://localhost:7880`; for a phone, use this machine's LAN address. |
+| `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_TO` | Send listener feedback by email. `MAIL_TO` is the inbox that receives it. For Gmail, `MAIL_PASSWORD` is an app password (account settings, 2-step verification on), not the account password. The API needs all three or none; without them, `POST /api/feedback` answers `501`. |
+| `MAIL_FROM`, `MAIL_HOST`, `MAIL_PORT` | Optional. The From address (default `MAIL_USER`), and the SMTP server (default `smtp.gmail.com`, port `465`, TLS). |
 | `REDIS_URL` | How the API reaches Redis when it runs outside Docker: `redis://localhost:6379`. Inside Docker Compose it is `redis://redis:6379`. |
 | `INTERNAL_API_TOKEN` | **Required.** Shared by the API and the translator workers for their `/internal` calls: at least 32 random characters, for example from `openssl rand -hex 32`. |
 | `GEMINI_API_KEY` | For the translator workers. Only the workers read it. |

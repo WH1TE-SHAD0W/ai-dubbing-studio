@@ -78,6 +78,13 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
       # Browsers can't use the service name: they reach LiveKit on this machine.
       LIVEKIT_PUBLIC_URL: ${LIVEKIT_PUBLIC_URL:-ws://localhost:7880}
+      # Listener feedback by email (YGP-119); all three or none.
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_TO: ${MAIL_TO:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-}
     ports:
       - "127.0.0.1:${API_PORT:-3000}:3000"
     depends_on:

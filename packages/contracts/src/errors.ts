@@ -11,3 +11,6 @@ export type ApiErrorBody = z.infer<typeof apiErrorSchema>;
 
 // Shown for every rate-limited request (429).
 export const RATE_LIMITED_MESSAGE = "Too many attempts. Wait a minute and try again.";
+
+// Shown when POST /api/feedback is rate limited (5 an hour per IP).
+export const FEEDBACK_RATE_LIMITED_MESSAGE = "You've sent feedback a few times already. Please try again in an hour.";

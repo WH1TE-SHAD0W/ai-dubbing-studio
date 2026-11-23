@@ -1,10 +1,13 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
+import { Redis } from "ioredis";
 import { type AppDeps, createApp } from "./app.ts";
 import { authOptions, createAuth } from "./auth/auth.ts";
 import { createPool } from "./db.ts";
 import { loadEnv } from "./env.ts";
+import { createMailer } from "./mail/mailer.ts";
+import { createRateLimiter } from "./mail/rate-limit.ts";
 import { createRoomService } from "./livekit/rooms.ts";
 import { createTokenService } from "./livekit/tokens.ts";
 import { migrateAuthTables } from "./migrate.ts";
@@ -76,6 +79,26 @@ if (env.LIVEKIT_URL) {
   browser = { publicUrl: env.LIVEKIT_PUBLIC_URL ?? config.url.replace(/^http/, "ws"), tokens };
 }
 
+// Listener feedback by email (YGP-119) is optional: env.ts makes sure the mail
+// settings are all set, or none. Without them, POST /api/feedback answers 501.
+// Its limit (5 an hour per client IP) is counted in Redis, shared by every API copy.
+let feedback: AppDeps["feedback"];
+let feedbackRedis: Redis | undefined;
+if (env.MAIL_USER) {
+  const mailer = createMailer({
+    host: env.MAIL_HOST,
+    port: env.MAIL_PORT,
+    user: env.MAIL_USER,
+    password: env.MAIL_PASSWORD!,
+    to: env.MAIL_TO!,
+    from: env.MAIL_FROM,
+  });
+  // Fail a request quickly when Redis is down, instead of queueing it.
+  feedbackRedis = new Redis(env.REDIS_URL, { maxRetriesPerRequest: 1 });
+  feedbackRedis.on("error", (err) => console.error("feedback: redis:", err.message));
+  feedback = { mailer, limiter: createRateLimiter(feedbackRedis, { prefix: "feedback", limit: 5, windowSec: 3600 }) };
+}
+
 const webDist = resolve(env.WEB_DIST);
 if (!existsSync(join(webDist, "index.html"))) {
   console.warn(`web: no built app in ${webDist}; run \`pnpm --filter @ads/web build\`. Only the API is served.`);
@@ -89,6 +112,8 @@ const app = createApp({
   internal: { token: env.INTERNAL_API_TOKEN, tracks, livekit },
   rooms,
   browser,
+  feedback,
+  trustedProxies: env.TRUSTED_PROXIES,
 });
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   console.log(`api: listening on port ${info.port}, public URL ${env.BETTER_AUTH_URL}`);
@@ -106,6 +131,7 @@ function shutdown(signal: string) {
     server.close(() => {
       void queue
         .close()
+        .then(() => feedbackRedis?.quit())
         .then(() => pool.end())
         .finally(() => process.exit(0));
     }),

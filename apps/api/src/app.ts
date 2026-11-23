@@ -1,12 +1,15 @@
 import { RATE_LIMITED_MESSAGE } from "@ads/contracts";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 import type pg from "pg";
 import type { Auth } from "./auth/auth.ts";
-import { withClientIp } from "./auth/client-ip.ts";
+import { clientIp, withClientIp } from "./auth/client-ip.ts";
 import { isDatabaseUp } from "./db.ts";
 import type { BrowserLiveKit } from "./livekit/tokens.ts";
+import type { Mailer } from "./mail/mailer.ts";
+import type { RateLimiter } from "./mail/rate-limit.ts";
+import { feedbackRoutes } from "./routes/feedback.ts";
 import { type WorkerLiveKit, internalRoutes } from "./routes/internal.ts";
 import { joinRoutes } from "./routes/join.ts";
 import { sessionRoutes } from "./routes/sessions.ts";
@@ -29,13 +32,24 @@ export type AppDeps = {
   // The LiveKit address and tokens for browsers (listeners and the host), when
   // LiveKit is configured.
   browser?: BrowserLiveKit;
+  // Listener feedback by email and its per-IP rate limit (YGP-119), when mail
+  // is configured; without it POST /api/feedback answers 501.
+  feedback?: { mailer: Mailer; limiter: RateLimiter };
+  // The reverse proxies in TRUSTED_PROXIES, to find the client IP for that limit.
+  trustedProxies?: string[];
 };
 
 // The API routes under /api, typed for Hono's RPC client (ADR-0016).
-export function apiRoutes(auth: Auth, sessions: SessionService, browser?: BrowserLiveKit) {
+export function apiRoutes(
+  auth: Auth,
+  sessions: SessionService,
+  browser: BrowserLiveKit | undefined,
+  feedback: Pick<AppDeps, "feedback"> & { ipOf: (c: Context) => string },
+) {
   return new Hono()
     .route("/sessions", sessionRoutes(auth, sessions, browser))
-    .route("/join", joinRoutes(sessions, browser));
+    .route("/join", joinRoutes(sessions, browser))
+    .route("/feedback", feedbackRoutes(feedback.feedback, feedback.ipOf));
 }
 export type ApiRoutes = ReturnType<typeof apiRoutes>;
 
@@ -47,7 +61,7 @@ async function friendlierRateLimit(res: Response): Promise<Response> {
   return new Response(JSON.stringify({ message: RATE_LIMITED_MESSAGE }), { status: 429, headers });
 }
 
-export function createApp({ auth, pool, webDist, trustForwarded, internal, rooms, browser }: AppDeps) {
+export function createApp({ auth, pool, webDist, trustForwarded, internal, rooms, browser, feedback, trustedProxies }: AppDeps) {
   const app = new Hono();
   // Starting and ending a session opens and ends its translation tracks, and
   // its LiveKit rooms when LiveKit is configured.
@@ -66,7 +80,7 @@ export function createApp({ auth, pool, webDist, trustForwarded, internal, rooms
   // Better Auth: sign-up, login, logout, get-session (ADR-0015).
   app.on(["GET", "POST"], "/api/auth/*", async (c) => friendlierRateLimit(await auth.handler(withClientIp(c, trustForwarded))));
 
-  app.route("/api", apiRoutes(auth, sessions, browser));
+  app.route("/api", apiRoutes(auth, sessions, browser, { feedback, ipOf: (c) => clientIp(c, trustedProxies) }));
   app.all("/api/*", (c) => c.json({ message: "Not found." }, 404));
 
   // The translator workers (ADR-0018). Not part of the browser's API, and never

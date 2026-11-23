@@ -30,7 +30,9 @@ there for errors from Better Auth.
 | `409` | The host's mic token for a session that isn't live |
 | `422` | Sign-up with an email that is already registered |
 | `429` | Too many attempts from one IP |
-| `501` | The listener and host tokens, when the API has no LiveKit settings (see below) |
+| `501` | The listener and host tokens, when the API has no LiveKit settings; feedback, when it has no mail settings (see below) |
+| `502` | Feedback that couldn't be emailed |
+| `503` | Feedback, when the rate limiter (Redis) can't be reached |
 
 ## Host logins
 
@@ -86,6 +88,17 @@ answers the session as `sessionSchema` in `packages/contracts` describes it.
 |---|---|---|
 | `GET /api/join/:code` | → `{title, hostName, sourceLang, languages[], status}` | For a session that hasn't ended; `404` "No session uses this code." otherwise. The code is not case-sensitive. |
 | `POST /api/join/:code/token` | `{lang}` → `{serverUrl, token}` | For a live session: a token that can only listen, in that language's output room, valid for 10 minutes to connect. `serverUrl` is `LIVEKIT_PUBLIC_URL` (or `LIVEKIT_URL`). `404` "This session isn't live." for an unknown code or a draft or ended session; `400` for a language the session isn't translated into; `501` without LiveKit. |
+
+## Feedback (public)
+
+| Call | Body → answer | Notes |
+|---|---|---|
+| `POST /api/feedback` | `{message, rating?, email?, sessionId?}` → `{ok: true}` | Emails the feedback to the team inbox as plain text. `message` is trimmed, 1 to 2000 characters; `rating` is a whole number 1 to 5; `email` is a valid address, used as the reply-to; `sessionId` is up to 100 characters. `400` for a body that doesn't match; `429` after 5 requests an hour from one client IP; `502` "We couldn't send your feedback." when the mail server refuses; `501` without the `MAIL_*` settings. |
+
+The limit is counted in Redis, so every API copy shares it. The client IP is the
+socket address, or the right-most address in `X-Forwarded-For` that isn't in
+`TRUSTED_PROXIES`. The message is not logged. Settings: see the
+[setup guide](setup-guide.md).
 
 ## Translator workers (internal)
 
