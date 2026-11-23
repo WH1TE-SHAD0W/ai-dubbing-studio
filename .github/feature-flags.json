@@ -1,3 +1,4 @@
 {
-  "peakListeners": false
+  "peakListeners": false,
+  "listenerFeedback": false
 }

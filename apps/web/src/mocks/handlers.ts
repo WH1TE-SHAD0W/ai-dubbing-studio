@@ -4,6 +4,7 @@ import {
   type ListenerTokenResponse,
   type Session,
   createSessionRequestSchema,
+  feedbackRequestSchema,
   listenerTokenRequestSchema,
   loginRequestSchema,
   registerRequestSchema,
@@ -240,5 +241,12 @@ export const handlers = [
     // and the page shows its connection error.
     const body: ListenerTokenResponse = { serverUrl: "ws://localhost:7880", token: `mock-${parsed.data.lang}` };
     return HttpResponse.json(body);
+  }),
+
+  // Feedback after a session ends (public)
+  http.post("*/api/feedback", async ({ request }) => {
+    const parsed = feedbackRequestSchema.safeParse(await request.json());
+    if (!parsed.success) return error(400, parsed.error.issues[0]?.message ?? "Invalid request.");
+    return HttpResponse.json({ ok: true });
   }),
 ];

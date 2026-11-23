@@ -157,7 +157,8 @@ a {
 }
 
 input:not([type="checkbox"]),
-select {
+select,
+textarea {
   font: inherit;
   width: 100%;
   padding: 0.65rem 0.75rem;
@@ -167,7 +168,8 @@ select {
   color: var(--text);
 }
 
-input[aria-invalid="true"] {
+input[aria-invalid="true"],
+textarea[aria-invalid="true"] {
   border-color: var(--danger);
 }
 
