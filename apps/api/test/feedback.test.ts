@@ -85,6 +85,17 @@ describe("POST /api/feedback", () => {
     vi.restoreAllMocks();
   });
 
+  it("works over a real connection, after the body has been read", async () => {
+    // app.request() has no socket, so the socket path needs one passed in.
+    const res = await app.request(
+      "/api/feedback",
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "hi" }) },
+      { incoming: { socket: { remoteAddress: "203.0.113.7" } } },
+    );
+    expect(res.status).toBe(200);
+    expect(sent).toHaveLength(1);
+  });
+
   it("answers 501 when mail isn't configured", async () => {
     expect((await post({ message: "hi" }, "10.0.0.1", noMail)).status).toBe(501);
   });
