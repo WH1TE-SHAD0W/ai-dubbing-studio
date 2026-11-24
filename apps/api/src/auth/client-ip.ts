@@ -12,18 +12,26 @@ import type { Context } from "hono";
 //   proxy sent, and Better Auth walks it from the right, skipping trusted hops.
 //   A client that connects directly still ends up as the right-most entry.
 export function withClientIp(c: Context, trustForwarded: boolean): Request {
+  const headers = clientIpHeaders(c, trustForwarded);
+  return headers ? new Request(c.req.raw, { headers }) : c.req.raw;
+}
+
+// The headers withClientIp would send, or undefined when there is no socket and
+// they stay as they are. Headers only: copying the request itself fails once a
+// body has been read (the feedback route's validator reads it first).
+function clientIpHeaders(c: Context, trustForwarded: boolean): Headers | undefined {
   let peer: string | undefined;
   try {
     peer = getConnInfo(c).remote.address;
   } catch {
     // No socket (Hono's app.request() in tests): leave the headers as they are.
   }
-  if (!peer) return c.req.raw;
+  if (!peer) return undefined;
 
   const headers = new Headers(c.req.raw.headers);
   const forwarded = trustForwarded ? headers.get("x-forwarded-for") : null;
   headers.set("x-forwarded-for", forwarded ? `${forwarded}, ${peer}` : peer);
-  return new Request(c.req.raw, { headers });
+  return headers;
 }
 
 // The BlockList for a trusted-proxy list, built once per list (the list comes
@@ -50,7 +58,7 @@ function trustedList(trustedProxies: string[]): BlockList {
 // not one of our trusted proxies. A client can only add entries on the left.
 export function clientIp(c: Context, trustedProxies: string[] = []): string {
   const trusted = trustedList(trustedProxies);
-  const chain = (withClientIp(c, trustedProxies.length > 0).headers.get("x-forwarded-for") ?? "")
+  const chain = ((clientIpHeaders(c, trustedProxies.length > 0) ?? c.req.raw.headers).get("x-forwarded-for") ?? "")
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
