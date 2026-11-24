@@ -71,7 +71,11 @@ next one. Its code is free to be reused by a later session.
 4. **Mute** and **Volume** are under the status. They stay as you set them when
    you pick another language, which switches the audio without reloading.
 5. When the host ends the session, the page says "This session has ended.
-   Thanks for listening."
+   Thanks for listening." If the feedback form is switched on (the
+   `listenerFeedback` flag, off by default), a **How was it?** form appears
+   below. Write a message, optionally pick a rating from 1 to 5 and add your
+   email if you want an answer, then select **Send feedback**. You see a thank
+   you, or an error that keeps your text so you can try again.
 
 ## Audio
 

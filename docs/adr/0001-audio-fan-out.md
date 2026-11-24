@@ -80,7 +80,7 @@ Options 1 and 3 are **measured**; options 2, 4 and 6 are assessed **on paper**
 **Setup:** one laptop (Intel i7-1355U, 14 GB RAM), the app running in Docker Compose,
 one live session translating English to Slovak. The host is Chrome with a fake microphone
 that loops a speech WAV. Fake listeners are opened by
-[`backend/scripts/bench-fanout-ws.ts`](https://github.com/WH1TE-SHAD0W/ai-dubbing-studio/blob/main/backend/scripts/bench-fanout-ws.ts)
+[`backend/scripts/bench-fanout-ws.ts`](https://github.com/WH1TE-SHAD0W/ai-dubbing-studio/blob/674ea5a85ac84cf3f556927b7ede78eb8a29db95/backend/scripts/bench-fanout-ws.ts)
 (one per second, measured for 30 s once all have joined), all on the same session.
 
 | Listeners | Bandwidth per listener (kbit/s) | Gap between chunks, median / p99 / max (ms) | Closed |

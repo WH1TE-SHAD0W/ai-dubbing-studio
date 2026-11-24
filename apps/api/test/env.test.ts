@@ -49,6 +49,21 @@ describe("environment", () => {
     expect(() => loadEnv({ ...minimal, TRUSTED_PROXIES: "not-an-ip" })).toThrow(/TRUSTED_PROXIES/);
   });
 
+  describe("mail settings", () => {
+    const mail = { MAIL_USER: "team@gmail.example", MAIL_PASSWORD: "app-password", MAIL_TO: "inbox@example.com" };
+
+    it("are optional, with Gmail's host and port as defaults", () => {
+      const env = loadEnv({ ...minimal, MAIL_USER: "", MAIL_PASSWORD: "", MAIL_TO: "", MAIL_HOST: "", MAIL_PORT: "" });
+      expect([env.MAIL_USER, env.MAIL_TO, env.MAIL_HOST, env.MAIL_PORT]).toEqual([undefined, undefined, "smtp.gmail.com", 465]);
+    });
+
+    it("are read when all three are set, and must be all three or none", () => {
+      expect(loadEnv({ ...minimal, ...mail })).toMatchObject(mail);
+      expect(() => loadEnv({ ...minimal, MAIL_USER: mail.MAIL_USER })).toThrow(/all three of MAIL_USER/);
+      expect(() => loadEnv({ ...minimal, ...mail, MAIL_TO: "not-an-address" })).toThrow(/MAIL_TO/);
+    });
+  });
+
   describe("LiveKit settings", () => {
     const livekit = {
       LIVEKIT_URL: "ws://livekit:7880",

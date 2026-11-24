@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- Listener feedback form: after a session ends, the listener page shows a form
+  (message, optional rating and email) that posts to `/api/feedback`. It sits
+  behind the new `listenerFeedback` flag, off by default (YGP-120).
+- Listener feedback: `POST /api/feedback` validates a message (with optional
+  rating, reply email and session id) and emails it to the team inbox with
+  Nodemailer over SMTP (Gmail by default). Rate limited to 5 an hour per client
+  IP, counted in Redis. New settings `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_TO`
+  (all or none), `MAIL_FROM`, `MAIL_HOST`, `MAIL_PORT` (YGP-119).
+- Production runs: the `ads-prod` namespace is deployed by Argo CD at
+  <https://glossia.ie>, and the Deployment page and Home page say so. The relay
+  carries prod's LiveKit too (deploy #24). The changelog now has a
+  section per release (YGP-50).
+- Deployment page: how to open the Headlamp cluster dashboard through
+  Tailscale, and how to get and revoke its read-only viewer token (YGP-113).
+- ADR-0024 amended: the Headlamp viewer token doesn't expire and is revoked
+  by deleting its Secret (YGP-113).
+
+## v0.1.0 (16 November 2026)
+
+The first release of the prototype to `main`.
+
 - Feature flags: a `.github/feature-flags.json` file the web app reads when it
   is built. The first flag, `peakListeners`, is off, so the Studio no longer
   shows "peak 0 listeners" while nothing records the count (YGP-114).

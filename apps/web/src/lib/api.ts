@@ -1,10 +1,13 @@
 import {
   type CreateSessionRequest,
+  type FeedbackRequest,
+  type FeedbackResponse,
   type HostTokenResponse,
   type JoinSessionResponse,
   type LanguageCode,
   type ListenerTokenResponse,
   type Session,
+  feedbackResponseSchema,
   hostTokenResponseSchema,
   joinSessionResponseSchema,
   listenerTokenResponseSchema,
@@ -74,4 +77,6 @@ export const api = {
     request(joinSessionResponseSchema, `/join/${encodeURIComponent(code)}`),
   getListenerToken: (code: string, lang: LanguageCode): Promise<ListenerTokenResponse> =>
     request(listenerTokenResponseSchema, `/join/${encodeURIComponent(code)}/token`, post({ lang })),
+  // Public, no login. Rate limited by the API (YGP-119).
+  sendFeedback: (body: FeedbackRequest): Promise<FeedbackResponse> => request(feedbackResponseSchema, "/feedback", post(body)),
 };

@@ -58,6 +58,7 @@ Flags live in [`.github/feature-flags.json`](../../.github/feature-flags.json), 
 | Flag | Default | What it shows |
 |---|---|---|
 | `peakListeners` | `false` | The peak listener count per language in the Studio. Off because nothing writes `peak_listeners` yet, so it would always say 0 (YGP-114). |
+| `listenerFeedback` | `false` | The feedback form on the listener page once a session has ended. Off until the feedback endpoint (YGP-119) is on `development` and deployed (YGP-120). |
 
 ## Not decided yet
 
